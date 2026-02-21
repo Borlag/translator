@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.22.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "docxru"
+version = "0.1.0"
+description = "High-precision technical aviation DOCX -> RU translator with formatting preservation and QA."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "docxru contributors"}]
+dependencies = [
+  "python-docx>=1.1.2",
+  "PyYAML>=6.0.1",
+  "rich>=13.7.1",
+  "tqdm>=4.66.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "ruff>=0.6.0",
+  "mypy>=1.10.0",
+  "pre-commit>=3.7.1",
+]
+
+[project.scripts]
+docxru = "docxru.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/docxru"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-select = ["I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true

@@ -1,0 +1,31 @@
+# docxru example configuration
+
+llm:
+  provider: mock          # mock | openai | google | ollama
+  model: gpt-4o-mini      # openai/ollama model; ignored by google
+  source_lang: en         # used by google provider
+  target_lang: ru         # used by google provider
+  base_url: null          # openai: custom API URL; google: endpoint base; ollama: e.g. http://localhost:11434
+  system_prompt_path: null # optional .md/.txt with extra translation instructions
+  glossary_path: null      # optional .md/.txt glossary (EN -> RU pairs "Term — Перевод")
+  temperature: 0.1
+  max_output_tokens: 2000
+  retries: 2
+  timeout_s: 60.0
+
+tm:
+  path: translation_cache.sqlite
+
+include_headers: false
+include_footers: false
+
+concurrency: 4
+mode: reflow              # reflow | com
+
+qa_report_path: qa_report.html
+qa_jsonl_path: qa.jsonl
+log_path: run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

@@ -1,0 +1,83 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+.hypothesis/
+.nox/
+.tox/
+.cache/
+.dmypy.json
+
+# Build and packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg
+*.egg-info/
+MANIFEST
+
+# Virtual environments
+.venv/
+.venv-1/
+venv/
+env/
+ENV/
+
+# Environment and local-only config
+.env
+.env.*
+*.local
+
+# Logs, runtime files, and temp files
+*.log
+logs/
+*.pid
+*.pid.lock
+*.tmp
+*.temp
+*.bak
+*~
+
+# Local databases and caches
+*.sqlite
+*.sqlite3
+
+# Reports and generated outputs
+qa_report.html
+qa.jsonl
+output/
+tmp_out/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.code-workspace
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100/
+.Trashes/

@@ -1,0 +1,38 @@
+# Regex presets for Token Shield.
+# Each rule is applied sequentially to plain-text chunks (outside ⟦...⟧).
+# Keep rules conservative to avoid over-shielding.
+
+presets:
+  default:
+    - name: ATA
+      pattern: "\\b\\d{2}-\\d{2}-\\d{2}\\b"
+      flags: ""
+      description: "ATA chapter reference like 72-00-00"
+    - name: REF
+      pattern: "\\(\\s*\\d+\\s*-\\s*\\d+\\s*\\)"
+      flags: ""
+      description: "Numeric range in parentheses, e.g. (1-40)"
+    - name: REF
+      pattern: "\\bFig\\.?\\s*\\d+[A-Z]?\\b"
+      flags: "I"
+      description: "Figure reference"
+    - name: REF
+      pattern: "\\bTable\\s*\\d+[A-Z]?\\b"
+      flags: "I"
+      description: "Table reference"
+    - name: THR
+      pattern: "\\bM\\d+(?:x\\d+(?:\\.\\d+)?)?\\b"
+      flags: "I"
+      description: "Metric thread like M6 or M6x1"
+    - name: PN
+      pattern: "\\b\\d{6,}\\b"
+      flags: ""
+      description: "Long numeric part numbers"
+    - name: PN
+      pattern: "\\b[A-Z0-9]{3,}[-/][A-Z0-9][A-Z0-9\\-/]{2,}\\b"
+      flags: ""
+      description: "Alnum part numbers with hyphen/slash"
+    - name: DIM
+      pattern: "\\b\\d+(?:[\\.,]\\d+)?(?:\\s*±\\s*\\d+(?:[\\.,]\\d+)?)?\\s*(?:mm|cm|m|in|inch|ft|lbf|lb|N·m|N\\.m|Nm|psi|bar|kPa|MPa|V|A|Ω|Ohm|Hz|kHz|MHz|GHz|°C|°F|degC|degF)\\b"
+      flags: "I"
+      description: "Dimensions with units"

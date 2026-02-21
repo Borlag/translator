@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -66,14 +66,14 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^\s*Права на интеллектуальную собственность\b.*", flags=re.IGNORECASE), "Права ИС не предоставляются. Воспроизведение третьим лицам - только с письменного согласия Safran Landing Systems."),
     # Cover title phrasing cleanup.
     (
-        re.compile(r"\bС\s+ИЛЛЮСТРИРОВАННЫЙ\s+ПЕРЕЧЕНЬ\s+ДЕТАЛЕЙ\b", flags=re.IGNORECASE),
-        "С ИЛЛЮСТРИРОВАННЫМ ПЕРЕЧНЕМ ДЕТАЛЕЙ",
+        re.compile(r"\bС\s+ИЛЛЮСТРИРОВАННЫЙ\s+(?:ПЕРЕЧЕНЬ|СПИСОК)\s+ДЕТАЛЕЙ\b", flags=re.IGNORECASE),
+        "С ИЛЛЮСТРИРОВАННЫМ СПИСКОМ ДЕТАЛЕЙ",
     ),
 )
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
-_TM_RULESET_VERSION = "2026-02-21-consistency-v1"
+_TM_RULESET_VERSION = "2026-02-21-consistency-v2-soft-glossary"
 _BATCH_PROVIDER_ALLOWLIST = {"openai", "ollama"}
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 
@@ -266,6 +266,15 @@ def _should_translate_segment_text(text: str) -> bool:
     return not (cyr >= latin * 3 and latin <= 12)
 
 
+def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
+    flat = re.sub(r"\s+", " ", text or "").strip()
+    if not flat:
+        return ""
+    if len(flat) <= max_chars:
+        return flat
+    return flat[: max_chars - 3].rstrip() + "..."
+
+
 def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
     changed_runs = 0
     seen_paragraphs: set[int] = set()
@@ -401,7 +410,8 @@ def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    utc = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
+    return datetime.now(utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _build_tm_meta(seg: Segment, cfg: PipelineConfig, source_hash: str, *, origin: str) -> dict[str, Any]:
@@ -710,14 +720,22 @@ def _translate_one(
         if not hard_errors:
             return out, issues
 
-        if not can_repair:
-            fallback_out, fallback_issues = _fallback_translate_by_spans(seg, cfg, llm_client)
-            if fallback_out is not None:
-                return fallback_out, fallback_issues
-
         # If we still have marker errors and there is room to retry, go to repair attempt.
         if attempt < max_attempts:
             continue
+
+        # Last-resort recovery: translate span-by-span to salvage marker fidelity.
+        fallback_out, fallback_issues = _fallback_translate_by_spans(seg, cfg, llm_client)
+        if fallback_out is not None:
+            return fallback_out, [
+                Issue(
+                    code="span_fallback_after_hard_errors",
+                    severity=Severity.WARN,
+                    message="Segment recovered via span-level fallback after marker validation errors.",
+                    details={"attempts": attempt, "supports_repair": can_repair},
+                ),
+                *fallback_issues,
+            ]
         return out, issues
 
     return last_output or (seg.shielded_tagged or ""), issues
@@ -741,6 +759,7 @@ def translate_docx(
         f"headers={cfg.include_headers}; "
         f"footers={cfg.include_footers}; "
         f"glossary_in_prompt={cfg.llm.glossary_in_prompt}; "
+        f"hard_glossary={cfg.llm.hard_glossary}; "
         f"reasoning_effort={cfg.llm.reasoning_effort or '(default)'}; "
         f"batch_segments={cfg.llm.batch_segments}; "
         f"batch_max_chars={cfg.llm.batch_max_chars}; "
@@ -757,6 +776,15 @@ def translate_docx(
         logger.info(f"Segment limit enabled: {len(segments)} segments")
     logger.info(f"Segments найдено: {len(segments)}")
 
+    # Attach small neighbor snippets to improve local consistency in tables/lists.
+    for idx, seg in enumerate(segments):
+        prev_text = _compact_context_text(segments[idx - 1].source_plain) if idx > 0 else ""
+        next_text = _compact_context_text(segments[idx + 1].source_plain) if idx + 1 < len(segments) else ""
+        if prev_text:
+            seg.context["prev_text"] = prev_text
+        if next_text:
+            seg.context["next_text"] = next_text
+
     tm = TMStore(cfg.tm.path)
     custom_system_prompt = _read_optional_text(cfg.llm.system_prompt_path, logger, "custom system prompt")
     glossary_text = _read_optional_text(cfg.llm.glossary_path, logger, "glossary")
@@ -765,15 +793,24 @@ def translate_docx(
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = ()
     provider_norm = cfg.llm.provider.strip().lower()
     glossary_in_prompt = bool(cfg.llm.glossary_in_prompt)
-    if glossary_text and (provider_norm == "google" or not glossary_in_prompt):
+    hard_glossary = bool(cfg.llm.hard_glossary)
+    if glossary_text and hard_glossary:
         glossary_terms = build_hard_glossary_replacements(glossary_text)
         logger.info(
             f"Hard glossary enforcement enabled ({len(glossary_terms)} terms); provider={cfg.llm.provider}; "
-            f"glossary_in_prompt={glossary_in_prompt}"
+            f"glossary_in_prompt={glossary_in_prompt}; hard_glossary={hard_glossary}"
         )
     effective_glossary_text = glossary_text if glossary_in_prompt else None
     if glossary_text and not glossary_in_prompt:
-        logger.info("Glossary prompt injection is disabled; using hard glossary shielding to save tokens.")
+        logger.info(
+            "Glossary prompt injection is disabled; only post-translation glossary replacements are active "
+            "(unless hard_glossary=true)."
+        )
+    if glossary_text and provider_norm == "google" and not hard_glossary:
+        logger.info(
+            "Provider 'google' is running without hard glossary locking; terminology can be less stable "
+            "but wording is usually more natural."
+        )
     llm_client = build_llm_client(
         provider=cfg.llm.provider,
         model=cfg.llm.model,

@@ -31,6 +31,8 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — профессиональный перев
    - процедуры: повелительное наклонение (“Снимите”, “Установите”, “Проверьте”)
    - без художественности, без добавления объяснений от себя
    - термины по авиационному контексту (bolt = болт/винт по смыслу, torque = момент затяжки, washer = шайба, etc.)
+   - термины из глоссария можно склонять и согласовывать по правилам русского языка
+     (сохраняй значение и терминологическую основу, не «замораживай» форму)
 
 4) Не добавляй предупреждений/допущений. Перевод должен быть максимально буквальным и корректным.
 
@@ -70,6 +72,15 @@ Preserve numbers, units, and punctuation.
 GlossaryReplacement = tuple[re.Pattern[str], str]
 
 
+def _compact_prompt_snippet(value: Any, *, max_chars: int = 180) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
 def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     task = str(context.get("task", "translate")).lower()
     if task in {"repair", "batch_translate"}:
@@ -83,6 +94,12 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         ctx_parts.append(f"TABLE: r{context.get('row_index')} c{context.get('col_index')}")
     if context.get("part"):
         ctx_parts.append(f"PART: {context.get('part')}")
+    prev_text = _compact_prompt_snippet(context.get("prev_text"))
+    next_text = _compact_prompt_snippet(context.get("next_text"))
+    if prev_text:
+        ctx_parts.append(f"PREV: {prev_text}")
+    if next_text:
+        ctx_parts.append(f"NEXT: {next_text}")
     ctx = " | ".join(ctx_parts) if ctx_parts else "(no context)"
     return f"Context: {ctx}\n\nText:\n{text}"
 
@@ -129,19 +146,44 @@ def parse_glossary_pairs(glossary_text: str | None) -> list[tuple[str, str]]:
     if not glossary_text:
         return []
 
+    def _strip_source_prefix(term: str) -> str:
+        cleaned = term
+        cleaned = re.sub(r"^\d+[.)]?\s*", "", cleaned)
+        cleaned = cleaned.lstrip("•*- ").strip()
+        return cleaned
+
+    def _is_md_separator(cell: str) -> bool:
+        return bool(re.fullmatch(r":?-{3,}:?", cell.strip()))
+
     pairs: list[tuple[str, str]] = []
     for raw_line in glossary_text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
+
+        # Accept markdown table rows: | English | Русский термин |
+        if line.startswith("|") and line.endswith("|"):
+            cols = [c.strip() for c in line.strip("|").split("|")]
+            if len(cols) >= 2:
+                source_term = cols[0]
+                target_term = cols[1]
+                if (
+                    source_term
+                    and target_term
+                    and not (source_term.lower() == "english" and target_term.lower().startswith("рус"))
+                    and not (_is_md_separator(source_term) and _is_md_separator(target_term))
+                ):
+                    source_term = _strip_source_prefix(source_term)
+                    if source_term and target_term:
+                        pairs.append((source_term, target_term))
+            continue
+
         # Accept lines like: "Downlocking Spring — Пружина фиксации"
         m = re.match(r"^(.+?)\s+[—–-]\s+(.+)$", line)
         if not m:
             continue
-        source_term = m.group(1).strip()
+        source_term = _strip_source_prefix(m.group(1).strip())
         target_term = m.group(2).strip()
-        source_term = re.sub(r"^\d+[.)]?\s*", "", source_term)
-        source_term = source_term.lstrip("•*- ").strip()
         if not source_term or not target_term:
             continue
         pairs.append((source_term, target_term))
@@ -315,8 +357,8 @@ DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
 )
 
 
-def build_domain_replacements(*, include_single_words: bool = True) -> tuple[GlossaryReplacement, ...]:
-    """Static aviation-doc replacements to reduce EN leftovers in free-provider output."""
+def build_domain_replacements(*, include_single_words: bool = False) -> tuple[GlossaryReplacement, ...]:
+    """Static aviation-doc replacements to reduce EN leftovers in translated output."""
     term_pairs = list(DOMAIN_TERM_PAIRS)
     if not include_single_words:
         term_pairs = [item for item in term_pairs if re.search(r"\s", item[0])]
@@ -363,6 +405,20 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = text
     for pattern, replacement in replacements:
         out = pattern.sub(replacement, out)
+
+    # Canonical EN heading fallback (for partially untranslated outputs).
+    out = re.sub(r"\bMain Landing Gear Leg\b", "Стойка основного шасси", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bMLG\s+Leg\b", "Стойка MLG", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bList of Effective Pages\b", "Перечень действующих страниц", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bRevision Record\b", "Запись изменений", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bDate Incorporated Into Manual\b", "Дата включения в руководство", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bInsert New/Revised Pages\b", "Вставить новые/пересмотренные страницы", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bRemove and Destroy Pages\b", "Удалить и уничтожить страницы", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bReason for Change\b", "Причина изменения", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bSubject/?Reference\b", "Тема/ссылка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bService Bulletin List\b", "Список сервисных бюллетеней", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b(?:fig\.?|figure)\b", "рис.", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bfig\s*\(", "рис. (", out, flags=re.IGNORECASE)
 
     # Mixed heading cleanup for partial machine translations.
     out = re.sub(r"\bSubject\s+Ссылка\b", "Тема/ссылка", out, flags=re.IGNORECASE)

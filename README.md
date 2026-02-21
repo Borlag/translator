@@ -97,9 +97,43 @@ llm:
 Notes:
 
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
-- `llm.glossary_path` is applied for all providers; for `google` it is enforced as post-processing replacements for English glossary terms.
+- `llm.glossary_path` is applied for all providers; for `google` it is hard-enforced via placeholder shielding (so glossary terms cannot drift).
 
 Safety behavior:
 
 - If translation/marker validation has hard errors, write-back for that segment is skipped and source text is preserved.
 - `--resume` now reuses recorded progress + TM entries when source hash matches.
+
+---
+
+## Быстрый прогон на первых страницах
+
+Для отладки качества и верстки удобно переводить только первые сегменты (примерно первые страницы):
+
+```bash
+docxru translate --input source.docx --output target_ru.docx --config config/config.example.yaml --max-segments 120
+```
+
+---
+
+## Визуальная проверка страниц (опционально)
+
+Рендер: DOCX -> PDF -> PNG, чтобы глазами сравнить оригинал и перевод.
+
+Установка зависимостей:
+
+```bash
+pip install -e ".[render]"
+```
+
+Рендер одного файла:
+
+```bash
+python scripts/render_docx_pages.py path/to/file.docx --output-dir tmp/docs/pages --backend word
+```
+
+Сравнение двух файлов (HTML index):
+
+```bash
+python scripts/compare_docx_pages.py --left path/to/original.docx --right path/to/translated.docx --output-dir tmp/docs/compare --backend word
+```

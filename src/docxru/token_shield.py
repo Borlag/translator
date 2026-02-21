@@ -108,6 +108,56 @@ def unshield(text: str, token_map: dict[str, str]) -> str:
     return text
 
 
+_TOKEN_PREFIX_RE = re.compile(r"^[A-Z][A-Z0-9]*\Z")
+
+
+def shield_terms(
+    text: str,
+    replacements: Iterable[tuple[Pattern[str], str]],
+    *,
+    token_prefix: str = "GLS",
+) -> tuple[str, dict[str, str]]:
+    """Replace matched terms with deterministic placeholders ⟦PREFIX_n⟧.
+
+    This is useful for "hard glossary" behavior: replace EN terms with placeholders before translation,
+    then unshield them to the desired RU equivalents after translation.
+
+    Notes:
+    - Does NOT touch any existing ⟦...⟧ blocks (style tags or already-shielded placeholders).
+    - Placeholder numbering is based on replacement-rule order (1-based), not match order.
+    - The returned token_map maps placeholder -> replacement text, and is suitable for `unshield()`.
+    """
+    if not text:
+        return text, {}
+
+    rules = tuple(replacements)
+    if not rules:
+        return text, {}
+
+    prefix = token_prefix.strip().upper()
+    if not _TOKEN_PREFIX_RE.fullmatch(prefix):
+        raise ValueError(f"Invalid token_prefix '{token_prefix}'. Expected [A-Z][A-Z0-9]*.")
+
+    token_map: dict[str, str] = {}
+    chunks = _split_preserving_brackets(text)
+    out_chunks: list[str] = []
+
+    for chunk, is_tok in chunks:
+        if is_tok or not chunk:
+            out_chunks.append(chunk)
+            continue
+
+        updated = chunk
+        for i, (pattern, replacement) in enumerate(rules, start=1):
+            placeholder = f"⟦{prefix}_{i}⟧"
+            updated, n = pattern.subn(placeholder, updated)
+            if n:
+                token_map[placeholder] = replacement
+        out_chunks.append(updated)
+
+    return ("".join(out_chunks), token_map)
+
+
 _NUMBER_RE = re.compile(
     r"""(?x)
     (?:

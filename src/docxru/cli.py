@@ -10,7 +10,7 @@ from .structure_check import compare_docx_structure, write_structure_report
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="docxru", description="DOCX technical aviation EN→RU translator.")
+    p = argparse.ArgumentParser(prog="docxru", description="DOCX technical aviation EN->RU translator.")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     t = sub.add_parser("translate", help="Translate DOCX to Russian preserving formatting.")
@@ -26,6 +26,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     t.add_argument("--no-headers", action="store_true", help="Do not translate headers even if enabled.")
     t.add_argument("--no-footers", action="store_true", help="Do not translate footers even if enabled.")
+    t.add_argument(
+        "--max-segments",
+        type=int,
+        default=None,
+        help="Translate only first N segments (quick iteration; approximates first pages).",
+    )
     t.add_argument("--concurrency", type=int, default=None, help="Override concurrency from config.")
     t.add_argument("--qa", default=None, help="Override QA report HTML path.")
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
@@ -71,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
             output_path=Path(args.output),
             cfg=cfg,
             resume=bool(args.resume),
+            max_segments=(int(args.max_segments) if args.max_segments is not None else None),
         )
         return 0
 

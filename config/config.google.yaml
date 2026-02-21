@@ -1,0 +1,33 @@
+# Google provider config for quick, no-key runs.
+#
+# Note: paths are resolved relative to this file's directory.
+
+llm:
+  provider: google
+  source_lang: en
+  target_lang: ru
+  base_url: null
+  system_prompt_path: null   # google ignores prompts
+  glossary_path: ../glossary.md
+  temperature: 0.1
+  max_output_tokens: 2000
+  retries: 1
+  timeout_s: 60.0
+
+tm:
+  path: translation_cache.sqlite
+
+include_headers: false
+include_footers: false
+
+concurrency: 4
+mode: reflow
+
+qa_report_path: qa_report.html
+qa_jsonl_path: qa.jsonl
+log_path: run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default
+

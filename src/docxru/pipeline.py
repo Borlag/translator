@@ -12,13 +12,13 @@ from tqdm import tqdm
 
 from .config import PipelineConfig
 from .docx_reader import collect_segments
-from .llm import build_llm_client, supports_repair
+from .llm import build_hard_glossary_replacements, build_llm_client, supports_repair
 from .logging_utils import setup_logging
 from .models import Issue, Segment, Severity
 from .qa_report import write_qa_jsonl, write_qa_report
 from .tagging import is_supported_paragraph, paragraph_to_tagged, tagged_to_runs
 from .tm import TMStore, normalize_text, sha256_hex
-from .token_shield import BRACKET_TOKEN_RE, shield, strip_bracket_tokens, unshield
+from .token_shield import BRACKET_TOKEN_RE, shield, shield_terms, strip_bracket_tokens, unshield
 from .validator import validate_all, validate_numbers, validate_placeholders
 
 
@@ -47,11 +47,26 @@ def _read_optional_text(path_value: str | None, logger: logging.Logger, label: s
 
 _STYLE_START_RE = re.compile(r"⟦S_(\d+)(?:\|[^⟧]*)?⟧")
 _LATIN_RE = re.compile(r"[A-Za-z]")
+_CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 _LAYOUT_SPLIT_RE = re.compile(r"((?:\.\s*){3,}|\t+)")
 _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    # Remove zero-width spaces sometimes produced by machine translation (Google).
+    (re.compile("\u200b"), ""),
     (re.compile(r"\bNEW/REVISED\b"), "НОВЫЕ/ПЕРЕСМОТРЕННЫЕ"),
     (re.compile(r"\bTable\b"), "Таблица"),
     (re.compile(r"\btable\b"), "таблица"),
+    # Legal small-print: tighten wording to avoid cover-page overflow in converted OEM manuals.
+    (re.compile(r"\bНастоящий документ\b", flags=re.IGNORECASE), "Документ"),
+    (re.compile(r"\bЭтот документ и вся информация\b", flags=re.IGNORECASE), "Документ и информация"),
+    (re.compile(r"\bЭтот документ и информация, содержащаяся в нем,\b", flags=re.IGNORECASE), "Документ и его содержание"),
+    (re.compile(r"\bявляются\s+исключительной\s+собственностью\b", flags=re.IGNORECASE), "являются собственностью"),
+    (re.compile(r"\bсоответствующей\s+дочерней\s+компании\b", flags=re.IGNORECASE), "соответствующей компании"),
+    (re.compile(r"^\s*Права на интеллектуальную собственность\b.*", flags=re.IGNORECASE), "Права ИС не предоставляются. Воспроизведение третьим лицам - только с письменного согласия Safran Landing Systems."),
+    # Cover title phrasing cleanup.
+    (
+        re.compile(r"\bС\s+ИЛЛЮСТРИРОВАННЫЙ\s+ПЕРЕЧЕНЬ\s+ДЕТАЛЕЙ\b", flags=re.IGNORECASE),
+        "С ИЛЛЮСТРИРОВАННЫМ ПЕРЕЧНЕМ ДЕТАЛЕЙ",
+    ),
 )
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
@@ -136,6 +151,7 @@ def _translate_plain_chunk(
     llm_client,
     context: dict[str, Any],
     cache: dict[str, str],
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
 ) -> tuple[str, list[Issue]]:
     if not chunk:
         return chunk, []
@@ -144,6 +160,10 @@ def _translate_plain_chunk(
         return cache[chunk], []
 
     shielded, token_map = shield(chunk, cfg.pattern_set)
+    if glossary_terms and _LATIN_RE.search(shielded):
+        shielded, glossary_map = shield_terms(shielded, glossary_terms, token_prefix="GLS")
+        if glossary_map:
+            token_map = {**token_map, **glossary_map}
     translated_shielded, issues = _translate_shielded_fragment(shielded, llm_client, context)
     translated = unshield(translated_shielded, token_map)
 
@@ -159,6 +179,7 @@ def _translate_toc_like_text(
     llm_client,
     context: dict[str, Any],
     cache: dict[str, str],
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
 ) -> tuple[str, list[Issue]]:
     parts = _LAYOUT_SPLIT_RE.split(text)
     out_parts: list[str] = []
@@ -184,7 +205,7 @@ def _translate_toc_like_text(
             out_parts.append(part)
             continue
 
-        translated_core, tr_issues = _translate_plain_chunk(core, cfg, llm_client, context, cache)
+        translated_core, tr_issues = _translate_plain_chunk(core, cfg, llm_client, context, cache, glossary_terms)
         issues.extend(tr_issues)
         out_parts.append(prefix + translated_core + suffix)
 
@@ -213,6 +234,25 @@ def _run_is_safe_for_text_replace(run) -> bool:
         local = child.tag.split("}")[-1]
         if local in {"rPr", "t", "tab", "br", "cr", "noBreakHyphen", "softHyphen", "lastRenderedPageBreak"}:
             continue
+        return False
+    return True
+
+
+def _should_translate_segment_text(text: str) -> bool:
+    """Heuristic: skip segments that are already in RU or contain no Latin text.
+
+    This avoids:
+    - retranslating already-Russian headings (often present in partially translated manuals)
+    - rewriting purely numeric / symbol-only paragraphs (page labels, etc.)
+    """
+    if not text or not text.strip():
+        return False
+    latin = len(_LATIN_RE.findall(text))
+    if latin == 0:
+        return False
+    cyr = len(_CYRILLIC_RE.findall(text))
+    # Mostly Cyrillic with only a few Latin letters (abbreviations, brand names) -> keep as-is.
+    if cyr >= latin * 3 and latin <= 12:
         return False
     return True
 
@@ -259,6 +299,7 @@ def _translate_complex_paragraph_in_place(
     cfg: PipelineConfig,
     llm_client,
     cache: dict[str, str],
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
 ) -> tuple[bool, list[Issue]]:
     groups = _collect_complex_text_groups(seg.paragraph_ref)
     if not groups:
@@ -274,7 +315,7 @@ def _translate_complex_paragraph_in_place(
             continue
         ctx = dict(seg.context)
         ctx["complex_group"] = group_i
-        translated, tr_issues = _translate_toc_like_text(source_text, cfg, llm_client, ctx, cache)
+        translated, tr_issues = _translate_toc_like_text(source_text, cfg, llm_client, ctx, cache, glossary_terms)
         issues.extend(tr_issues)
         if translated != source_text:
             _write_text_nodes(nodes, translated)
@@ -407,7 +448,14 @@ def _translate_one(
     return last_output or (seg.shielded_tagged or ""), issues
 
 
-def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, resume: bool = False) -> None:
+def translate_docx(
+    input_path: Path,
+    output_path: Path,
+    cfg: PipelineConfig,
+    *,
+    resume: bool = False,
+    max_segments: int | None = None,
+) -> None:
     logger = setup_logging(Path(cfg.log_path))
     logger.info(f"Input: {input_path}")
     logger.info(f"Output: {output_path}")
@@ -417,6 +465,11 @@ def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, res
 
     doc = Document(str(input_path))
     segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
+    if max_segments is not None:
+        if max_segments < 0:
+            raise ValueError(f"max_segments must be >= 0, got {max_segments}")
+        segments = segments[:max_segments]
+        logger.info(f"Segment limit enabled: {len(segments)} segments")
     logger.info(f"Segments найдено: {len(segments)}")
 
     tm = TMStore(cfg.tm.path)
@@ -424,6 +477,10 @@ def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, res
     glossary_text = _read_optional_text(cfg.llm.glossary_path, logger, "glossary")
     if cfg.llm.provider.strip().lower() == "google" and custom_system_prompt:
         logger.info("Provider 'google' does not support system prompts; custom prompt is ignored for this run.")
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = ()
+    if cfg.llm.provider.strip().lower() == "google" and glossary_text:
+        glossary_terms = build_hard_glossary_replacements(glossary_text)
+        logger.info(f"Hard glossary enforcement enabled for google provider: {len(glossary_terms)} terms")
     llm_client = build_llm_client(
         provider=cfg.llm.provider,
         model=cfg.llm.model,
@@ -448,6 +505,20 @@ def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, res
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
         prev_progress = tm.get_progress(seg.segment_id) if resume else None
 
+        # Fast-path: if the segment contains no English (Latin) text, do not touch the paragraph at all.
+        # This preserves layout and avoids degrading already-RU content in partially translated manuals.
+        if not _should_translate_segment_text(seg.source_plain):
+            seg.issues.append(
+                Issue(
+                    code="skip_no_latin",
+                    severity=Severity.INFO,
+                    message="Сегмент пропущен: нет английского текста (латиницы) или уже в RU — оставлено как в исходнике",
+                    details={},
+                )
+            )
+            tm.set_progress(seg.segment_id, "skip", source_hash=None)
+            continue
+
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
         # to avoid reordering/corruption when rebuilding runs.
         if not is_supported_paragraph(seg.paragraph_ref):
@@ -456,6 +527,7 @@ def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, res
                 cfg,
                 llm_client,
                 complex_chunk_cache,
+                glossary_terms,
             )
             seg.issues.extend(complex_issues)
             if changed:
@@ -491,6 +563,10 @@ def translate_docx(input_path: Path, output_path: Path, cfg: PipelineConfig, res
         seg.inline_run_map = inline_map
 
         shielded_text, token_map = shield(tagged, cfg.pattern_set)
+        if glossary_terms and _LATIN_RE.search(shielded_text):
+            shielded_text, glossary_map = shield_terms(shielded_text, glossary_terms, token_prefix="GLS")
+            if glossary_map:
+                token_map = {**token_map, **glossary_map}
         seg.shielded_tagged = shielded_text
         seg.token_map = token_map
 

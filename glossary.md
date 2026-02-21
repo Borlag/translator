@@ -29,6 +29,7 @@ Strut Joint — Шарнир стойки
 Hydraulic Hose Assemblies — Сборки гидравлических шлангов
 Lubricating Nipple — Смазочный ниппель
 Terminal Assemblies — Сборки крепления (в контексте пружин)
+Main Landing Gear Leg — Основная стойка шасси
 
 2️⃣ Крепёж и соединения
 

@@ -39,9 +39,15 @@ def is_supported_paragraph(paragraph: Paragraph) -> bool:
     to avoid reordering and structure corruption.
     """
 
+    # Some "noise" markers (proofing/bookmarks) are safe to keep; they don't affect visible text and
+    # are common in OEM manuals. Treat them as supported so we can translate with full paragraph context.
+    allowed_extra = {"bookmarkstart", "bookmarkend", "prooferr"}
     for child in paragraph._p.iterchildren():
         tag = child.tag.lower()
         if tag.endswith("}ppr") or tag.endswith("}r"):
+            continue
+        local = tag.split("}")[-1]
+        if local in allowed_extra:
             continue
         return False
     return True

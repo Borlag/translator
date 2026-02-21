@@ -61,6 +61,7 @@ logs/
 qa_report.html
 qa.jsonl
 output/
+tmp/
 tmp_out/
 
 # IDE and editor files

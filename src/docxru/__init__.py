@@ -1,4 +1,4 @@
-"""docxru — DOCX technical aviation EN→RU translation pipeline."""
+"""docxru - DOCX technical aviation EN->RU translation pipeline."""
 
 from .pipeline import translate_docx
 

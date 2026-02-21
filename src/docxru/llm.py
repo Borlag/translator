@@ -138,59 +138,105 @@ def _compile_term_pattern(source_term: str) -> Pattern[str]:
     return re.compile(escaped, flags=re.IGNORECASE)
 
 
-def build_domain_replacements() -> tuple[GlossaryReplacement, ...]:
+DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
+    # Cover-page legal small print: keep these translations concise to avoid layout overflow.
+    (
+        "This document and all information contained herein is the sole property of Safran Landing Systems (and/or its affiliated companies).",
+        "Документ и его содержание - собственность Safran Landing Systems (и/или аффилированных компаний).",
+    ),
+    (
+        "No intellectual property rights are granted by the delivery of this document or the disclosure of its content.",
+        "Права ИС не предоставляются.",
+    ),
+    (
+        "This document shall not be reproduced to a third party without the express written consent of Safran Landing Systems (and/or the appropriate affiliated company).",
+        "Воспроизведение третьим лицам - только с письменного согласия Safran Landing Systems.",
+    ),
+    ("Record of Temporary Revisions", "Запись временных изменений"),
+    ("Record of Revisions", "Запись изменений"),
+    ("Revision Record", "Запись изменений"),
+    ("List of Effective Pages", "Список действующих страниц"),
+    ("List of Effective Pages (Continued)", "Список действующих страниц (продолжение)"),
+    ("List of Service Bulletins", "Список сервисных бюллетеней"),
+    ("New/Revised Pages", "Новые/пересмотренные страницы"),
+    ("Table of Contents", "Содержание"),
+    ("Table of Contents (Continued)", "Содержание (продолжение)"),
+    ("Fig. Page", "Рис. Страница"),
+    ("Fig Page", "Рис. Страница"),
+    ("Subject Reference", "Тема Ссылка"),
+    ("Main Landing Gear Leg", "Основная стойка шасси"),
+    ("Lower Torque Link", "Нижний рычаг крутящего момента"),
+    ("Upper Torque Link", "Верхний рычаг крутящего момента"),
+    ("Sliding Tube", "Скользящая трубка"),
+    ("Transfer Block", "Переходной блок"),
+    ("Spherical Bearing", "Сферический подшипник"),
+    ("Pivot Bracket", "Кронштейн шарнира"),
+    ("Harness Support Bracket", "Кронштейн крепления жгута"),
+    ("Retaining Pin", "Фиксирующий штифт"),
+    ("Pintle Pin", "Шкворневой штифт"),
+    ("Forward Pintle Pin", "Передний шкворневой штифт"),
+    ("Uplock Pin", "Штифт аплока"),
+    ("Main Fitting", "Основной фитинг"),
+    ("Protective Treatment", "Защитная обработка"),
+    ("Repair No.", "Ремонт №"),
+    ("Lower", "Нижний"),
+    ("Upper", "Верхний"),
+    ("Torque", "Крутящий момент"),
+    ("Link", "Рычаг"),
+    ("Repair", "Ремонт"),
+    ("Sheet", "Лист"),
+    ("Withdrawn", "Аннулировано"),
+    ("Illustrations", "Иллюстрации"),
+    ("Blank", "Пусто"),
+    ("Fig.", "Рис."),
+    ("Fig", "Рис"),
+    ("Subject", "Тема"),
+    ("Table", "Таблица"),
+    ("List", "Список"),
+    ("Part No.", "№ детали"),
+    ("Part", "Деталь"),
+    ("Revision", "Изменений"),
+    ("New/Revised", "Новые/пересмотренные"),
+    ("Uplock", "Аплок"),
+    ("No.", "№"),
+)
+
+
+def build_domain_replacements(*, include_single_words: bool = True) -> tuple[GlossaryReplacement, ...]:
     """Static aviation-doc replacements to reduce EN leftovers in free-provider output."""
-    term_pairs = [
-        ("Record of Temporary Revisions", "Запись временных изменений"),
-        ("Record of Revisions", "Запись изменений"),
-        ("Revision Record", "Запись изменений"),
-        ("List of Effective Pages", "Список действующих страниц"),
-        ("List of Effective Pages (Continued)", "Список действующих страниц (продолжение)"),
-        ("List of Service Bulletins", "Список сервисных бюллетеней"),
-        ("New/Revised Pages", "Новые/пересмотренные страницы"),
-        ("Table of Contents", "Содержание"),
-        ("Table of Contents (Continued)", "Содержание (продолжение)"),
-        ("Fig. Page", "Рис. Страница"),
-        ("Fig Page", "Рис. Страница"),
-        ("Subject Reference", "Тема Ссылка"),
-        ("Main Landing Gear Leg", "Основная стойка шасси"),
-        ("Lower Torque Link", "Нижний рычаг крутящего момента"),
-        ("Upper Torque Link", "Верхний рычаг крутящего момента"),
-        ("Sliding Tube", "Скользящая трубка"),
-        ("Transfer Block", "Переходной блок"),
-        ("Spherical Bearing", "Сферический подшипник"),
-        ("Pivot Bracket", "Кронштейн шарнира"),
-        ("Harness Support Bracket", "Кронштейн крепления жгута"),
-        ("Retaining Pin", "Фиксирующий штифт"),
-        ("Pintle Pin", "Шкворневой штифт"),
-        ("Forward Pintle Pin", "Передний шкворневой штифт"),
-        ("Uplock Pin", "Штифт аплока"),
-        ("Main Fitting", "Основной фитинг"),
-        ("Protective Treatment", "Защитная обработка"),
-        ("Repair No.", "Ремонт №"),
-        ("Lower", "Нижний"),
-        ("Upper", "Верхний"),
-        ("Torque", "Крутящий момент"),
-        ("Link", "Рычаг"),
-        ("Repair", "Ремонт"),
-        ("Sheet", "Лист"),
-        ("Withdrawn", "Аннулировано"),
-        ("Illustrations", "Иллюстрации"),
-        ("Blank", "Пусто"),
-        ("Fig.", "Рис."),
-        ("Fig", "Рис"),
-        ("Subject", "Тема"),
-        ("Table", "Таблица"),
-        ("List", "Список"),
-        ("Part No.", "№ детали"),
-        ("Part", "Деталь"),
-        ("Revision", "Изменений"),
-        ("New/Revised", "Новые/пересмотренные"),
-        ("Uplock", "Аплок"),
-        ("No.", "№"),
-    ]
+    term_pairs = list(DOMAIN_TERM_PAIRS)
+    if not include_single_words:
+        term_pairs = [item for item in term_pairs if re.search(r"\s", item[0])]
     term_pairs.sort(key=lambda item: len(item[0]), reverse=True)
     return tuple((_compile_term_pattern(source), target) for source, target in term_pairs)
+
+
+def build_hard_glossary_replacements(glossary_text: str | None) -> tuple[GlossaryReplacement, ...]:
+    """Build replacements intended for pre-translation shielding (hard glossary).
+
+    For quality/safety, this includes:
+    - user glossary pairs (exact EN -> RU)
+    - selected domain phrases (multi-word only), to fix common headings in free providers
+
+    User glossary entries override domain defaults for the same source term.
+    """
+    domain_pairs = [item for item in DOMAIN_TERM_PAIRS if re.search(r"\s", item[0])]
+    glossary_pairs = parse_glossary_pairs(glossary_text)
+
+    # Deduplicate source terms case-insensitively; user glossary overrides domain defaults.
+    merged: dict[str, tuple[str, str]] = {}
+    for src, tgt in domain_pairs:
+        key = src.strip().lower()
+        if key:
+            merged.setdefault(key, (src, tgt))
+    for src, tgt in glossary_pairs:
+        key = src.strip().lower()
+        if key:
+            merged[key] = (src, tgt)
+
+    pairs = list(merged.values())
+    pairs.sort(key=lambda item: len(item[0]), reverse=True)
+    return tuple((_compile_term_pattern(source), target) for source, target in pairs)
 
 
 def build_glossary_replacements(glossary_text: str | None) -> tuple[GlossaryReplacement, ...]:

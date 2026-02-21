@@ -7,11 +7,17 @@ llm:
   target_lang: ru         # used by google provider
   base_url: null          # openai: custom API URL; google: endpoint base; ollama: e.g. http://localhost:11434
   system_prompt_path: null # optional .md/.txt with extra translation instructions
-  glossary_path: null      # optional .md/.txt glossary (EN -> RU pairs "Term — Перевод")
+  glossary_path: null      # optional .md/.txt glossary file with EN->RU pairs
+  glossary_in_prompt: true # false = do not send full glossary in every prompt (hard glossary shielding still applies)
+  reasoning_effort: null   # openai hint: none|minimal|low|medium|high|xhigh
+  prompt_cache_key: null   # optional openai cache key for repeated prompt prefixes
+  prompt_cache_retention: null # optional openai retention hint, e.g. "24h"
   temperature: 0.1
   max_output_tokens: 2000
   retries: 2
   timeout_s: 60.0
+  batch_segments: 1      # >1 enables grouped translation (OpenAI/Ollama) for better context continuity
+  batch_max_chars: 12000 # soft payload cap per grouped request
 
 tm:
   path: translation_cache.sqlite
@@ -24,6 +30,7 @@ mode: reflow              # reflow | com
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl
+translation_history_path: null # optional append-only jsonl with source/target/context per successful segment
 log_path: run.log
 
 patterns:

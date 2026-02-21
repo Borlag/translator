@@ -1,0 +1,38 @@
+# docxru profile: agent-as-translator (OpenAI)
+
+llm:
+  provider: openai
+  model: gpt-5-mini
+  source_lang: en
+  target_lang: ru
+  base_url: null
+  system_prompt_path: ../general_prompt.md
+  glossary_path: ../glossary.md
+  glossary_in_prompt: false
+  reasoning_effort: minimal
+  prompt_cache_key: docxru-en-ru-v1
+  prompt_cache_retention: 24h
+  temperature: 0.1
+  max_output_tokens: 2400
+  retries: 3
+  timeout_s: 90.0
+  batch_segments: 6
+  batch_max_chars: 14000
+
+tm:
+  path: ../translation_cache.sqlite
+
+include_headers: false
+include_footers: false
+
+concurrency: 4
+mode: reflow
+
+qa_report_path: ../qa_report.html
+qa_jsonl_path: ../qa.jsonl
+translation_history_path: ../output/doc/translation_history.jsonl
+log_path: ../run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

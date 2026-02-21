@@ -32,9 +32,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Translate only first N segments (quick iteration; approximates first pages).",
     )
+    t.add_argument(
+        "--batch-segments",
+        type=int,
+        default=None,
+        help="Translate up to N nearby segments in one LLM request (OpenAI/Ollama only).",
+    )
+    t.add_argument(
+        "--batch-max-chars",
+        type=int,
+        default=None,
+        help="Soft character cap per batch request payload.",
+    )
     t.add_argument("--concurrency", type=int, default=None, help="Override concurrency from config.")
     t.add_argument("--qa", default=None, help="Override QA report HTML path.")
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
+    t.add_argument("--history-jsonl", default=None, help="Override translation history jsonl path.")
     t.add_argument("--log", default=None, help="Override log path.")
 
     v = sub.add_parser("verify", help="Verify structural invariants between two DOCX files.")
@@ -65,8 +78,16 @@ def main(argv: list[str] | None = None) -> int:
             cfg = cfg.__class__(**{**cfg.__dict__, "qa_report_path": str(args.qa)})
         if args.qa_jsonl is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "qa_jsonl_path": str(args.qa_jsonl)})
+        if args.history_jsonl is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "translation_history_path": str(args.history_jsonl)})
         if args.log is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "log_path": str(args.log)})
+        if args.batch_segments is not None:
+            llm_cfg = cfg.llm.__class__(**{**cfg.llm.__dict__, "batch_segments": int(args.batch_segments)})
+            cfg = cfg.__class__(**{**cfg.__dict__, "llm": llm_cfg})
+        if args.batch_max_chars is not None:
+            llm_cfg = cfg.llm.__class__(**{**cfg.llm.__dict__, "batch_max_chars": int(args.batch_max_chars)})
+            cfg = cfg.__class__(**{**cfg.__dict__, "llm": llm_cfg})
         if args.no_headers:
             cfg = cfg.__class__(**{**cfg.__dict__, "include_headers": False})
         if args.no_footers:

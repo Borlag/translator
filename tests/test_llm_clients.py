@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 from dataclasses import dataclass
 from unittest.mock import patch
 
@@ -10,11 +12,12 @@ from docxru.llm import (
     OllamaChatClient,
     OpenAIChatCompletionsClient,
     apply_glossary_replacements,
+    build_domain_replacements,
     build_glossary_replacements,
     build_hard_glossary_replacements,
     build_llm_client,
-    build_domain_replacements,
     build_translation_system_prompt,
+    build_user_prompt,
     parse_glossary_pairs,
     supports_repair,
 )
@@ -197,3 +200,100 @@ def test_ollama_client_translate_with_mocked_http():
     assert out == "Привет"
     assert payloads and payloads[0]["model"] == "qwen2.5:7b"
     assert payloads[0]["stream"] is False
+
+
+def test_build_user_prompt_passthrough_for_batch_task():
+    text = '{"translations":[{"id":"1","text":"T1"}]}'
+    out = build_user_prompt(text, {"task": "batch_translate", "part": "body"})
+    assert out == text
+
+
+def test_openai_client_batch_uses_json_mode_and_skips_temperature_for_gpt5():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"{\\"translations\\":[{\\"id\\":\\"s1\\",\\"text\\":\\"T1\\"}]}"}}]}')
+
+    client = OpenAIChatCompletionsClient(
+        model="gpt-5-mini",
+        reasoning_effort="minimal",
+        prompt_cache_key="docxru-test",
+        prompt_cache_retention="24h",
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("{}", {"task": "batch_translate"})
+
+    assert '"translations"' in out
+    assert payloads and payloads[0]["response_format"] == {"type": "json_object"}
+    assert "temperature" not in payloads[0]
+    assert payloads[0]["max_completion_tokens"] == client.max_output_tokens
+    assert "max_tokens" not in payloads[0]
+    assert payloads[0]["prompt_cache_key"] == "docxru-test"
+    assert payloads[0]["prompt_cache_retention"] == "24h"
+
+
+def test_openai_client_non_gpt5_uses_max_tokens():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"ok"}}]}')
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "ok"
+    assert payloads and payloads[0]["max_tokens"] == client.max_output_tokens
+    assert "max_completion_tokens" not in payloads[0]
+
+
+def test_openai_client_retries_without_prompt_cache_retention_when_unsupported():
+    payloads: list[dict] = []
+    call_n = {"n": 0}
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        call_n["n"] += 1
+        if call_n["n"] == 1:
+            body = json.dumps(
+                {
+                    "error": {
+                        "message": "prompt_cache_retention is not supported on this model",
+                        "type": "invalid_request_error",
+                        "param": "prompt_cache_retention",
+                        "code": "invalid_parameter",
+                    }
+                }
+            )
+            raise urllib.error.HTTPError(
+                url=req.full_url,
+                code=400,
+                msg="Bad Request",
+                hdrs=None,
+                fp=io.BytesIO(body.encode("utf-8")),
+            )
+        return _FakeResponse('{"choices":[{"message":{"content":"ok"}}]}')
+
+    client = OpenAIChatCompletionsClient(
+        model="gpt-5-mini",
+        prompt_cache_key="docxru-cache",
+        prompt_cache_retention="24h",
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "ok"
+    assert len(payloads) == 2
+    assert "prompt_cache_retention" in payloads[0]
+    assert "prompt_cache_retention" not in payloads[1]

@@ -71,6 +71,7 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
+_TM_RULESET_VERSION = "2026-02-21-consistency-v1"
 
 
 def _style_start_tag(span_id: int, flags: tuple[str, ...]) -> str:
@@ -159,11 +160,17 @@ def _translate_plain_chunk(
     if chunk in cache:
         return cache[chunk], []
 
-    shielded, token_map = shield(chunk, cfg.pattern_set)
+    shielded = chunk
+    token_map: dict[str, str] = {}
+    # Apply hard glossary before generic shielding so phrase-level rules can still match
+    # raw text fragments that would otherwise be split into DIM/PN placeholders.
     if glossary_terms and _LATIN_RE.search(shielded):
         shielded, glossary_map = shield_terms(shielded, glossary_terms, token_prefix="GLS")
         if glossary_map:
             token_map = {**token_map, **glossary_map}
+    shielded, pattern_map = shield(shielded, cfg.pattern_set)
+    if pattern_map:
+        token_map = {**pattern_map, **token_map}
     translated_shielded, issues = _translate_shielded_fragment(shielded, llm_client, context)
     translated = unshield(translated_shielded, token_map)
 
@@ -462,6 +469,7 @@ def translate_docx(
     logger.info(
         f"Mode: {cfg.mode}; concurrency={cfg.concurrency}; headers={cfg.include_headers}; footers={cfg.include_footers}"
     )
+    logger.info(f"TM ruleset version: {_TM_RULESET_VERSION}")
 
     doc = Document(str(input_path))
     segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
@@ -562,16 +570,23 @@ def translate_docx(
         seg.spans = spans
         seg.inline_run_map = inline_map
 
-        shielded_text, token_map = shield(tagged, cfg.pattern_set)
+        shielded_text = tagged
+        token_map: dict[str, str] = {}
+        # Apply hard glossary before generic shielding so long phrases with dimensions
+        # are not broken by DIM placeholders before glossary matching.
         if glossary_terms and _LATIN_RE.search(shielded_text):
             shielded_text, glossary_map = shield_terms(shielded_text, glossary_terms, token_prefix="GLS")
             if glossary_map:
                 token_map = {**token_map, **glossary_map}
+        shielded_text, pattern_map = shield(shielded_text, cfg.pattern_set)
+        if pattern_map:
+            token_map = {**pattern_map, **token_map}
         seg.shielded_tagged = shielded_text
         seg.token_map = token_map
 
         source_norm = normalize_text(shielded_text)
-        source_hash = sha256_hex(source_norm)
+        source_norm_for_hash = f"{_TM_RULESET_VERSION}\n{source_norm}"
+        source_hash = sha256_hex(source_norm_for_hash)
 
         if (
             resume

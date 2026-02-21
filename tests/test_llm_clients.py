@@ -9,13 +9,16 @@ from docxru.llm import (
     MockLLMClient,
     OllamaChatClient,
     OpenAIChatCompletionsClient,
+    apply_glossary_replacements,
     build_glossary_replacements,
+    build_hard_glossary_replacements,
     build_llm_client,
     build_domain_replacements,
     build_translation_system_prompt,
     parse_glossary_pairs,
     supports_repair,
 )
+from docxru.token_shield import shield_terms
 
 
 @dataclass
@@ -137,6 +140,47 @@ def test_domain_replacements_include_repair_no():
     for pattern, repl in replacements:
         out = pattern.sub(repl, out)
     assert "Ремонт №" in out
+
+
+def test_domain_replacements_normalize_common_sb_phrases():
+    replacements = build_domain_replacements()
+    out = (
+        "Subject Reference | Insert New/Revised | "
+        "Added fig-item (18-80A) in para 1. "
+        "Updated Messier-Dowty Limited to Safran Landing Systems."
+    )
+    for pattern, repl in replacements:
+        out = pattern.sub(repl, out)
+    assert "Тема/ссылка" in out
+    assert "Вставить новые/пересмотренные" in out
+    assert "элемент рисунка" in out
+    assert "Наименование Messier-Dowty Limited изменено на Safran Landing Systems" in out
+
+
+def test_apply_glossary_replacements_fixes_common_google_artifacts():
+    out = apply_glossary_replacements(
+        "MLG Нога — добавлен элемент риса (18-80A). Обновленная ценность конверсии в рисунке 602.",
+        (),
+    )
+    assert "Стойка MLG" in out
+    assert "элемент рисунка" in out
+    assert "Обновлено значение пересчета" in out
+
+
+def test_glossary_replacements_match_wrapped_phrases_and_hyphens():
+    replacements = build_glossary_replacements(
+        "Introduction of new — Введение новых\nfig-item — элемент рисунка"
+    )
+    out = apply_glossary_replacements("Introduction of\nnew fig - item", replacements)
+    assert "Введение новых" in out
+    assert "элемент рисунка" in out
+
+
+def test_hard_glossary_matches_across_brline_tokens():
+    text = "lower bearing⟦BRLINE_1⟧subassembly"
+    terms = build_hard_glossary_replacements("lower bearing subassembly — нижний узел подшипника")
+    _, token_map = shield_terms(text, terms, token_prefix="GLS")
+    assert "нижний узел подшипника" in token_map.values()
 
 
 def test_ollama_client_translate_with_mocked_http():

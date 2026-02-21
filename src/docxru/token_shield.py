@@ -6,6 +6,7 @@ from typing import Iterable, Pattern
 
 # Any ⟦...⟧ token (style tags and placeholders) must be preserved verbatim.
 BRACKET_TOKEN_RE = re.compile(r"⟦[^⟧]*⟧")
+_BREAK_TOKEN_RE = re.compile(r"⟦BR(?:LINE|COL|PAGE)_\d+⟧")
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,9 @@ def shield_terms(
     then unshield them to the desired RU equivalents after translation.
 
     Notes:
-    - Does NOT touch any existing ⟦...⟧ blocks (style tags or already-shielded placeholders).
+    - Does NOT touch style tags/placeholders inside ⟦...⟧.
+    - Break tokens ⟦BRLINE_n⟧ / ⟦BRCOL_n⟧ / ⟦BRPAGE_n⟧ are treated as text separators so
+      multi-word glossary patterns can match across wrapped lines.
     - Placeholder numbering is based on replacement-rule order (1-based), not match order.
     - The returned token_map maps placeholder -> replacement text, and is suitable for `unshield()`.
     """
@@ -139,7 +142,27 @@ def shield_terms(
         raise ValueError(f"Invalid token_prefix '{token_prefix}'. Expected [A-Z][A-Z0-9]*.")
 
     token_map: dict[str, str] = {}
-    chunks = _split_preserving_brackets(text)
+    chunks_raw: list[tuple[str, bool]] = []
+    pos = 0
+    for m in BRACKET_TOKEN_RE.finditer(text):
+        if m.start() > pos:
+            chunks_raw.append((text[pos : m.start()], False))
+        token = m.group(0)
+        # Keep line-break tokens in text stream to allow phrase matching across wraps.
+        is_protected_token = _BREAK_TOKEN_RE.fullmatch(token) is None
+        chunks_raw.append((token, is_protected_token))
+        pos = m.end()
+    if pos < len(text):
+        chunks_raw.append((text[pos:], False))
+
+    # Merge adjacent non-protected chunks so regex can match across embedded break tokens.
+    chunks: list[tuple[str, bool]] = []
+    for chunk, is_tok in chunks_raw:
+        if chunks and chunks[-1][1] == is_tok:
+            prev_chunk, _ = chunks[-1]
+            chunks[-1] = (prev_chunk + chunk, is_tok)
+        else:
+            chunks.append((chunk, is_tok))
     out_chunks: list[str] = []
 
     for chunk, is_tok in chunks:

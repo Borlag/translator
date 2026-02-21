@@ -131,7 +131,13 @@ def parse_glossary_pairs(glossary_text: str | None) -> list[tuple[str, str]]:
 
 
 def _compile_term_pattern(source_term: str) -> Pattern[str]:
-    escaped = re.escape(source_term)
+    escaped = re.escape(source_term.strip())
+    gap = r"(?:\s+|⟦BR(?:LINE|COL|PAGE)_\d+⟧)+"
+    optional_gap = r"(?:\s+|⟦BR(?:LINE|COL|PAGE)_\d+⟧)*"
+    # OCR/Word converted manuals often insert hard line-wraps and variable spaces around hyphens.
+    # Make term matching tolerant to those artifacts so phrase-level glossary enforcement still works.
+    escaped = escaped.replace(r"\ ", gap)
+    escaped = escaped.replace(r"\-", rf"{optional_gap}-{optional_gap}")
     if re.search(r"[A-Za-z0-9]", source_term):
         # Restrict replacements to standalone ASCII terms to avoid accidental partial matches.
         return re.compile(rf"(?<![A-Za-z0-9]){escaped}(?![A-Za-z0-9])", flags=re.IGNORECASE)
@@ -152,6 +158,64 @@ DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
         "This document shall not be reproduced to a third party without the express written consent of Safran Landing Systems (and/or the appropriate affiliated company).",
         "Воспроизведение третьим лицам - только с письменного согласия Safran Landing Systems.",
     ),
+    # Frequent SB-description lines in ABBYY-converted manuals.
+    (
+        "MLG - Installation of stub bolt subassembly for the forward pintle pin in place of the cross bolt.",
+        "MLG - Установка подсборки болта-заглушки для переднего шкворневого штифта вместо поперечного болта.",
+    ),
+    (
+        "MLG - To allow an increase in aircraft maximum take-off weight to 93 tonne.",
+        "MLG - Для увеличения максимальной взлетной массы самолета до 93 т.",
+    ),
+    (
+        "MLG -To add tracking numbers to parts listed in Airbus Airworthiness Limitations Section (ALS).",
+        "MLG - Добавлены номера отслеживания к деталям, перечисленным в разделе Airbus Airworthiness Limitations Section (ALS).",
+    ),
+    (
+        "MLG - Installation of a 201585 series MLG Leg and Dressings where a 201387 MLG Leg and Dressings has been installed.",
+        "MLG - Установка стойки MLG серии 201585 и комплектов dressings вместо ранее установленной стойки MLG серии 201387 и комплектов dressings.",
+    ),
+    (
+        "MLG -To add tracking numbers to parts listed in Airbus Maintenance Planning Document, Section 9-1. (Torque link apex pin nut)",
+        "MLG - Добавлены номера отслеживания к деталям, перечисленным в Airbus Maintenance Planning Document, раздел 9-1. (Гайка шкворневого штифта вершины рычага крутящего момента)",
+    ),
+    ("MLG - Introduction of a new lower bearing subassembly.", "MLG - Введение нового нижнего узла подшипника."),
+    ("MLG - Introduction of new charging labels", "MLG - Введение новых маркировочных табличек."),
+    ("MLG - Introduction of new 1M and 2M Axle harnesses", "MLG - Введение новых жгутов оси 1M и 2M."),
+    (
+        "MLG - Introduction of new 1M and 2M Leg Harness and of new 1M and 2M Axle Harnesses",
+        "MLG - Введение новых жгутов стойки 1M и 2M, а также новых жгутов оси 1M и 2M.",
+    ),
+    (
+        "MLG Leg-Introduction of new retaining pins and a new lower bearing subassembly with a new self lubricating liner",
+        "Стойка MLG - Введение новых стопорных штифтов и нового нижнего узла подшипника с новым самосмазывающимся вкладышем.",
+    ),
+    (
+        "MLG Leg - Introduction of new retaining pins for the lower bearing subassembly",
+        "Стойка MLG - Введение новых стопорных штифтов для нижнего узла подшипника.",
+    ),
+    (
+        "MLG Leg - Introduction of a new lower bearing subassembly with a new low friction inner liner",
+        "Стойка MLG - Введение нового нижнего узла подшипника с новым внутренним вкладышем с низким коэффициентом трения.",
+    ),
+    (
+        "MLG Leg - Barkhausen Noise Inspection of Main Landing Gear Sliding Tube Axles.",
+        "Стойка MLG - Контроль шума Баркхаузена осей скользящей трубы основной стойки шасси.",
+    ),
+    ("MLG Leg - Introduction of a new Main Fitting", "Стойка MLG - Введение нового корпуса стойки."),
+    ("MLG Leg - Introduction of a new torque link damper unit", "Стойка MLG - Введение нового демпферного узла рычага крутящего момента."),
+    (
+        "MLG Leg - Introduction of a new main fitting subassembly and related parts",
+        "Стойка MLG - Введение новой подсборки корпуса стойки и связанных деталей.",
+    ),
+    ("MLG - Introduction of a new upper pivot bracket", "MLG - Введение нового верхнего кронштейна шарнира."),
+    ("MLG - Introduction of a new changeover valve stem and housing", "MLG - Введение нового штока и корпуса переключающего клапана."),
+    ("MLG complete - Introduction of a new transfer block subassembly", "Стойка MLG в сборе - Введение новой подсборки переходного блока."),
+    ("MLG Complete - Modification of the transfer block subassembly", "Стойка MLG в сборе - Модификация подсборки переходного блока."),
+    (
+        "MLG - Conversion of low - friction lower - bearing MLG to standard lower - bearing MLG",
+        "MLG - Переход от нижнего подшипника MLG с низким коэффициентом трения к стандартному нижнему подшипнику MLG.",
+    ),
     ("Record of Temporary Revisions", "Запись временных изменений"),
     ("Record of Revisions", "Запись изменений"),
     ("Revision Record", "Запись изменений"),
@@ -163,7 +227,36 @@ DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
     ("Table of Contents (Continued)", "Содержание (продолжение)"),
     ("Fig. Page", "Рис. Страница"),
     ("Fig Page", "Рис. Страница"),
-    ("Subject Reference", "Тема Ссылка"),
+    ("Subject Reference", "Тема/ссылка"),
+    ("Remove and Destroy Pages", "Удалить заменяемые страницы"),
+    ("Insert New/Revised", "Вставить новые/пересмотренные"),
+    ("Reason for Change", "Причина изменения"),
+    ("Added fig-item", "Добавлен элемент рисунка"),
+    ("Updated fig-items", "Обновлены элементы рисунка"),
+    ("fig-item", "элемент рисунка"),
+    ("fig-items", "элементы рисунка"),
+    ("Updated Messier-Dowty Limited to Safran Landing Systems", "Наименование Messier-Dowty Limited изменено на Safran Landing Systems"),
+    ("Updated conversion value in figure", "Обновлено значение пересчета на рисунке"),
+    ("MLG Leg", "Стойка MLG"),
+    ("MLG Complete", "Стойка MLG в сборе"),
+    ("MLG complete", "Стойка MLG в сборе"),
+    ("Introduction of new", "Введение новых"),
+    ("Introduction of a new", "Введение нового"),
+    ("transfer block subassembly", "подсборка переходного блока"),
+    ("lower bearing subassembly", "нижний узел подшипника"),
+    ("Barkhausen Noise Inspection", "контроль шума Баркхаузена"),
+    ("Main Landing Gear Sliding Tube Axles", "оси скользящей трубы основной стойки шасси"),
+    ("torque link damper unit", "демпферный узел рычага крутящего момента"),
+    ("changeover valve stem and housing", "шток и корпус переключающего клапана"),
+    ("Airworthiness Limitations Section", "раздел ограничений летной годности"),
+    ("Maintenance Planning Document", "документ планирования технического обслуживания"),
+    ("tracking numbers", "номера отслеживания"),
+    ("stub bolt subassembly", "подсборка болта-заглушки"),
+    ("self lubricating liner", "самосмазывающийся вкладыш"),
+    ("low friction inner liner", "внутренний вкладыш с низким коэффициентом трения"),
+    ("Axle Harnesses", "жгуты оси"),
+    ("Axle harnesses", "жгуты оси"),
+    ("Leg Harness", "жгут стойки"),
     ("Main Landing Gear Leg", "Основная стойка шасси"),
     ("Lower Torque Link", "Нижний рычаг крутящего момента"),
     ("Upper Torque Link", "Верхний рычаг крутящего момента"),
@@ -193,9 +286,9 @@ DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
     ("Subject", "Тема"),
     ("Table", "Таблица"),
     ("List", "Список"),
-    ("Part No.", "№ детали"),
+    ("Part No.", "Номер детали"),
     ("Part", "Деталь"),
-    ("Revision", "Изменений"),
+    ("Revision", "Ревизия"),
     ("New/Revised", "Новые/пересмотренные"),
     ("Uplock", "Аплок"),
     ("No.", "№"),
@@ -252,7 +345,10 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
         out = pattern.sub(replacement, out)
 
     # Mixed heading cleanup for partial machine translations.
-    out = re.sub(r"\bSubject\s+Ссылка\b", "Тема Ссылка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bSubject\s+Ссылка\b", "Тема/ссылка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bТема\s+Ссылка\b", "Тема/ссылка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bВставить\s+новый/исправленный\b", "Вставить новые/пересмотренные", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bВставить\s+новый/пересмотренный\b", "Вставить новые/пересмотренные", out, flags=re.IGNORECASE)
     out = re.sub(r"\bNEW/REVISED\s+СТРАНИЦЫ\b", "НОВЫЕ/ПЕРЕСМОТРЕННЫЕ СТРАНИЦЫ", out, flags=re.IGNORECASE)
     out = re.sub(r"\bREVISION\s+ЗАПИСЬ\b", "ЗАПИСЬ ИЗМЕНЕНИЙ", out, flags=re.IGNORECASE)
     out = re.sub(r"\bLIST\s+СЕРВИСНЫХ\s+БЮЛЛЕТЕНЕЙ\b", "СПИСОК СЕРВИСНЫХ БЮЛЛЕТЕНЕЙ", out, flags=re.IGNORECASE)
@@ -260,6 +356,30 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = re.sub(r"\btable\s+(\d+)\b", r"таблица \1", out, flags=re.IGNORECASE)
     out = re.sub(r"\(Table\s+(\d+)\)", r"(таблица \1)", out, flags=re.IGNORECASE)
     out = re.sub(r"\bFig\.\s+Страница\b", "Рис. Страница", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bэлемент\s+риса\b", "элемент рисунка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bMLG\s+Нога\b", "Стойка MLG", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bНога\s+MLG\b", "Стойка MLG", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bОпора\s+MLG\b", "Стойка MLG", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bВетка\s+MLG\b", "Стойка MLG", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bMLG\s+завершено\b", "Стойка MLG в сборе", out, flags=re.IGNORECASE)
+    out = re.sub(
+        r"\bОбновлена\s+компания\s+Messier-Dowty\s+Limited\s+для\s+Safran\s+Landing\s+Systems\b",
+        "Наименование Messier-Dowty Limited изменено на Safran Landing Systems",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"\bКомпания\s+Messier-Dowty\s+Limited\s+обновлена\s+до\s+Safran\s+Landing\s+System[s]?\b",
+        "Наименование Messier-Dowty Limited изменено на Safran Landing Systems",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"\bОбновленн[а-я]+\s+ценност[а-я]+\s+конверсии\b",
+        "Обновлено значение пересчета",
+        out,
+        flags=re.IGNORECASE,
+    )
 
     # TOC artifact cleanup: merged "Repair No. X-Y601" -> "Ремонт № X-Y 601"
     out = re.sub(r"Ремонт\s*№\s*(\d+-\d+)(\d{3,4})\b", r"Ремонт № \1 \2", out)

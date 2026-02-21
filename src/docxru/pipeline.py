@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +74,8 @@ _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
 _TM_RULESET_VERSION = "2026-02-21-consistency-v1"
+_BATCH_PROVIDER_ALLOWLIST = {"openai", "ollama"}
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 
 
 def _style_start_tag(span_id: int, flags: tuple[str, ...]) -> str:
@@ -259,9 +263,7 @@ def _should_translate_segment_text(text: str) -> bool:
         return False
     cyr = len(_CYRILLIC_RE.findall(text))
     # Mostly Cyrillic with only a few Latin letters (abbreviations, brand names) -> keep as-is.
-    if cyr >= latin * 3 and latin <= 12:
-        return False
-    return True
+    return not (cyr >= latin * 3 and latin <= 12)
 
 
 def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
@@ -385,6 +387,282 @@ def _fallback_translate_by_spans(
     return candidate, issues
 
 
+def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
+    src_unshielded = unshield(seg.shielded_tagged or "", seg.token_map or {})
+    tgt_unshielded = unshield(out, seg.token_map or {})
+    src_plain = strip_bracket_tokens(src_unshielded)
+    tgt_plain = strip_bracket_tokens(tgt_unshielded)
+    return validate_all(
+        source_shielded_tagged=seg.shielded_tagged or "",
+        target_shielded_tagged=out,
+        source_unshielded_plain=src_plain,
+        target_unshielded_plain=tgt_plain,
+    )
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _build_tm_meta(seg: Segment, cfg: PipelineConfig, source_hash: str, *, origin: str) -> dict[str, Any]:
+    return {
+        "provider": cfg.llm.provider,
+        "model": cfg.llm.model,
+        "origin": origin,
+        "segment_id": seg.segment_id,
+        "location": seg.location,
+        "part": seg.context.get("part"),
+        "section_header": seg.context.get("section_header"),
+        "in_table": bool(seg.context.get("in_table")),
+        "source_hash": source_hash,
+    }
+
+
+def _build_history_record(
+    seg: Segment,
+    cfg: PipelineConfig,
+    *,
+    source_hash: str | None,
+    origin: str,
+) -> dict[str, Any]:
+    source_shielded = seg.shielded_tagged or ""
+    target_shielded = seg.target_shielded_tagged or ""
+    source_unshielded = unshield(source_shielded, seg.token_map or {})
+    target_unshielded = unshield(target_shielded, seg.token_map or {})
+    source_plain = strip_bracket_tokens(source_unshielded)
+    target_plain = strip_bracket_tokens(target_unshielded)
+    return {
+        "timestamp_utc": _utc_now_iso(),
+        "provider": cfg.llm.provider,
+        "model": cfg.llm.model,
+        "origin": origin,
+        "source_hash": source_hash,
+        "segment_id": seg.segment_id,
+        "location": seg.location,
+        "part": seg.context.get("part"),
+        "section_header": seg.context.get("section_header"),
+        "in_table": bool(seg.context.get("in_table")),
+        "source_text": source_plain,
+        "target_text": target_plain,
+    }
+
+
+def _append_history_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    if not records:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def _chunk_translation_jobs(
+    jobs: list[tuple[Segment, str, str]],
+    *,
+    max_segments: int,
+    max_chars: int,
+) -> list[list[tuple[Segment, str, str]]]:
+    if not jobs:
+        return []
+
+    seg_limit = max(1, int(max_segments))
+    char_limit = max(1, int(max_chars))
+    groups: list[list[tuple[Segment, str, str]]] = []
+    current: list[tuple[Segment, str, str]] = []
+    current_chars = 0
+
+    for job in jobs:
+        seg = job[0]
+        estimated = len(seg.shielded_tagged or "") + 128
+        if current and (len(current) >= seg_limit or current_chars + estimated > char_limit):
+            groups.append(current)
+            current = []
+            current_chars = 0
+        current.append(job)
+        current_chars += estimated
+
+    if current:
+        groups.append(current)
+    return groups
+
+
+def _build_batch_translation_prompt(items: list[dict[str, str]]) -> str:
+    input_json = json.dumps(items, ensure_ascii=False)
+    return (
+        "TASK: BATCH_TRANSLATE_SEGMENTS\n"
+        "Translate each item.text from English to Russian.\n"
+        "Keep marker placeholders and style tags unchanged.\n"
+        "Return only valid JSON object in this shape:\n"
+        '{"translations":[{"id":"<id>","text":"<translated_text>"}]}\n'
+        "Rules:\n"
+        "- Keep all IDs exactly as provided.\n"
+        "- Do not merge or split items.\n"
+        "- Include every item exactly once.\n"
+        "INPUT_JSON:\n"
+        f"{input_json}"
+    )
+
+
+def _extract_json_payload(raw: str) -> Any:
+    text = (raw or "").strip()
+    if not text:
+        raise RuntimeError("Empty batch response")
+
+    candidates: list[str] = [text]
+
+    for m in _JSON_FENCE_RE.finditer(text):
+        fenced = (m.group(1) or "").strip()
+        if fenced:
+            candidates.append(fenced)
+
+    obj_start = text.find("{")
+    obj_end = text.rfind("}")
+    if obj_start >= 0 and obj_end > obj_start:
+        candidates.append(text[obj_start : obj_end + 1].strip())
+
+    arr_start = text.find("[")
+    arr_end = text.rfind("]")
+    if arr_start >= 0 and arr_end > arr_start:
+        candidates.append(text[arr_start : arr_end + 1].strip())
+
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+    raise RuntimeError("Batch response is not valid JSON")
+
+
+def _coerce_batch_translation_map(payload: Any) -> dict[str, str]:
+    entries: list[dict[str, Any]] | None = None
+    if isinstance(payload, dict):
+        if "translations" in payload and isinstance(payload["translations"], list):
+            entries = [item for item in payload["translations"] if isinstance(item, dict)]
+        elif all(isinstance(k, str) and isinstance(v, str) for k, v in payload.items()):
+            return {str(k): str(v) for k, v in payload.items()}
+    elif isinstance(payload, list):
+        entries = [item for item in payload if isinstance(item, dict)]
+
+    if entries is None:
+        raise RuntimeError("Batch response has unsupported JSON schema")
+
+    out: dict[str, str] = {}
+    for item in entries:
+        raw_id = item.get("id")
+        raw_text = item.get("text")
+        if not isinstance(raw_id, str) or not isinstance(raw_text, str):
+            continue
+        if raw_id in out:
+            raise RuntimeError(f"Batch response has duplicate id: {raw_id}")
+        out[raw_id] = raw_text
+    return out
+
+
+def _parse_batch_translation_output(raw: str, expected_ids: list[str]) -> dict[str, str]:
+    payload = _extract_json_payload(raw)
+    out = _coerce_batch_translation_map(payload)
+    expected = set(expected_ids)
+    got = set(out.keys())
+    missing = sorted(expected - got)
+    if missing:
+        raise RuntimeError(f"Batch response missing ids: {missing[:5]}")
+    extra = sorted(got - expected)
+    if extra:
+        raise RuntimeError(f"Batch response has unexpected ids: {extra[:5]}")
+    return {seg_id: out[seg_id] for seg_id in expected_ids}
+
+
+def _translate_batch_once(
+    llm_client,
+    jobs: list[tuple[Segment, str, str]],
+) -> dict[str, str]:
+    items = [{"id": seg.segment_id, "text": seg.shielded_tagged or ""} for seg, _, _ in jobs]
+    prompt = _build_batch_translation_prompt(items)
+    first_seg = jobs[0][0]
+    context = {
+        "task": "batch_translate",
+        "part": first_seg.context.get("part"),
+        "batch_size": len(jobs),
+    }
+    raw = llm_client.translate(prompt, context)
+    return _parse_batch_translation_output(raw, [item["id"] for item in items])
+
+
+def _translate_batch_group(
+    jobs: list[tuple[Segment, str, str]],
+    cfg: PipelineConfig,
+    llm_client,
+    logger: logging.Logger,
+) -> list[tuple[Segment, str, str, str, list[Issue]]]:
+    if len(jobs) == 1:
+        seg, source_hash, source_norm = jobs[0]
+        out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+        return [(seg, source_hash, source_norm, out, issues)]
+
+    try:
+        batch_map = _translate_batch_once(llm_client, jobs)
+    except Exception as e:
+        logger.warning(f"Batch translate failed (size={len(jobs)}), fallback to single-segment: {e}")
+        results: list[tuple[Segment, str, str, str, list[Issue]]] = []
+        for seg, source_hash, source_norm in jobs:
+            out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+            issues = [
+                Issue(
+                    code="batch_fallback_single",
+                    severity=Severity.WARN,
+                    message=f"Batch translation failed, fallback to single segment: {e}",
+                    details={"batch_size": len(jobs)},
+                ),
+                *issues,
+            ]
+            results.append((seg, source_hash, source_norm, out, issues))
+        return results
+
+    results: list[tuple[Segment, str, str, str, list[Issue]]] = []
+    for seg, source_hash, source_norm in jobs:
+        candidate = batch_map.get(seg.segment_id)
+        if candidate is None:
+            out, fallback_issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+            issues = [
+                Issue(
+                    code="batch_missing_segment",
+                    severity=Severity.WARN,
+                    message="Batch response missed segment id, fallback to single segment translation.",
+                    details={"batch_size": len(jobs)},
+                ),
+                *fallback_issues,
+            ]
+            results.append((seg, source_hash, source_norm, out, issues))
+            continue
+
+        batch_issues = _validate_segment_candidate(seg, candidate)
+        if any(i.severity == Severity.ERROR for i in batch_issues):
+            out, fallback_issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+            issues = [
+                Issue(
+                    code="batch_validation_fallback",
+                    severity=Severity.WARN,
+                    message="Batch output failed validation, fallback to single segment translation.",
+                    details={"batch_size": len(jobs)},
+                ),
+                *batch_issues,
+                *fallback_issues,
+            ]
+            results.append((seg, source_hash, source_norm, out, issues))
+            continue
+
+        batch_issues.append(
+            Issue(
+                code="batch_ok",
+                severity=Severity.INFO,
+                message="Segment translated in grouped batch mode.",
+                details={"batch_size": len(jobs)},
+            )
+        )
+        results.append((seg, source_hash, source_norm, candidate, batch_issues))
+    return results
+
+
 def _translate_one(
     seg: Segment,
     cfg: PipelineConfig,
@@ -426,17 +704,7 @@ def _translate_one(
         last_output = out
 
         # Validate markers and numbers
-        src_unshielded = unshield(seg.shielded_tagged or "", seg.token_map or {})
-        tgt_unshielded = unshield(out, seg.token_map or {})
-        src_plain = strip_bracket_tokens(src_unshielded)
-        tgt_plain = strip_bracket_tokens(tgt_unshielded)
-
-        issues = validate_all(
-            source_shielded_tagged=seg.shielded_tagged or "",
-            target_shielded_tagged=out,
-            source_unshielded_plain=src_plain,
-            target_unshielded_plain=tgt_plain,
-        )
+        issues = _validate_segment_candidate(seg, out)
 
         hard_errors = [i for i in issues if i.severity == Severity.ERROR]
         if not hard_errors:
@@ -467,7 +735,16 @@ def translate_docx(
     logger.info(f"Input: {input_path}")
     logger.info(f"Output: {output_path}")
     logger.info(
-        f"Mode: {cfg.mode}; concurrency={cfg.concurrency}; headers={cfg.include_headers}; footers={cfg.include_footers}"
+        "Mode: "
+        f"{cfg.mode}; "
+        f"concurrency={cfg.concurrency}; "
+        f"headers={cfg.include_headers}; "
+        f"footers={cfg.include_footers}; "
+        f"glossary_in_prompt={cfg.llm.glossary_in_prompt}; "
+        f"reasoning_effort={cfg.llm.reasoning_effort or '(default)'}; "
+        f"batch_segments={cfg.llm.batch_segments}; "
+        f"batch_max_chars={cfg.llm.batch_max_chars}; "
+        f"history_jsonl={cfg.translation_history_path or '(off)'}"
     )
     logger.info(f"TM ruleset version: {_TM_RULESET_VERSION}")
 
@@ -486,9 +763,17 @@ def translate_docx(
     if cfg.llm.provider.strip().lower() == "google" and custom_system_prompt:
         logger.info("Provider 'google' does not support system prompts; custom prompt is ignored for this run.")
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = ()
-    if cfg.llm.provider.strip().lower() == "google" and glossary_text:
+    provider_norm = cfg.llm.provider.strip().lower()
+    glossary_in_prompt = bool(cfg.llm.glossary_in_prompt)
+    if glossary_text and (provider_norm == "google" or not glossary_in_prompt):
         glossary_terms = build_hard_glossary_replacements(glossary_text)
-        logger.info(f"Hard glossary enforcement enabled for google provider: {len(glossary_terms)} terms")
+        logger.info(
+            f"Hard glossary enforcement enabled ({len(glossary_terms)} terms); provider={cfg.llm.provider}; "
+            f"glossary_in_prompt={glossary_in_prompt}"
+        )
+    effective_glossary_text = glossary_text if glossary_in_prompt else None
+    if glossary_text and not glossary_in_prompt:
+        logger.info("Glossary prompt injection is disabled; using hard glossary shielding to save tokens.")
     llm_client = build_llm_client(
         provider=cfg.llm.provider,
         model=cfg.llm.model,
@@ -499,7 +784,10 @@ def translate_docx(
         target_lang=cfg.llm.target_lang,
         base_url=cfg.llm.base_url,
         custom_system_prompt=custom_system_prompt,
-        glossary_text=glossary_text,
+        glossary_text=effective_glossary_text,
+        reasoning_effort=cfg.llm.reasoning_effort,
+        prompt_cache_key=cfg.llm.prompt_cache_key,
+        prompt_cache_retention=cfg.llm.prompt_cache_retention,
     )
 
     # Stage 1: tagging + shielding + TM lookup
@@ -509,6 +797,9 @@ def translate_docx(
     tagging_errors = 0
     complex_translated = 0
     complex_chunk_cache: dict[str, str] = {}
+    segment_source_hash: dict[str, str] = {}
+    tm_hit_segments: set[str] = set()
+    llm_translated_segments: set[str] = set()
 
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
         prev_progress = tm.get_progress(seg.segment_id) if resume else None
@@ -587,6 +878,7 @@ def translate_docx(
         source_norm = normalize_text(shielded_text)
         source_norm_for_hash = f"{_TM_RULESET_VERSION}\n{source_norm}"
         source_hash = sha256_hex(source_norm_for_hash)
+        segment_source_hash[seg.segment_id] = source_hash
 
         if (
             resume
@@ -599,12 +891,14 @@ def translate_docx(
                 seg.target_shielded_tagged = hit.target_text
                 tm_hits += 1
                 resume_hits += 1
+                tm_hit_segments.add(seg.segment_id)
                 continue
 
         hit = tm.get_exact(source_hash)
         if hit is not None:
             seg.target_shielded_tagged = hit.target_text
             tm_hits += 1
+            tm_hit_segments.add(seg.segment_id)
             tm.set_progress(seg.segment_id, "tm", source_hash=source_hash)
         else:
             to_translate.append((seg, source_hash, source_norm))
@@ -616,48 +910,88 @@ def translate_docx(
     logger.info(f"Complex paragraphs translated in-place: {complex_translated}")
     logger.info(f"LLM segments: {len(to_translate)}")
 
-    # Stage 2: LLM translate concurrently
+    # Stage 2: LLM translate (single-segment or grouped batches)
     if to_translate:
-        with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
-            futures = {
-                ex.submit(_translate_one, seg, cfg, llm_client, sh, sn, logger): (seg, sh, sn)
-                for (seg, sh, sn) in to_translate
-            }
-            for fut in tqdm(as_completed(futures), total=len(futures), desc="Translate", unit="seg"):
-                seg, source_hash, source_norm = futures[fut]
-                try:
-                    out, issues = fut.result()
-                except Exception as e:
-                    seg.issues.append(
-                        Issue(
-                            code="translate_crash",
-                            severity=Severity.ERROR,
-                            message=f"Translate crash: {e}",
-                            details={},
+        provider_norm = cfg.llm.provider.strip().lower()
+        grouped_mode = cfg.llm.batch_segments > 1 and provider_norm in _BATCH_PROVIDER_ALLOWLIST
+        if cfg.llm.batch_segments > 1 and not grouped_mode:
+            logger.info(
+                f"Grouped batch mode requested, but provider '{cfg.llm.provider}' is not supported; using per-segment mode."
+            )
+
+        if grouped_mode:
+            grouped_jobs = _chunk_translation_jobs(
+                to_translate,
+                max_segments=cfg.llm.batch_segments,
+                max_chars=cfg.llm.batch_max_chars,
+            )
+            logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
+
+            for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
+                batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
+                for seg, source_hash, source_norm, out, issues in batch_results:
+                    seg.target_shielded_tagged = out
+                    seg.issues.extend(issues)
+
+                    # Store to TM only if no hard errors (avoid caching broken markers).
+                    if not any(i.severity == Severity.ERROR for i in issues):
+                        llm_translated_segments.add(seg.segment_id)
+                        tm.put_exact(
+                            source_hash=source_hash,
+                            source_norm=source_norm,
+                            target_text=out,
+                            meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
                         )
-                    )
-                    tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
-                    continue
+                        tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
+                    else:
+                        tm.set_progress(
+                            seg.segment_id,
+                            "error",
+                            source_hash=source_hash,
+                            error="; ".join(i.code for i in issues),
+                        )
+        else:
+            with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
+                futures = {
+                    ex.submit(_translate_one, seg, cfg, llm_client, sh, sn, logger): (seg, sh, sn)
+                    for (seg, sh, sn) in to_translate
+                }
+                for fut in tqdm(as_completed(futures), total=len(futures), desc="Translate", unit="seg"):
+                    seg, source_hash, source_norm = futures[fut]
+                    try:
+                        out, issues = fut.result()
+                    except Exception as e:
+                        seg.issues.append(
+                            Issue(
+                                code="translate_crash",
+                                severity=Severity.ERROR,
+                                message=f"Translate crash: {e}",
+                                details={},
+                            )
+                        )
+                        tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                        continue
 
-                seg.target_shielded_tagged = out
-                seg.issues.extend(issues)
+                    seg.target_shielded_tagged = out
+                    seg.issues.extend(issues)
 
-                # Store to TM only if no hard errors (avoid caching broken markers).
-                if not any(i.severity == Severity.ERROR for i in issues):
-                    tm.put_exact(
-                        source_hash=source_hash,
-                        source_norm=source_norm,
-                        target_text=out,
-                        meta={"provider": cfg.llm.provider, "model": cfg.llm.model},
-                    )
-                    tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
-                else:
-                    tm.set_progress(
-                        seg.segment_id,
-                        "error",
-                        source_hash=source_hash,
-                        error="; ".join(i.code for i in issues),
-                    )
+                    # Store to TM only if no hard errors (avoid caching broken markers).
+                    if not any(i.severity == Severity.ERROR for i in issues):
+                        llm_translated_segments.add(seg.segment_id)
+                        tm.put_exact(
+                            source_hash=source_hash,
+                            source_norm=source_norm,
+                            target_text=out,
+                            meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
+                        )
+                        tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
+                    else:
+                        tm.set_progress(
+                            seg.segment_id,
+                            "error",
+                            source_hash=source_hash,
+                            error="; ".join(i.code for i in issues),
+                        )
 
     # Stage 3: Unshield + write back to DOCX
     written = 0
@@ -719,6 +1053,27 @@ def translate_docx(
     write_qa_jsonl(segments, qa_jsonl)
     logger.info(f"QA report: {qa_html}")
     logger.info(f"QA jsonl: {qa_jsonl}")
+
+    if cfg.translation_history_path:
+        history_path = Path(cfg.translation_history_path)
+        history_records: list[dict[str, Any]] = []
+        for seg in segments:
+            if seg.target_shielded_tagged is None or seg.shielded_tagged is None:
+                continue
+            if any(i.severity == Severity.ERROR for i in seg.issues):
+                continue
+            source_hash = segment_source_hash.get(seg.segment_id)
+            if seg.segment_id in llm_translated_segments:
+                origin = "llm"
+            elif seg.segment_id in tm_hit_segments:
+                origin = "tm"
+            else:
+                origin = "reuse"
+            history_records.append(
+                _build_history_record(seg, cfg, source_hash=source_hash, origin=origin)
+            )
+        _append_history_jsonl(history_path, history_records)
+        logger.info(f"Translation history appended: {history_path} ({len(history_records)} records)")
 
     # Optional COM mode is not invoked automatically here (platform specific).
     if cfg.mode.lower() == "com":

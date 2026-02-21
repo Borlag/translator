@@ -98,11 +98,29 @@ Notes:
 
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
 - `llm.glossary_path` is applied for all providers; for `google` it is hard-enforced via placeholder shielding (so glossary terms cannot drift).
+- `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens); glossary can still be enforced via hard shielding.
+- `llm.reasoning_effort` can tune OpenAI reasoning spend (`none|minimal|low|medium|high|xhigh`).
+- `llm.prompt_cache_key` / `llm.prompt_cache_retention` can reduce cost for repeated prompt prefixes in OpenAI calls.
+- Grouped translation mode is available for `openai` and `ollama`:
+  - `llm.batch_segments` (default `1`) controls how many nearby segments are translated in one LLM request.
+  - `llm.batch_max_chars` (default `12000`) is a soft per-request payload cap.
+  - CLI overrides: `--batch-segments` and `--batch-max-chars`.
+  - If grouped output fails marker validation, the pipeline automatically falls back to single-segment translation for safety.
+- Optional translation memory history:
+  - `translation_history_path` writes append-only JSONL with source/target/context for successful segments.
+  - Use `python scripts/tm_lookup.py --term "your term"` to search prior decisions in `translation_cache.sqlite`.
 
 Safety behavior:
 
 - If translation/marker validation has hard errors, write-back for that segment is skipped and source text is preserved.
 - `--resume` now reuses recorded progress + TM entries when source hash matches.
+
+OpenAI "agent translator" profile:
+
+```bash
+export OPENAI_API_KEY=...
+docxru translate --input source.docx --output target_ru.docx --config config/config.agent_openai.yaml
+```
 
 ---
 

@@ -22,6 +22,18 @@ class LLMConfig:
     timeout_s: float = 60.0
     system_prompt_path: str | None = None
     glossary_path: str | None = None
+    # If false, glossary is not injected into each LLM prompt (saves tokens).
+    # In this case pipeline can enforce glossary via hard placeholder shielding.
+    glossary_in_prompt: bool = True
+    # OpenAI reasoning effort hint: none|minimal|low|medium|high|xhigh
+    reasoning_effort: str | None = None
+    # OpenAI prompt caching controls (Chat Completions / Responses).
+    prompt_cache_key: str | None = None
+    prompt_cache_retention: str | None = None
+    # Translate several nearby segments in one LLM request for better context coherence.
+    batch_segments: int = 1
+    # Soft payload limiter for batch mode; very long segments are still translated individually.
+    batch_max_chars: int = 12000
 
 
 @dataclass(frozen=True)
@@ -39,6 +51,8 @@ class PipelineConfig:
     mode: str = "reflow"  # 'reflow' | 'com'
     qa_report_path: str = "qa_report.html"
     qa_jsonl_path: str = "qa.jsonl"
+    # Optional append-only translation history for human review and term/context lookup.
+    translation_history_path: str | None = None
     log_path: str = "run.log"
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
@@ -75,6 +89,25 @@ def load_config(path: str | Path) -> PipelineConfig:
         timeout_s=float(llm_data.get("timeout_s", 60.0)),
         system_prompt_path=_resolve_optional_path(cfg_path.parent, llm_data.get("system_prompt_path")),
         glossary_path=_resolve_optional_path(cfg_path.parent, llm_data.get("glossary_path")),
+        glossary_in_prompt=bool(llm_data.get("glossary_in_prompt", True)),
+        reasoning_effort=(
+            str(llm_data["reasoning_effort"]).strip()
+            if llm_data.get("reasoning_effort") is not None and str(llm_data["reasoning_effort"]).strip()
+            else None
+        ),
+        prompt_cache_key=(
+            str(llm_data["prompt_cache_key"]).strip()
+            if llm_data.get("prompt_cache_key") is not None and str(llm_data["prompt_cache_key"]).strip()
+            else None
+        ),
+        prompt_cache_retention=(
+            str(llm_data["prompt_cache_retention"]).strip()
+            if llm_data.get("prompt_cache_retention") is not None
+            and str(llm_data["prompt_cache_retention"]).strip()
+            else None
+        ),
+        batch_segments=int(llm_data.get("batch_segments", 1)),
+        batch_max_chars=int(llm_data.get("batch_max_chars", 12000)),
     )
     tm = TMConfig(path=str(tm_data.get("path", "translation_cache.sqlite")))
 
@@ -84,6 +117,7 @@ def load_config(path: str | Path) -> PipelineConfig:
     mode = str(data.get("mode", "reflow"))
     qa_report_path = str(data.get("qa_report_path", "qa_report.html"))
     qa_jsonl_path = str(data.get("qa_jsonl_path", "qa.jsonl"))
+    translation_history_path = _resolve_optional_path(cfg_path.parent, data.get("translation_history_path"))
     log_path = str(data.get("log_path", "run.log"))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
@@ -124,6 +158,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         mode=mode,
         qa_report_path=qa_report_path,
         qa_jsonl_path=qa_jsonl_path,
+        translation_history_path=translation_history_path,
         log_path=log_path,
         pattern_set=pattern_set,
     )

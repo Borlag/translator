@@ -7,7 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Pattern, Protocol
+from typing import Any, Protocol
 
 
 class LLMClient(Protocol):
@@ -60,12 +60,19 @@ OUTPUT:
 ...
 """
 
-GlossaryReplacement = tuple[Pattern[str], str]
+BATCH_SYSTEM_PROMPT_TEMPLATE = """You translate technical aviation text from English to Russian.
+Return ONLY valid JSON in the requested schema.
+Do not add commentary.
+Preserve all marker tokens exactly (for example: ⟦...⟧ / 🦦...🧧).
+Preserve numbers, units, and punctuation.
+"""
+
+GlossaryReplacement = tuple[re.Pattern[str], str]
 
 
 def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     task = str(context.get("task", "translate")).lower()
-    if task == "repair":
+    if task in {"repair", "batch_translate"}:
         return text
 
     # Context is kept short to reduce hallucination risk.
@@ -87,6 +94,19 @@ def supports_repair(client: LLMClient) -> bool:
 def _extract_repair_output(text: str) -> str:
     m = re.search(r"^OUTPUT:\s*\n(.*)\Z", text, flags=re.DOTALL | re.MULTILINE)
     return m.group(1) if m else text
+
+
+def _is_gpt5_family(model: str) -> bool:
+    return model.strip().lower().startswith("gpt-5")
+
+
+def _supports_temperature(model: str, reasoning_effort: str | None) -> bool:
+    m = model.strip().lower()
+    if not _is_gpt5_family(m):
+        return True
+    if m.startswith("gpt-5.1") or m.startswith("gpt-5.2"):
+        return (reasoning_effort or "").strip().lower() in {"", "none"}
+    return False
 
 
 def build_translation_system_prompt(
@@ -130,7 +150,7 @@ def parse_glossary_pairs(glossary_text: str | None) -> list[tuple[str, str]]:
     return pairs
 
 
-def _compile_term_pattern(source_term: str) -> Pattern[str]:
+def _compile_term_pattern(source_term: str) -> re.Pattern[str]:
     escaped = re.escape(source_term.strip())
     gap = r"(?:\s+|⟦BR(?:LINE|COL|PAGE)_\d+⟧)+"
     optional_gap = r"(?:\s+|⟦BR(?:LINE|COL|PAGE)_\d+⟧)*"
@@ -422,6 +442,9 @@ class OpenAIChatCompletionsClient:
     base_url: str | None = None
     translation_system_prompt: str = SYSTEM_PROMPT_TEMPLATE
     glossary_replacements: tuple[GlossaryReplacement, ...] = ()
+    reasoning_effort: str | None = None
+    prompt_cache_key: str | None = None
+    prompt_cache_retention: str | None = None
     supports_repair: bool = True
 
     def translate(self, text: str, context: dict[str, Any]) -> str:
@@ -430,38 +453,91 @@ class OpenAIChatCompletionsClient:
             raise RuntimeError("OPENAI_API_KEY is not set")
 
         task = str(context.get("task", "translate")).lower()
-        system_prompt = REPAIR_SYSTEM_PROMPT_TEMPLATE if task == "repair" else self.translation_system_prompt
+        if task == "repair":
+            system_prompt = REPAIR_SYSTEM_PROMPT_TEMPLATE
+        elif task == "batch_translate":
+            system_prompt = BATCH_SYSTEM_PROMPT_TEMPLATE
+        else:
+            system_prompt = self.translation_system_prompt
 
         base = (self.base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")).rstrip("/")
         url = f"{base}/v1/chat/completions"
 
-        payload = {
-            "model": self.model,
-            "temperature": self.temperature if task != "repair" else 0.0,
-            "max_tokens": self.max_output_tokens,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": build_user_prompt(text, context)},
-            ],
-        }
-        req = urllib.request.Request(
-            url=url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
-            method="POST",
-        )
+        model_reasoning_effort = self.reasoning_effort
+        temperature: float | None = None
+        if task == "repair":
+            temperature = 0.0
+        elif task == "batch_translate":
+            temperature = 0.0 if _supports_temperature(self.model, model_reasoning_effort) else None
+        elif _supports_temperature(self.model, model_reasoning_effort):
+            temperature = self.temperature
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
-            raise RuntimeError(f"OpenAI HTTPError {e.code}: {body}") from e
-        except Exception as e:
-            raise RuntimeError(f"OpenAI request failed: {e}") from e
+        include_cache_key = bool(self.prompt_cache_key)
+        include_cache_retention = bool(self.prompt_cache_retention)
+        data: dict[str, Any] | None = None
+
+        for _ in range(3):
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": build_user_prompt(text, context)},
+                ],
+            }
+            if _is_gpt5_family(self.model):
+                payload["max_completion_tokens"] = self.max_output_tokens
+            else:
+                payload["max_tokens"] = self.max_output_tokens
+            if temperature is not None:
+                payload["temperature"] = temperature
+            if model_reasoning_effort:
+                payload["reasoning_effort"] = model_reasoning_effort
+            if task == "batch_translate":
+                payload["response_format"] = {"type": "json_object"}
+            if include_cache_key and self.prompt_cache_key:
+                payload["prompt_cache_key"] = self.prompt_cache_key
+            if include_cache_retention and self.prompt_cache_retention:
+                payload["prompt_cache_retention"] = self.prompt_cache_retention
+
+            req = urllib.request.Request(
+                url=url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
+                method="POST",
+            )
+
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+                body_l = body.lower()
+                param: str | None = None
+                try:
+                    err_data = json.loads(body) if body else {}
+                    param_raw = ((err_data.get("error", {}) or {}).get("param"))
+                    param = str(param_raw) if param_raw is not None else None
+                except Exception:
+                    param = None
+
+                if include_cache_retention and (
+                    param == "prompt_cache_retention" or "prompt_cache_retention" in body_l
+                ):
+                    include_cache_retention = False
+                    continue
+                if include_cache_key and (param == "prompt_cache_key" or "prompt_cache_key" in body_l):
+                    include_cache_key = False
+                    continue
+                raise RuntimeError(f"OpenAI HTTPError {e.code}: {body}") from e
+            except Exception as e:
+                raise RuntimeError(f"OpenAI request failed: {e}") from e
+
+        if data is None:
+            raise RuntimeError("OpenAI request failed after retries")
 
         try:
             content = data["choices"][0]["message"]["content"]
@@ -619,6 +695,9 @@ def build_llm_client(
     base_url: str | None = None,
     custom_system_prompt: str | None = None,
     glossary_text: str | None = None,
+    reasoning_effort: str | None = None,
+    prompt_cache_key: str | None = None,
+    prompt_cache_retention: str | None = None,
 ) -> LLMClient:
     provider_norm = provider.strip().lower()
     translation_prompt = build_translation_system_prompt(
@@ -638,6 +717,9 @@ def build_llm_client(
             base_url=base_url,
             translation_system_prompt=translation_prompt,
             glossary_replacements=glossary_replacements,
+            reasoning_effort=reasoning_effort,
+            prompt_cache_key=prompt_cache_key,
+            prompt_cache_retention=prompt_cache_retention,
         )
     if provider_norm == "google":
         return GoogleFreeTranslateClient(

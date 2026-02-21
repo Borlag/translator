@@ -97,8 +97,9 @@ llm:
 Notes:
 
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
-- `llm.glossary_path` is applied for all providers; for `google` it is hard-enforced via placeholder shielding (so glossary terms cannot drift).
-- `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens); glossary can still be enforced via hard shielding.
+- `llm.glossary_path` is applied for all providers.
+- `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens).
+- `llm.hard_glossary: true` enables strict placeholder-based term locking. Use only when required: it can reduce natural RU morphology (падеж/согласование).
 - `llm.reasoning_effort` can tune OpenAI reasoning spend (`none|minimal|low|medium|high|xhigh`).
 - `llm.prompt_cache_key` / `llm.prompt_cache_retention` can reduce cost for repeated prompt prefixes in OpenAI calls.
 - Grouped translation mode is available for `openai` and `ollama`:

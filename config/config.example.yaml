@@ -8,7 +8,8 @@ llm:
   base_url: null          # openai: custom API URL; google: endpoint base; ollama: e.g. http://localhost:11434
   system_prompt_path: null # optional .md/.txt with extra translation instructions
   glossary_path: null      # optional .md/.txt glossary file with EN->RU pairs
-  glossary_in_prompt: true # false = do not send full glossary in every prompt (hard glossary shielding still applies)
+  glossary_in_prompt: true # false = do not send full glossary in every prompt
+  hard_glossary: false     # true = lock glossary terms via placeholders (stricter, but can hurt RU morphology)
   reasoning_effort: null   # openai hint: none|minimal|low|medium|high|xhigh
   prompt_cache_key: null   # optional openai cache key for repeated prompt prefixes
   prompt_cache_retention: null # optional openai retention hint, e.g. "24h"

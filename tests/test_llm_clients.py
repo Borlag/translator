@@ -114,6 +114,18 @@ Downlocking Spring — Пружина фиксации
     assert ("Bearing", "Подшипник") in pairs
 
 
+def test_parse_glossary_pairs_extracts_markdown_table_rows():
+    glossary = """
+| English | Русский термин |
+|---|---|
+| Main Fitting | Корпус стойки |
+| Sliding Tube | Скользящая трубка |
+"""
+    pairs = parse_glossary_pairs(glossary)
+    assert ("Main Fitting", "Корпус стойки") in pairs
+    assert ("Sliding Tube", "Скользящая трубка") in pairs
+
+
 def test_google_free_client_applies_glossary_replacements():
     def fake_urlopen(req, timeout=0):
         return _FakeResponse('[[["Downlocking Spring","Downlocking Spring",null,null,1]],null,"en"]')
@@ -143,6 +155,18 @@ def test_domain_replacements_include_repair_no():
     for pattern, repl in replacements:
         out = pattern.sub(repl, out)
     assert "Ремонт №" in out
+
+
+def test_domain_replacements_do_not_apply_single_word_rules_by_default():
+    out = "Upper diaphragm tube"
+    for pattern, repl in build_domain_replacements():
+        out = pattern.sub(repl, out)
+    assert out == "Upper diaphragm tube"
+
+    out_with_single = "Upper diaphragm tube"
+    for pattern, repl in build_domain_replacements(include_single_words=True):
+        out_with_single = pattern.sub(repl, out_with_single)
+    assert out_with_single != "Upper diaphragm tube"
 
 
 def test_domain_replacements_normalize_common_sb_phrases():

@@ -1,0 +1,39 @@
+﻿# HY-MT 7B local config for docxru
+
+llm:
+  provider: ollama
+  model: sun_leaf/HY-MT:7b
+  source_lang: en
+  target_lang: ru
+  base_url: http://127.0.0.1:11434
+  system_prompt_path: ../general_prompt.md
+  glossary_path: ../glossary.md
+  glossary_in_prompt: true
+  hard_glossary: true
+  reasoning_effort: null
+  prompt_cache_key: null
+  prompt_cache_retention: null
+  temperature: 0.0
+  max_output_tokens: 2000
+  retries: 3
+  timeout_s: 120.0
+  batch_segments: 1
+  batch_max_chars: 12000
+
+tm:
+  path: ../translation_cache_hy_mt.sqlite
+
+include_headers: false
+include_footers: false
+
+concurrency: 2
+mode: reflow
+
+qa_report_path: ../qa_report.html
+qa_jsonl_path: ../qa.jsonl
+translation_history_path: null
+log_path: ../run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

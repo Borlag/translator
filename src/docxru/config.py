@@ -23,8 +23,11 @@ class LLMConfig:
     system_prompt_path: str | None = None
     glossary_path: str | None = None
     # If false, glossary is not injected into each LLM prompt (saves tokens).
-    # In this case pipeline can enforce glossary via hard placeholder shielding.
+    # If hard_glossary is enabled, pipeline can still enforce glossary via placeholder shielding.
     glossary_in_prompt: bool = True
+    # Hard glossary = pre-translation term locking via placeholders.
+    # Improves strict term stability but may hurt RU morphology (case/number agreement).
+    hard_glossary: bool = False
     # OpenAI reasoning effort hint: none|minimal|low|medium|high|xhigh
     reasoning_effort: str | None = None
     # OpenAI prompt caching controls (Chat Completions / Responses).
@@ -90,6 +93,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         system_prompt_path=_resolve_optional_path(cfg_path.parent, llm_data.get("system_prompt_path")),
         glossary_path=_resolve_optional_path(cfg_path.parent, llm_data.get("glossary_path")),
         glossary_in_prompt=bool(llm_data.get("glossary_in_prompt", True)),
+        hard_glossary=bool(llm_data.get("hard_glossary", False)),
         reasoning_effort=(
             str(llm_data["reasoning_effort"]).strip()
             if llm_data.get("reasoning_effort") is not None and str(llm_data["reasoning_effort"]).strip()

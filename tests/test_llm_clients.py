@@ -226,6 +226,19 @@ def test_ollama_client_translate_with_mocked_http():
     assert payloads[0]["stream"] is False
 
 
+def test_ollama_client_repair_extracts_output_payload():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse(
+            '{"message":{"content":"TASK: REPAIR_MARKERS\\n\\nSOURCE:\\nX\\n\\nOUTPUT:\\nfixed text"}}'
+        )
+
+    client = OllamaChatClient(model="qwen2.5:7b")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
+
+    assert out == "fixed text"
+
+
 def test_build_user_prompt_passthrough_for_batch_task():
     text = '{"translations":[{"id":"1","text":"T1"}]}'
     out = build_user_prompt(text, {"task": "batch_translate", "part": "body"})
@@ -277,6 +290,22 @@ def test_openai_client_non_gpt5_uses_max_tokens():
     assert out == "ok"
     assert payloads and payloads[0]["max_tokens"] == client.max_output_tokens
     assert "max_completion_tokens" not in payloads[0]
+
+
+def test_openai_client_repair_extracts_output_payload():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse(
+            '{"choices":[{"message":{"content":"TASK: REPAIR_MARKERS\\n\\nSOURCE:\\nX\\n\\nOUTPUT:\\nrestored"}}]}'
+        )
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
+
+    assert out == "restored"
 
 
 def test_openai_client_retries_without_prompt_cache_retention_when_unsupported():

@@ -401,12 +401,23 @@ def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
     tgt_unshielded = unshield(out, seg.token_map or {})
     src_plain = strip_bracket_tokens(src_unshielded)
     tgt_plain = strip_bracket_tokens(tgt_unshielded)
-    return validate_all(
+    issues = validate_all(
         source_shielded_tagged=seg.shielded_tagged or "",
         target_shielded_tagged=out,
         source_unshielded_plain=src_plain,
         target_unshielded_plain=tgt_plain,
     )
+    leak_upper = out.upper()
+    if "TASK: REPAIR_MARKERS" in leak_upper or ("SOURCE:" in leak_upper and "OUTPUT:" in leak_upper):
+        issues.append(
+            Issue(
+                code="repair_payload_leak",
+                severity=Severity.ERROR,
+                message="Repair prompt payload leaked into segment output.",
+                details={},
+            )
+        )
+    return issues
 
 
 def _utc_now_iso() -> str:
@@ -455,6 +466,23 @@ def _build_history_record(
         "source_text": source_plain,
         "target_text": target_plain,
     }
+
+
+def _as_warn_issues(issues: list[Issue]) -> list[Issue]:
+    normalized: list[Issue] = []
+    for issue in issues:
+        if issue.severity == Severity.ERROR:
+            normalized.append(
+                Issue(
+                    code=f"{issue.code}_downgraded",
+                    severity=Severity.WARN,
+                    message=issue.message,
+                    details=issue.details,
+                )
+            )
+        else:
+            normalized.append(issue)
+    return normalized
 
 
 def _append_history_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
@@ -778,6 +806,10 @@ def translate_docx(
 
     # Attach small neighbor snippets to improve local consistency in tables/lists.
     for idx, seg in enumerate(segments):
+        if seg.context.get("in_table"):
+            continue
+        if len((seg.source_plain or "").strip()) < 80:
+            continue
         prev_text = _compact_context_text(segments[idx - 1].source_plain) if idx > 0 else ""
         next_text = _compact_context_text(segments[idx + 1].source_plain) if idx + 1 < len(segments) else ""
         if prev_text:
@@ -967,11 +999,40 @@ def translate_docx(
             for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
                 batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
                 for seg, source_hash, source_norm, out, issues in batch_results:
+                    hard_errors = any(i.severity == Severity.ERROR for i in issues)
+                    if hard_errors:
+                        changed, fallback_issues = _translate_complex_paragraph_in_place(
+                            seg,
+                            cfg,
+                            llm_client,
+                            complex_chunk_cache,
+                            glossary_terms,
+                        )
+                        if changed:
+                            complex_translated += 1
+                            seg.target_shielded_tagged = None
+                            seg.issues.extend(
+                                [
+                                    Issue(
+                                        code="complex_fallback_after_hard_errors",
+                                        severity=Severity.WARN,
+                                        message=(
+                                            "Segment translated with complex in-place fallback after strict marker "
+                                            "validation failure."
+                                        ),
+                                        details={},
+                                    ),
+                                    *_as_warn_issues(fallback_issues),
+                                ]
+                            )
+                            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
+                            continue
+
                     seg.target_shielded_tagged = out
                     seg.issues.extend(issues)
 
                     # Store to TM only if no hard errors (avoid caching broken markers).
-                    if not any(i.severity == Severity.ERROR for i in issues):
+                    if not hard_errors:
                         llm_translated_segments.add(seg.segment_id)
                         tm.put_exact(
                             source_hash=source_hash,
@@ -1009,11 +1070,40 @@ def translate_docx(
                         tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
                         continue
 
+                    hard_errors = any(i.severity == Severity.ERROR for i in issues)
+                    if hard_errors:
+                        changed, fallback_issues = _translate_complex_paragraph_in_place(
+                            seg,
+                            cfg,
+                            llm_client,
+                            complex_chunk_cache,
+                            glossary_terms,
+                        )
+                        if changed:
+                            complex_translated += 1
+                            seg.target_shielded_tagged = None
+                            seg.issues.extend(
+                                [
+                                    Issue(
+                                        code="complex_fallback_after_hard_errors",
+                                        severity=Severity.WARN,
+                                        message=(
+                                            "Segment translated with complex in-place fallback after strict marker "
+                                            "validation failure."
+                                        ),
+                                        details={},
+                                    ),
+                                    *_as_warn_issues(fallback_issues),
+                                ]
+                            )
+                            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
+                            continue
+
                     seg.target_shielded_tagged = out
                     seg.issues.extend(issues)
 
                     # Store to TM only if no hard errors (avoid caching broken markers).
-                    if not any(i.severity == Severity.ERROR for i in issues):
+                    if not hard_errors:
                         llm_translated_segments.add(seg.segment_id)
                         tm.put_exact(
                             source_hash=source_hash,

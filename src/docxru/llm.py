@@ -91,17 +91,23 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     if context.get("section_header"):
         ctx_parts.append(f"SECTION: {context['section_header']}")
     if context.get("in_table"):
-        ctx_parts.append(f"TABLE: r{context.get('row_index')} c{context.get('col_index')}")
+        ctx_parts.append("TABLE_CELL")
     if context.get("part"):
         ctx_parts.append(f"PART: {context.get('part')}")
-    prev_text = _compact_prompt_snippet(context.get("prev_text"))
-    next_text = _compact_prompt_snippet(context.get("next_text"))
-    if prev_text:
-        ctx_parts.append(f"PREV: {prev_text}")
-    if next_text:
-        ctx_parts.append(f"NEXT: {next_text}")
+    if not context.get("in_table"):
+        prev_text = _compact_prompt_snippet(context.get("prev_text"))
+        next_text = _compact_prompt_snippet(context.get("next_text"))
+        if prev_text:
+            ctx_parts.append(f"PREV: {prev_text}")
+        if next_text:
+            ctx_parts.append(f"NEXT: {next_text}")
     ctx = " | ".join(ctx_parts) if ctx_parts else "(no context)"
-    return f"Context: {ctx}\n\nText:\n{text}"
+    return (
+        "Use context only for disambiguation. Do not translate or repeat context in output.\n"
+        f"Context: {ctx}\n\n"
+        "Translate ONLY the text below:\n"
+        f"{text}"
+    )
 
 
 def supports_repair(client: LLMClient) -> bool:
@@ -109,8 +115,23 @@ def supports_repair(client: LLMClient) -> bool:
 
 
 def _extract_repair_output(text: str) -> str:
-    m = re.search(r"^OUTPUT:\s*\n(.*)\Z", text, flags=re.DOTALL | re.MULTILINE)
-    return m.group(1) if m else text
+    raw = text or ""
+    # Primary path: extract everything after the last OUTPUT: marker.
+    marker = "OUTPUT:"
+    idx = raw.upper().rfind(marker)
+    if idx >= 0:
+        return raw[idx + len(marker) :].lstrip("\r\n ").rstrip()
+
+    # Fallback for markdown wrappers like ``` ... OUTPUT: ... ```
+    m = re.search(r"```(?:text|md|markdown)?\s*([\s\S]*?)\s*```", raw, flags=re.IGNORECASE)
+    if m:
+        inner = m.group(1)
+        idx2 = inner.upper().rfind(marker)
+        if idx2 >= 0:
+            return inner[idx2 + len(marker) :].lstrip("\r\n ").rstrip()
+        return inner.strip()
+
+    return raw
 
 
 def _is_gpt5_family(model: str) -> bool:
@@ -417,6 +438,10 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = re.sub(r"\bReason for Change\b", "Причина изменения", out, flags=re.IGNORECASE)
     out = re.sub(r"\bSubject/?Reference\b", "Тема/ссылка", out, flags=re.IGNORECASE)
     out = re.sub(r"\bService Bulletin List\b", "Список сервисных бюллетеней", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bMain Fitting Subassembly\b", "Подсборка корпуса стойки", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bSubassembly\b", "подсборка", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bIPL\s+FIGURE\b", "IPL РИСУНОК", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bIPL\s+fig\b", "IPL рис.", out, flags=re.IGNORECASE)
     out = re.sub(r"\b(?:fig\.?|figure)\b", "рис.", out, flags=re.IGNORECASE)
     out = re.sub(r"\bfig\s*\(", "рис. (", out, flags=re.IGNORECASE)
 
@@ -597,8 +622,9 @@ class OpenAIChatCompletionsClient:
 
         try:
             content = data["choices"][0]["message"]["content"]
-            if task != "repair":
-                content = apply_glossary_replacements(content, self.glossary_replacements)
+            if task == "repair":
+                return _extract_repair_output(content)
+            content = apply_glossary_replacements(content, self.glossary_replacements)
             return content
         except Exception as e:
             raise RuntimeError(f"Unexpected OpenAI response schema: {data}") from e
@@ -732,8 +758,9 @@ class OllamaChatClient:
 
         try:
             content = data["message"]["content"]
-            if task != "repair":
-                content = apply_glossary_replacements(content, self.glossary_replacements)
+            if task == "repair":
+                return _extract_repair_output(content)
+            content = apply_glossary_replacements(content, self.glossary_replacements)
             return content
         except Exception as e:
             raise RuntimeError(f"Unexpected Ollama response schema: {data}") from e

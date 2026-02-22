@@ -111,6 +111,38 @@ Notes:
   - `translation_history_path` writes append-only JSONL with source/target/context for successful segments.
   - Use `python scripts/tm_lookup.py --term "your term"` to search prior decisions in `translation_cache.sqlite`.
 
+Reliability and terminology controls:
+
+- Structured output for prompt-based providers:
+  - `llm.structured_output_mode: "off" | "auto" | "strict"`
+  - CLI: `--structured-output off|auto|strict`
+- Glossary prompt scope:
+  - `llm.glossary_prompt_mode: "off" | "full" | "matched"`
+  - `llm.glossary_match_limit: 24` (used in `matched` mode)
+  - CLI: `--glossary-prompt-mode off|full|matched`
+- Batch guardrails:
+  - `llm.batch_skip_on_brline: true`
+  - `llm.batch_max_style_tokens: 16`
+- Fuzzy TM hints in prompt context:
+  - `tm.fuzzy_enabled`, `tm.fuzzy_top_k`, `tm.fuzzy_min_similarity`, `tm.fuzzy_prompt_max_chars`
+  - CLI switch: `--fuzzy-tm`
+- Optional ABBYY normalization:
+  - `abbyy_profile: "off" | "safe" | "aggressive"`
+  - CLI: `--abbyy-profile off|safe|aggressive`
+- Optional glossary morphology check (`pymorphy3`, if installed):
+  - `glossary_lemma_check: "off" | "warn" | "retry"`
+  - In `retry` mode, pipeline performs one additional glossary-focused rewrite when matched terms are missing.
+
+New QA/diagnostic issue codes:
+
+- `batch_json_schema_violation`: grouped batch response failed JSON/schema contract.
+- `batch_validation_fallback`: grouped output failed marker validation, single-segment fallback used.
+- `batch_fallback_single`: grouped request failed, translated segment-by-segment.
+
+YAML note:
+
+- Enum-like values such as `"off"` should be quoted in YAML. Unquoted `off` may be parsed as boolean `false`.
+
 Safety behavior:
 
 - If translation/marker validation has hard errors, write-back for that segment is skipped and source text is preserved.

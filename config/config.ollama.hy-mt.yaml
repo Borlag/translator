@@ -37,7 +37,7 @@ include_footers: false
 
 concurrency: 2
 mode: reflow
-abbyy_profile: "off"
+abbyy_profile: "off" # set to "safe" for ABBYY-converted files
 glossary_lemma_check: "off"
 
 qa_report_path: ../qa_report.html

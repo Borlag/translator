@@ -24,6 +24,7 @@ llm:
   batch_max_chars: 12000 # soft payload cap per grouped request
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
+  context_window_chars: 0 # >0 disables grouped/parallel translate and injects recent EN=>RU context
 
 tm:
   path: translation_cache.sqlite

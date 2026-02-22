@@ -121,6 +121,28 @@ def _format_matched_glossary_block(value: Any) -> str:
     return "\n".join(lines)
 
 
+def _format_recent_translations_block(value: Any, *, max_chars: int = 500) -> str:
+    pairs = _coerce_glossary_pairs(value)
+    if not pairs:
+        return ""
+
+    lines: list[str] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for source, target in pairs:
+        src = _compact_prompt_snippet(source, max_chars=120)
+        tgt = _compact_prompt_snippet(target, max_chars=120)
+        if not src or not tgt:
+            continue
+        line = f"- {src} => {tgt}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        lines.append(line)
+        consumed += line_cost
+    return "\n".join(lines)
+
+
 def _format_tm_references_block(value: Any, *, max_chars: int = 500) -> str:
     if value is None:
         return ""
@@ -189,6 +211,10 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     if matched_glossary:
         extra_blocks.append(f"MATCHED_GLOSSARY (EN -> RU):\n{matched_glossary}")
 
+    document_glossary = _format_matched_glossary_block(context.get("document_glossary"))
+    if document_glossary:
+        extra_blocks.append(f"DOCUMENT_GLOSSARY (EN -> RU):\n{document_glossary}")
+
     raw_tm_max_chars = context.get("tm_references_max_chars", 500)
     try:
         tm_max_chars = int(raw_tm_max_chars)
@@ -197,6 +223,18 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     tm_references = _format_tm_references_block(context.get("tm_references"), max_chars=tm_max_chars)
     if tm_references:
         extra_blocks.append(f"TM_REFERENCES:\n{tm_references}")
+
+    raw_recent_max_chars = context.get("recent_translations_max_chars", 500)
+    try:
+        recent_max_chars = int(raw_recent_max_chars)
+    except (TypeError, ValueError):
+        recent_max_chars = 500
+    recent_translations = _format_recent_translations_block(
+        context.get("recent_translations"),
+        max_chars=recent_max_chars,
+    )
+    if recent_translations:
+        extra_blocks.append(f"RECENT_TRANSLATIONS (EN => RU):\n{recent_translations}")
 
     extra_section = ""
     if extra_blocks:

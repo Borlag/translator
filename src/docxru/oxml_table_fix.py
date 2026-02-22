@@ -77,6 +77,20 @@ def remove_frame_pr(document) -> int:
     return removed
 
 
+def relax_exact_line_spacing(document) -> int:
+    """Relax paragraph spacing lineRule='exact' to lineRule='atLeast'."""
+    changed = 0
+    spacing_tag = qn("w:spacing")
+    line_rule_attr = qn("w:lineRule")
+    for spacing in document.element.iter(spacing_tag):
+        line_rule = str(spacing.get(line_rule_attr, "")).strip().lower()
+        if line_rule != "exact":
+            continue
+        spacing.set(line_rule_attr, "atLeast")
+        changed += 1
+    return changed
+
+
 def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     """Apply optional ABBYY-specific OXML cleanup by profile.
 
@@ -92,6 +106,7 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     stats = {
         "tr_height_exact_removed": 0,
         "frame_pr_removed": 0,
+        "line_spacing_exact_relaxed": 0,
     }
     if mode == "off":
         return stats
@@ -99,4 +114,5 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     stats["tr_height_exact_removed"] = remove_exact_tr_height(document)
     if mode == "aggressive":
         stats["frame_pr_removed"] = remove_frame_pr(document)
+        stats["line_spacing_exact_relaxed"] = relax_exact_line_spacing(document)
     return stats

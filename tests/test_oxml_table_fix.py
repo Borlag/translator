@@ -27,33 +27,48 @@ def _append_frame_pr(doc: Document):
     return p_pr
 
 
+def _append_exact_line_spacing(doc: Document):
+    p = doc.add_paragraph("Line spacing sample")
+    p_pr = p._p.get_or_add_pPr()
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:line"), "240")
+    spacing.set(qn("w:lineRule"), "exact")
+    p_pr.append(spacing)
+    return spacing
+
+
 def test_normalize_abbyy_oxml_safe_removes_exact_trheight_only():
     doc = Document()
     tr_pr = _append_exact_tr_height(doc)
     p_pr = _append_frame_pr(doc)
+    spacing = _append_exact_line_spacing(doc)
 
     stats = normalize_abbyy_oxml(doc, profile="safe")
 
     assert stats["tr_height_exact_removed"] == 1
     assert stats["frame_pr_removed"] == 0
+    assert stats["line_spacing_exact_relaxed"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
     assert p_pr.find(qn("w:framePr")) is not None
+    assert spacing.get(qn("w:lineRule")) == "exact"
 
 
 def test_normalize_abbyy_oxml_aggressive_removes_framepr_too():
     doc = Document()
     tr_pr = _append_exact_tr_height(doc)
     p_pr = _append_frame_pr(doc)
+    spacing = _append_exact_line_spacing(doc)
 
     stats = normalize_abbyy_oxml(doc, profile="aggressive")
 
     assert stats["tr_height_exact_removed"] == 1
     assert stats["frame_pr_removed"] == 1
+    assert stats["line_spacing_exact_relaxed"] == 1
     assert tr_pr.find(qn("w:trHeight")) is None
     assert p_pr.find(qn("w:framePr")) is None
+    assert spacing.get(qn("w:lineRule")) == "atLeast"
 
 
 def test_normalize_abbyy_oxml_rejects_invalid_profile():
     with pytest.raises(ValueError, match="Unsupported ABBYY profile"):
         normalize_abbyy_oxml(Document(), profile="unknown")
-

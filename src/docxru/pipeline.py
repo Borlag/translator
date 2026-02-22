@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections import Counter
+from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -367,31 +367,69 @@ def _build_tm_references_context(
 
 
 def _should_attach_neighbor_context(seg: Segment) -> bool:
-    if seg.context.get("in_table"):
-        return False
     source = (seg.source_plain or "").strip()
     if not source:
         return False
+    return bool(_LATIN_RE.search(source))
 
-    # Keep rich context for long paragraphs.
-    if len(source) >= 80:
-        return True
 
-    # Also add context for very short ALL-CAPS fragments ("WITH", "AND", etc.)
-    # that are often heading continuations in OCR/PDF-converted manuals.
-    if len(source) > 24 or not _LATIN_RE.search(source):
-        return False
-    letters = [ch for ch in source if ch.isalpha()]
-    if not letters:
-        return False
-    upper_ratio = sum(1 for ch in letters if ch.isupper()) / len(letters)
-    return upper_ratio >= 0.75
+def _neighbor_context_max_chars(seg: Segment, cfg: PipelineConfig) -> int:
+    base = int(cfg.llm.context_window_chars) if cfg.llm.context_window_chars > 0 else 220
+    if seg.context.get("in_table"):
+        return min(base, 100)
+    return base
+
+
+def _attach_neighbor_snippets(segments: list[Segment], cfg: PipelineConfig) -> None:
+    for idx, seg in enumerate(segments):
+        if not _should_attach_neighbor_context(seg):
+            continue
+        max_chars = _neighbor_context_max_chars(seg, cfg)
+        prev_text = _compact_context_text(segments[idx - 1].source_plain, max_chars=max_chars) if idx > 0 else ""
+        next_text = (
+            _compact_context_text(segments[idx + 1].source_plain, max_chars=max_chars)
+            if idx + 1 < len(segments)
+            else ""
+        )
+        if prev_text:
+            seg.context["prev_text"] = prev_text
+        if next_text:
+            seg.context["next_text"] = next_text
+
+
+def _build_document_glossary_context(
+    glossary_map: dict[str, str],
+    *,
+    limit: int,
+) -> list[dict[str, str]]:
+    if not glossary_map:
+        return []
+    capped = max(0, int(limit))
+    items = list(glossary_map.items())
+    if capped > 0:
+        items = items[-capped:]
+    return [{"source": source, "target": target} for source, target in items]
+
+
+def _append_recent_translation(
+    ring: deque[tuple[str, str]],
+    *,
+    source_plain: str,
+    target_plain: str,
+) -> None:
+    source = _compact_context_text(strip_bracket_tokens(source_plain), max_chars=220)
+    target = _compact_context_text(strip_bracket_tokens(target_plain), max_chars=220)
+    if not source or not target:
+        return
+    ring.append((source, target))
 
 
 def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
     changed_runs = 0
     seen_paragraphs: set[int] = set()
     for seg in segments:
+        if seg.target_shielded_tagged is None or seg.target_tagged is None:
+            continue
         para = seg.paragraph_ref
         key = id(para)
         if key in seen_paragraphs:
@@ -591,6 +629,7 @@ def _build_tm_profile_key(
             f"batch_segments={int(cfg.llm.batch_segments)}",
             f"batch_skip_on_brline={int(bool(cfg.llm.batch_skip_on_brline))}",
             f"batch_max_style_tokens={int(cfg.llm.batch_max_style_tokens)}",
+            f"context_window_chars={int(cfg.llm.context_window_chars)}",
             f"fuzzy_enabled={int(bool(cfg.tm.fuzzy_enabled))}",
             f"fuzzy_top_k={int(cfg.tm.fuzzy_top_k)}",
             f"fuzzy_min_similarity={cfg.tm.fuzzy_min_similarity:.4f}",
@@ -671,6 +710,78 @@ def _append_history_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     with path.open("a", encoding="utf-8") as f:
         for rec in records:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def _finalize_translation_result(
+    *,
+    seg: Segment,
+    source_hash: str,
+    source_norm: str,
+    out: str,
+    issues: list[Issue],
+    cfg: PipelineConfig,
+    llm_client,
+    tm: TMStore,
+    complex_chunk_cache: dict[str, str],
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...],
+    llm_translated_segments: set[str],
+    recent_translations: deque[tuple[str, str]] | None = None,
+) -> int:
+    hard_errors = any(i.severity == Severity.ERROR for i in issues)
+    if hard_errors:
+        changed, fallback_issues = _translate_complex_paragraph_in_place(
+            seg,
+            cfg,
+            llm_client,
+            complex_chunk_cache,
+            glossary_terms,
+        )
+        if changed:
+            seg.target_shielded_tagged = None
+            seg.issues.extend(
+                [
+                    Issue(
+                        code="complex_fallback_after_hard_errors",
+                        severity=Severity.WARN,
+                        message=(
+                            "Segment translated with complex in-place fallback after strict marker "
+                            "validation failure."
+                        ),
+                        details={},
+                    ),
+                    *_as_warn_issues(fallback_issues),
+                ]
+            )
+            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
+            return 1
+
+    seg.target_shielded_tagged = out
+    seg.issues.extend(issues)
+
+    # Store to TM only if no hard errors (avoid caching broken markers).
+    if not hard_errors:
+        llm_translated_segments.add(seg.segment_id)
+        tm.put_exact(
+            source_hash=source_hash,
+            source_norm=source_norm,
+            target_text=out,
+            meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
+        )
+        tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
+        if recent_translations is not None:
+            _append_recent_translation(
+                recent_translations,
+                source_plain=seg.source_plain,
+                target_plain=_target_plain_from_candidate(seg, out),
+            )
+    else:
+        tm.set_progress(
+            seg.segment_id,
+            "error",
+            source_hash=source_hash,
+            error="; ".join(i.code for i in issues),
+        )
+    return 0
 
 
 def _chunk_translation_jobs(
@@ -1101,6 +1212,7 @@ def translate_docx(
         f"hard_glossary={cfg.llm.hard_glossary}; "
         f"batch_skip_on_brline={cfg.llm.batch_skip_on_brline}; "
         f"batch_max_style_tokens={cfg.llm.batch_max_style_tokens}; "
+        f"context_window_chars={cfg.llm.context_window_chars}; "
         f"reasoning_effort={cfg.llm.reasoning_effort or '(default)'}; "
         f"batch_segments={cfg.llm.batch_segments}; "
         f"batch_max_chars={cfg.llm.batch_max_chars}; "
@@ -1121,15 +1233,7 @@ def translate_docx(
     logger.info(f"Segments найдено: {len(segments)}")
 
     # Attach neighbor snippets to improve local consistency.
-    for idx, seg in enumerate(segments):
-        if not _should_attach_neighbor_context(seg):
-            continue
-        prev_text = _compact_context_text(segments[idx - 1].source_plain) if idx > 0 else ""
-        next_text = _compact_context_text(segments[idx + 1].source_plain) if idx + 1 < len(segments) else ""
-        if prev_text:
-            seg.context["prev_text"] = prev_text
-        if next_text:
-            seg.context["next_text"] = next_text
+    _attach_neighbor_snippets(segments, cfg)
 
     tm = TMStore(cfg.tm.path)
     if cfg.tm.fuzzy_enabled and not tm.fts_enabled:
@@ -1215,6 +1319,7 @@ def translate_docx(
     llm_translated_segments: set[str] = set()
     matched_glossary_segments = 0
     fuzzy_reference_segments = 0
+    document_glossary: dict[str, str] = {}
 
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
         prev_progress = tm.get_progress(seg.segment_id) if resume else None
@@ -1233,6 +1338,12 @@ def translate_docx(
             tm.set_progress(seg.segment_id, "skip", source_hash=None)
             continue
 
+        if glossary_prompt_mode == "matched" and glossary_in_prompt and document_glossary:
+            seg.context["document_glossary"] = _build_document_glossary_context(
+                document_glossary,
+                limit=cfg.llm.glossary_match_limit,
+            )
+
         if glossary_prompt_mode == "matched" and glossary_matchers:
             matched_terms = _build_matched_glossary_context(
                 seg.source_plain,
@@ -1242,6 +1353,13 @@ def translate_docx(
             if matched_terms:
                 seg.context["matched_glossary_terms"] = matched_terms
                 matched_glossary_segments += 1
+                for pair in matched_terms:
+                    source_term = str(pair.get("source") or "").strip()
+                    target_term = str(pair.get("target") or "").strip()
+                    if source_term and target_term:
+                        if source_term in document_glossary:
+                            document_glossary.pop(source_term, None)
+                        document_glossary[source_term] = target_term
 
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
         # to avoid reordering/corruption when rebuilding runs.
@@ -1364,102 +1482,24 @@ def translate_docx(
     # Stage 2: LLM translate (single-segment or grouped batches)
     if to_translate:
         provider_norm = cfg.llm.provider.strip().lower()
-        grouped_mode = cfg.llm.batch_segments > 1 and provider_norm in _BATCH_PROVIDER_ALLOWLIST
-        if cfg.llm.batch_segments > 1 and not grouped_mode:
+        context_window_chars = max(0, int(cfg.llm.context_window_chars))
+        context_window_enabled = context_window_chars > 0
+        if context_window_enabled:
             logger.info(
-                f"Grouped batch mode requested, but provider '{cfg.llm.provider}' is not supported; using per-segment mode."
+                "Context window is enabled (context_window_chars=%d): grouped batches disabled; "
+                "running sequential translation with recent translations context.",
+                context_window_chars,
             )
-
-        if grouped_mode:
-            batch_eligible: list[tuple[Segment, str, str]] = []
-            single_only: list[tuple[tuple[Segment, str, str], list[str]]] = []
-            for job in to_translate:
-                reasons = _batch_ineligibility_reasons(job[0], cfg)
-                if reasons:
-                    single_only.append((job, reasons))
+            recent_translations: deque[tuple[str, str]] = deque(maxlen=3)
+            for seg, source_hash, source_norm in tqdm(to_translate, desc="Translate (sequential)", unit="seg"):
+                if recent_translations:
+                    seg.context["recent_translations"] = [
+                        {"source": source, "target": target}
+                        for source, target in recent_translations
+                    ]
                 else:
-                    batch_eligible.append(job)
-
-            logger.info(
-                f"Batch-eligible segments: {len(batch_eligible)}; "
-                f"forced single by eligibility filter: {len(single_only)}"
-            )
-            if single_only:
-                reason_counts = Counter(reason for _, reasons in single_only for reason in reasons)
-                logger.info(
-                    "Batch ineligibility reasons: "
-                    + ", ".join(f"{reason}={count}" for reason, count in reason_counts.most_common())
-                )
-
-            if batch_eligible:
-                grouped_jobs = _chunk_translation_jobs(
-                    batch_eligible,
-                    max_segments=cfg.llm.batch_segments,
-                    max_chars=cfg.llm.batch_max_chars,
-                )
-                logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
-            else:
-                grouped_jobs = []
-                logger.info("No grouped batches prepared after eligibility filtering.")
-
-            for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
-                batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
-                for seg, source_hash, source_norm, out, issues in batch_results:
-                    hard_errors = any(i.severity == Severity.ERROR for i in issues)
-                    if hard_errors:
-                        changed, fallback_issues = _translate_complex_paragraph_in_place(
-                            seg,
-                            cfg,
-                            llm_client,
-                            complex_chunk_cache,
-                            glossary_terms,
-                        )
-                        if changed:
-                            complex_translated += 1
-                            seg.target_shielded_tagged = None
-                            seg.issues.extend(
-                                [
-                                    Issue(
-                                        code="complex_fallback_after_hard_errors",
-                                        severity=Severity.WARN,
-                                        message=(
-                                            "Segment translated with complex in-place fallback after strict marker "
-                                            "validation failure."
-                                        ),
-                                        details={},
-                                    ),
-                                    *_as_warn_issues(fallback_issues),
-                                ]
-                            )
-                            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
-                            continue
-
-                    seg.target_shielded_tagged = out
-                    seg.issues.extend(issues)
-
-                    # Store to TM only if no hard errors (avoid caching broken markers).
-                    if not hard_errors:
-                        llm_translated_segments.add(seg.segment_id)
-                        tm.put_exact(
-                            source_hash=source_hash,
-                            source_norm=source_norm,
-                            target_text=out,
-                            meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
-                        )
-                        tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
-                    else:
-                        tm.set_progress(
-                            seg.segment_id,
-                            "error",
-                            source_hash=source_hash,
-                            error="; ".join(i.code for i in issues),
-                        )
-
-            for (seg, source_hash, source_norm), reasons in tqdm(
-                single_only,
-                desc="Translate (single-filter)",
-                unit="seg",
-            ):
+                    seg.context.pop("recent_translations", None)
+                seg.context["recent_translations_max_chars"] = context_window_chars
                 try:
                     out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
                 except Exception as e:
@@ -1473,77 +1513,83 @@ def translate_docx(
                     )
                     tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
                     continue
-
-                issues = [
-                    Issue(
-                        code="batch_ineligible_single",
-                        severity=Severity.INFO,
-                        message=(
-                            "Segment excluded from grouped batch by eligibility filter; translated via single-pass mode."
-                        ),
-                        details={"reasons": reasons},
-                    ),
-                    *issues,
-                ]
-                hard_errors = any(i.severity == Severity.ERROR for i in issues)
-                if hard_errors:
-                    changed, fallback_issues = _translate_complex_paragraph_in_place(
-                        seg,
-                        cfg,
-                        llm_client,
-                        complex_chunk_cache,
-                        glossary_terms,
-                    )
-                    if changed:
-                        complex_translated += 1
-                        seg.target_shielded_tagged = None
-                        seg.issues.extend(
-                            [
-                                Issue(
-                                    code="complex_fallback_after_hard_errors",
-                                    severity=Severity.WARN,
-                                    message=(
-                                        "Segment translated with complex in-place fallback after strict marker "
-                                        "validation failure."
-                                    ),
-                                    details={},
-                                ),
-                                *_as_warn_issues(fallback_issues),
-                            ]
-                        )
-                        tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
-                        continue
-
-                seg.target_shielded_tagged = out
-                seg.issues.extend(issues)
-
-                # Store to TM only if no hard errors (avoid caching broken markers).
-                if not hard_errors:
-                    llm_translated_segments.add(seg.segment_id)
-                    tm.put_exact(
-                        source_hash=source_hash,
-                        source_norm=source_norm,
-                        target_text=out,
-                        meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
-                    )
-                    tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
-                else:
-                    tm.set_progress(
-                        seg.segment_id,
-                        "error",
-                        source_hash=source_hash,
-                        error="; ".join(i.code for i in issues),
-                    )
+                complex_translated += _finalize_translation_result(
+                    seg=seg,
+                    source_hash=source_hash,
+                    source_norm=source_norm,
+                    out=out,
+                    issues=issues,
+                    cfg=cfg,
+                    llm_client=llm_client,
+                    tm=tm,
+                    complex_chunk_cache=complex_chunk_cache,
+                    glossary_terms=glossary_terms,
+                    llm_translated_segments=llm_translated_segments,
+                    recent_translations=recent_translations,
+                )
         else:
-            with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
-                futures = {
-                    ex.submit(_translate_one, seg, cfg, llm_client, sh, sn, logger): (seg, sh, sn)
-                    for (seg, sh, sn) in to_translate
-                }
-                for fut in tqdm(as_completed(futures), total=len(futures), desc="Translate", unit="seg"):
-                    seg, source_hash, source_norm = futures[fut]
+            grouped_mode = cfg.llm.batch_segments > 1 and provider_norm in _BATCH_PROVIDER_ALLOWLIST
+            if cfg.llm.batch_segments > 1 and not grouped_mode:
+                logger.info(
+                    f"Grouped batch mode requested, but provider '{cfg.llm.provider}' is not supported; using per-segment mode."
+                )
+
+            if grouped_mode:
+                batch_eligible: list[tuple[Segment, str, str]] = []
+                single_only: list[tuple[tuple[Segment, str, str], list[str]]] = []
+                for job in to_translate:
+                    reasons = _batch_ineligibility_reasons(job[0], cfg)
+                    if reasons:
+                        single_only.append((job, reasons))
+                    else:
+                        batch_eligible.append(job)
+
+                logger.info(
+                    f"Batch-eligible segments: {len(batch_eligible)}; "
+                    f"forced single by eligibility filter: {len(single_only)}"
+                )
+                if single_only:
+                    reason_counts = Counter(reason for _, reasons in single_only for reason in reasons)
+                    logger.info(
+                        "Batch ineligibility reasons: "
+                        + ", ".join(f"{reason}={count}" for reason, count in reason_counts.most_common())
+                    )
+
+                if batch_eligible:
+                    grouped_jobs = _chunk_translation_jobs(
+                        batch_eligible,
+                        max_segments=cfg.llm.batch_segments,
+                        max_chars=cfg.llm.batch_max_chars,
+                    )
+                    logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
+                else:
+                    grouped_jobs = []
+                    logger.info("No grouped batches prepared after eligibility filtering.")
+
+                for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
+                    batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
+                    for seg, source_hash, source_norm, out, issues in batch_results:
+                        complex_translated += _finalize_translation_result(
+                            seg=seg,
+                            source_hash=source_hash,
+                            source_norm=source_norm,
+                            out=out,
+                            issues=issues,
+                            cfg=cfg,
+                            llm_client=llm_client,
+                            tm=tm,
+                            complex_chunk_cache=complex_chunk_cache,
+                            glossary_terms=glossary_terms,
+                            llm_translated_segments=llm_translated_segments,
+                        )
+
+                for (seg, source_hash, source_norm), reasons in tqdm(
+                    single_only,
+                    desc="Translate (single-filter)",
+                    unit="seg",
+                ):
                     try:
-                        out, issues = fut.result()
+                        out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
                     except Exception as e:
                         seg.issues.append(
                             Issue(
@@ -1556,54 +1602,64 @@ def translate_docx(
                         tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
                         continue
 
-                    hard_errors = any(i.severity == Severity.ERROR for i in issues)
-                    if hard_errors:
-                        changed, fallback_issues = _translate_complex_paragraph_in_place(
-                            seg,
-                            cfg,
-                            llm_client,
-                            complex_chunk_cache,
-                            glossary_terms,
-                        )
-                        if changed:
-                            complex_translated += 1
-                            seg.target_shielded_tagged = None
-                            seg.issues.extend(
-                                [
-                                    Issue(
-                                        code="complex_fallback_after_hard_errors",
-                                        severity=Severity.WARN,
-                                        message=(
-                                            "Segment translated with complex in-place fallback after strict marker "
-                                            "validation failure."
-                                        ),
-                                        details={},
-                                    ),
-                                    *_as_warn_issues(fallback_issues),
-                                ]
+                    issues = [
+                        Issue(
+                            code="batch_ineligible_single",
+                            severity=Severity.INFO,
+                            message=(
+                                "Segment excluded from grouped batch by eligibility filter; translated via single-pass mode."
+                            ),
+                            details={"reasons": reasons},
+                        ),
+                        *issues,
+                    ]
+                    complex_translated += _finalize_translation_result(
+                        seg=seg,
+                        source_hash=source_hash,
+                        source_norm=source_norm,
+                        out=out,
+                        issues=issues,
+                        cfg=cfg,
+                        llm_client=llm_client,
+                        tm=tm,
+                        complex_chunk_cache=complex_chunk_cache,
+                        glossary_terms=glossary_terms,
+                        llm_translated_segments=llm_translated_segments,
+                    )
+            else:
+                with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
+                    futures = {
+                        ex.submit(_translate_one, seg, cfg, llm_client, sh, sn, logger): (seg, sh, sn)
+                        for (seg, sh, sn) in to_translate
+                    }
+                    for fut in tqdm(as_completed(futures), total=len(futures), desc="Translate", unit="seg"):
+                        seg, source_hash, source_norm = futures[fut]
+                        try:
+                            out, issues = fut.result()
+                        except Exception as e:
+                            seg.issues.append(
+                                Issue(
+                                    code="translate_crash",
+                                    severity=Severity.ERROR,
+                                    message=f"Translate crash: {e}",
+                                    details={},
+                                )
                             )
-                            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
+                            tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
                             continue
 
-                    seg.target_shielded_tagged = out
-                    seg.issues.extend(issues)
-
-                    # Store to TM only if no hard errors (avoid caching broken markers).
-                    if not hard_errors:
-                        llm_translated_segments.add(seg.segment_id)
-                        tm.put_exact(
+                        complex_translated += _finalize_translation_result(
+                            seg=seg,
                             source_hash=source_hash,
                             source_norm=source_norm,
-                            target_text=out,
-                            meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
-                        )
-                        tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
-                    else:
-                        tm.set_progress(
-                            seg.segment_id,
-                            "error",
-                            source_hash=source_hash,
-                            error="; ".join(i.code for i in issues),
+                            out=out,
+                            issues=issues,
+                            cfg=cfg,
+                            llm_client=llm_client,
+                            tm=tm,
+                            complex_chunk_cache=complex_chunk_cache,
+                            glossary_terms=glossary_terms,
+                            llm_translated_segments=llm_translated_segments,
                         )
 
     # Stage 3: Unshield + write back to DOCX
@@ -1671,10 +1727,12 @@ def translate_docx(
         try:
             oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
             logger.info(
-                "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d",
+                "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d; "
+                "lineSpacing_exact_relaxed=%d",
                 cfg.abbyy_profile,
                 int(oxml_stats.get("tr_height_exact_removed", 0)),
                 int(oxml_stats.get("frame_pr_removed", 0)),
+                int(oxml_stats.get("line_spacing_exact_relaxed", 0)),
             )
         except Exception as e:
             logger.warning(f"ABBYY OXML normalization failed: {e}")

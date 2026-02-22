@@ -45,6 +45,9 @@ class LLMConfig:
     # Batch eligibility guardrails.
     batch_skip_on_brline: bool = True
     batch_max_style_tokens: int = 16
+    # Sliding prompt context for near-neighbor snippets and recent translations.
+    # 0 disables sequential recent-translation context mode.
+    context_window_chars: int = 0
 
 
 @dataclass(frozen=True)
@@ -155,6 +158,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         glossary_match_limit=int(llm_data.get("glossary_match_limit", 24)),
         batch_skip_on_brline=bool(llm_data.get("batch_skip_on_brline", True)),
         batch_max_style_tokens=int(llm_data.get("batch_max_style_tokens", 16)),
+        context_window_chars=max(0, int(llm_data.get("context_window_chars", 0))),
     )
     tm = TMConfig(
         path=str(tm_data.get("path", "translation_cache.sqlite")),

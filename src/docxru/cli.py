@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import load_config
 from .eval import evaluate_batch, write_eval_report
+from .pdf_pipeline import translate_pdf
 from .pipeline import translate_docx
 from .structure_check import compare_docx_structure, write_structure_report
 
@@ -79,6 +80,18 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
     t.add_argument("--history-jsonl", default=None, help="Override translation history jsonl path.")
     t.add_argument("--log", default=None, help="Override log path.")
+
+    p_pdf = sub.add_parser("translate-pdf", help="Translate PDF to Russian preserving layout.")
+    p_pdf.add_argument("--input", "-i", required=True, help="Path to source .pdf")
+    p_pdf.add_argument("--output", "-o", required=True, help="Path to output .pdf")
+    p_pdf.add_argument("--config", "-c", required=True, help="Path to YAML config")
+    p_pdf.add_argument("--resume", action="store_true", help="Resume using TM/progress cache.")
+    p_pdf.add_argument("--bilingual", action="store_true", help="Enable bilingual EN/RU OCG layer mode.")
+    p_pdf.add_argument("--max-pages", type=int, default=None, help="Translate only first N PDF pages.")
+    p_pdf.add_argument("--ocr-fallback", action="store_true", help="Run OCR fallback for scanned pages.")
+    p_pdf.add_argument("--qa", default=None, help="Override QA report HTML path.")
+    p_pdf.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
+    p_pdf.add_argument("--log", default=None, help="Override log path.")
 
     v = sub.add_parser("verify", help="Verify structural invariants between two DOCX files.")
     v.add_argument("--input", "-i", required=True, help="Path to source .docx")
@@ -168,6 +181,32 @@ def main(argv: list[str] | None = None) -> int:
             cfg=cfg,
             resume=bool(args.resume),
             max_segments=(int(args.max_segments) if args.max_segments is not None else None),
+        )
+        return 0
+
+    if args.cmd == "translate-pdf":
+        cfg = load_config(args.config)
+        if args.qa is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "qa_report_path": str(args.qa)})
+        if args.qa_jsonl is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "qa_jsonl_path": str(args.qa_jsonl)})
+        if args.log is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "log_path": str(args.log)})
+        if args.max_pages is not None:
+            pdf_cfg = cfg.pdf.__class__(**{**cfg.pdf.__dict__, "max_pages": max(0, int(args.max_pages))})
+            cfg = cfg.__class__(**{**cfg.__dict__, "pdf": pdf_cfg})
+        if args.bilingual:
+            pdf_cfg = cfg.pdf.__class__(**{**cfg.pdf.__dict__, "bilingual_mode": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "pdf": pdf_cfg})
+        if args.ocr_fallback:
+            pdf_cfg = cfg.pdf.__class__(**{**cfg.pdf.__dict__, "ocr_fallback": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "pdf": pdf_cfg})
+
+        translate_pdf(
+            input_path=Path(args.input),
+            output_path=Path(args.output),
+            cfg=cfg,
+            resume=bool(args.resume),
         )
         return 0
 

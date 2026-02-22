@@ -28,6 +28,27 @@ pre-commit install
 docxru translate --input source.docx --output target_ru.docx --config config/config.example.yaml
 ```
 
+## PDF перевод (new)
+
+Установка PDF-зависимостей:
+
+```bash
+pip install -e ".[pdf]"
+```
+
+Базовый запуск:
+
+```bash
+docxru translate-pdf --input source.pdf --output target_ru.pdf --config config/config.example.yaml
+```
+
+Дополнительно:
+
+- `--bilingual` -> включает OCG-слой `Russian Translation` (EN+RU переключаемые слои).
+- `--ocr-fallback` -> запускает `ocrmypdf` для сканированных страниц.
+- `--max-pages N` -> ограничивает перевод первыми `N` страницами.
+- `--resume` -> повторно использует TM/progress кэш.
+
 Выходные файлы:
 - `target_ru.docx` — переведённый документ
 - `qa_report.html` — QA отчёт (ошибки/предупреждения)

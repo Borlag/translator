@@ -43,10 +43,8 @@ class TMStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.path)
-        self.conn.execute("PRAGMA journal_mode=WAL;")
         self._fts_enabled = False
-        self._init_db()
+        self.conn = self._connect_with_recovery()
 
     def close(self) -> None:
         self.conn.close()
@@ -54,6 +52,44 @@ class TMStore:
     @property
     def fts_enabled(self) -> bool:
         return bool(self._fts_enabled)
+
+    def _connect_sqlite(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+        except sqlite3.DatabaseError:
+            conn.close()
+            raise
+        return conn
+
+    def _quarantine_corrupt_sqlite(self) -> None:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        for suffix in ("", "-wal", "-shm"):
+            src = Path(f"{self.path}{suffix}")
+            if not src.exists():
+                continue
+            dst = Path(f"{src}.corrupt-{stamp}")
+            try:
+                src.replace(dst)
+            except OSError:
+                # Best effort: if quarantine move fails, next connect may still work.
+                continue
+
+    def _connect_with_recovery(self) -> sqlite3.Connection:
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = self._connect_sqlite()
+            self.conn = conn
+            self._init_db()
+            return conn
+        except sqlite3.DatabaseError:
+            if conn is not None:
+                conn.close()
+            self._quarantine_corrupt_sqlite()
+            conn = self._connect_sqlite()
+            self.conn = conn
+            self._init_db()
+            return conn
 
     def _init_db(self) -> None:
         self.conn.execute(

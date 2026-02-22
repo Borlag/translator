@@ -33,6 +33,19 @@ tm:
   fuzzy_min_similarity: 0.75
   fuzzy_prompt_max_chars: 500
 
+pdf:
+  bilingual_mode: false
+  ocr_fallback: false
+  max_pages: null
+  max_font_shrink_ratio: 0.6
+  block_merge_threshold_pt: 12.0
+  skip_headers_footers: false
+  table_detection: true
+  font_map: {}
+  default_sans_font: NotoSans-Regular.ttf
+  default_serif_font: NotoSerif-Regular.ttf
+  default_mono_font: NotoSansMono-Regular.ttf
+
 include_headers: false
 include_footers: false
 

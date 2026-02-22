@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -60,9 +60,25 @@ class TMConfig:
 
 
 @dataclass(frozen=True)
+class PdfConfig:
+    bilingual_mode: bool = False
+    ocr_fallback: bool = False
+    max_pages: int | None = None
+    max_font_shrink_ratio: float = 0.6
+    block_merge_threshold_pt: float = 12.0
+    skip_headers_footers: bool = False
+    table_detection: bool = True
+    font_map: dict[str, str] = field(default_factory=dict)
+    default_sans_font: str = "NotoSans-Regular.ttf"
+    default_serif_font: str = "NotoSerif-Regular.ttf"
+    default_mono_font: str = "NotoSansMono-Regular.ttf"
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     llm: LLMConfig = LLMConfig()
     tm: TMConfig = TMConfig()
+    pdf: PdfConfig = PdfConfig()
     include_headers: bool = False
     include_footers: bool = False
     concurrency: int = 4
@@ -110,6 +126,7 @@ def load_config(path: str | Path) -> PipelineConfig:
 
     llm_data = data.get("llm", {}) or {}
     tm_data = data.get("tm", {}) or {}
+    pdf_data = data.get("pdf", {}) or {}
     llm_legacy_glossary_in_prompt = bool(llm_data.get("glossary_in_prompt", True))
     llm_has_prompt_mode = "glossary_prompt_mode" in llm_data
     glossary_prompt_mode = _normalize_choice(
@@ -173,6 +190,24 @@ def load_config(path: str | Path) -> PipelineConfig:
         fuzzy_min_similarity=float(tm_data.get("fuzzy_min_similarity", 0.75)),
         fuzzy_prompt_max_chars=int(tm_data.get("fuzzy_prompt_max_chars", 500)),
     )
+    max_pages_raw = pdf_data.get("max_pages")
+    if max_pages_raw is None:
+        max_pages = None
+    else:
+        max_pages = max(0, int(max_pages_raw))
+    pdf = PdfConfig(
+        bilingual_mode=bool(pdf_data.get("bilingual_mode", False)),
+        ocr_fallback=bool(pdf_data.get("ocr_fallback", False)),
+        max_pages=max_pages,
+        max_font_shrink_ratio=float(pdf_data.get("max_font_shrink_ratio", 0.6)),
+        block_merge_threshold_pt=float(pdf_data.get("block_merge_threshold_pt", 12.0)),
+        skip_headers_footers=bool(pdf_data.get("skip_headers_footers", False)),
+        table_detection=bool(pdf_data.get("table_detection", True)),
+        font_map={str(k): str(v) for k, v in (pdf_data.get("font_map", {}) or {}).items()},
+        default_sans_font=str(pdf_data.get("default_sans_font", "NotoSans-Regular.ttf")),
+        default_serif_font=str(pdf_data.get("default_serif_font", "NotoSerif-Regular.ttf")),
+        default_mono_font=str(pdf_data.get("default_mono_font", "NotoSansMono-Regular.ttf")),
+    )
 
     include_headers = bool(data.get("include_headers", False))
     include_footers = bool(data.get("include_footers", False))
@@ -232,6 +267,7 @@ def load_config(path: str | Path) -> PipelineConfig:
     return PipelineConfig(
         llm=llm,
         tm=tm,
+        pdf=pdf,
         include_headers=include_headers,
         include_footers=include_footers,
         concurrency=concurrency,

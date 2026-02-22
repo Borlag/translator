@@ -4,6 +4,7 @@ from docx import Document
 
 from docx.enum.text import WD_BREAK
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from docxru.tagging import paragraph_to_tagged, tagged_to_runs
 
@@ -118,3 +119,28 @@ def test_paragraph_to_tagged_allows_last_rendered_page_break():
     assert "OBJ_" not in tagged
     assert len(spans) == 1
     assert spans[0].source_text == "Subject"
+
+
+def test_tagging_roundtrip_preserves_hyperlink_structure():
+    doc = Document()
+    p = doc.add_paragraph()
+    p.add_run("See ")
+
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), "rId42")
+    h_run = OxmlElement("w:r")
+    h_text = OxmlElement("w:t")
+    h_text.text = "manual"
+    h_run.append(h_text)
+    hyperlink.append(h_run)
+    p._p.append(hyperlink)
+
+    p.add_run(" now")
+
+    tagged, spans, inline_map = paragraph_to_tagged(p)
+    assert any(any(flag.startswith("HREF_") for flag in span.flags) for span in spans)
+
+    tagged_to_runs(p, tagged, spans, inline_run_map=inline_map)
+    xml = p._p.xml
+    assert "<w:hyperlink" in xml
+    assert "manual" in p.text

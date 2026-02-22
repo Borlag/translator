@@ -13,6 +13,16 @@ _SPACE_RE = re.compile(r"\s+")
 _EMU_PER_TWIP = 635
 _APPROX_CHAR_WIDTH_TWIPS = 120
 _APPROX_CHAR_HEIGHT_TWIPS = 220
+_FONT_WIDTH_FACTORS = {
+    "arial": 0.52,
+    "calibri": 0.50,
+    "timesnewroman": 0.50,
+    "cambria": 0.52,
+    "segoeui": 0.51,
+    "notosans": 0.50,
+    "notoserif": 0.52,
+    "couriernew": 0.60,
+}
 
 
 def _clean_text(value: str) -> str:
@@ -33,6 +43,49 @@ def _try_parse_int(value: object) -> int | None:
         return int(str(value))
     except (TypeError, ValueError):
         return None
+
+
+def _font_width_factor(font_name: str | None) -> float:
+    if not font_name:
+        return 0.0
+    key = re.sub(r"[^a-z0-9]+", "", font_name.lower())
+    if not key:
+        return 0.0
+    for hint, factor in _FONT_WIDTH_FACTORS.items():
+        if hint in key:
+            return factor
+    return 0.0
+
+
+def _segment_char_metrics(seg: Segment) -> tuple[int, int]:
+    spans = seg.spans or []
+    if not spans:
+        return _APPROX_CHAR_WIDTH_TWIPS, _APPROX_CHAR_HEIGHT_TWIPS
+
+    weighted_width = 0.0
+    weighted_height = 0.0
+    total_chars = 0
+    for span in spans:
+        sample_len = max(1, len(span.source_text or ""))
+        style = span.style
+        if style.font_size_pt is None:
+            width_twips = float(_APPROX_CHAR_WIDTH_TWIPS)
+            height_twips = float(_APPROX_CHAR_HEIGHT_TWIPS)
+        else:
+            factor = _font_width_factor(style.font_name)
+            if factor <= 0.0:
+                width_twips = float(_APPROX_CHAR_WIDTH_TWIPS)
+            else:
+                width_twips = max(40.0, float(style.font_size_pt) * 20.0 * factor)
+            # Approximate line box with small leading.
+            height_twips = max(100.0, float(style.font_size_pt) * 20.0 * 1.2)
+        weighted_width += width_twips * sample_len
+        weighted_height += height_twips * sample_len
+        total_chars += sample_len
+
+    if total_chars <= 0:
+        return _APPROX_CHAR_WIDTH_TWIPS, _APPROX_CHAR_HEIGHT_TWIPS
+    return int(weighted_width / total_chars), int(weighted_height / total_chars)
 
 
 def _table_cell_width_twips(seg: Segment) -> int | None:
@@ -133,7 +186,8 @@ def check_table_cell_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
         width_twips = _table_cell_width_twips(seg)
         if width_twips is None:
             continue
-        approx_capacity = max(1, int(width_twips / _APPROX_CHAR_WIDTH_TWIPS))
+        char_width_twips, _ = _segment_char_metrics(seg)
+        approx_capacity = max(1, int(width_twips / max(1, char_width_twips)))
         if len(target_text) <= int(approx_capacity * 1.15):
             continue
         issues.append(
@@ -146,6 +200,7 @@ def check_table_cell_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
                     "location": seg.location,
                     "width_twips": width_twips,
                     "approx_capacity_chars": approx_capacity,
+                    "char_width_twips": char_width_twips,
                     "target_len": len(target_text),
                 },
             )
@@ -167,12 +222,13 @@ def check_textbox_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
         ratio = len(target_text) / max(1, len(source_text))
         width_twips, height_twips = _textbox_extent_twips(seg)
         approx_capacity = None
+        char_width_twips, char_height_twips = _segment_char_metrics(seg)
         if width_twips and height_twips:
             area = width_twips * height_twips
-            approx_char_area = _APPROX_CHAR_WIDTH_TWIPS * _APPROX_CHAR_HEIGHT_TWIPS
+            approx_char_area = max(1, char_width_twips * char_height_twips)
             approx_capacity = max(1, int(area / approx_char_area))
         elif width_twips:
-            approx_capacity = max(1, int(width_twips / _APPROX_CHAR_WIDTH_TWIPS))
+            approx_capacity = max(1, int(width_twips / max(1, char_width_twips)))
 
         overflow = False
         if approx_capacity is not None:
@@ -195,6 +251,8 @@ def check_textbox_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
             details["height_twips"] = height_twips
         if approx_capacity is not None:
             details["approx_capacity_chars"] = approx_capacity
+            details["char_width_twips"] = char_width_twips
+            details["char_height_twips"] = char_height_twips
 
         issues.append(
             Issue(

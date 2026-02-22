@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
-
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.table import Table, _Cell
@@ -46,3 +44,59 @@ def set_table_grid_widths_twips(table: Table, widths_twips: list[int]) -> None:
         gc = OxmlElement("w:gridCol")
         gc.set(qn("w:w"), str(int(w)))
         grid._element.append(gc)  # type: ignore[attr-defined]
+
+
+def remove_exact_tr_height(document) -> int:
+    """Remove table row height constraints with w:hRule='exact'."""
+    removed = 0
+    tr_height_tag = qn("w:trHeight")
+    tr_pr_tag = qn("w:trPr")
+    h_rule_attr = qn("w:hRule")
+    for tr_pr in document.element.iter(tr_pr_tag):
+        for tr_height in list(tr_pr):
+            if tr_height.tag != tr_height_tag:
+                continue
+            if str(tr_height.get(h_rule_attr, "")).strip().lower() != "exact":
+                continue
+            tr_pr.remove(tr_height)
+            removed += 1
+    return removed
+
+
+def remove_frame_pr(document) -> int:
+    """Remove paragraph frame properties (<w:framePr>) that can pin ABBYY layout."""
+    removed = 0
+    p_pr_tag = qn("w:pPr")
+    frame_pr_tag = qn("w:framePr")
+    for p_pr in document.element.iter(p_pr_tag):
+        for frame_pr in list(p_pr):
+            if frame_pr.tag != frame_pr_tag:
+                continue
+            p_pr.remove(frame_pr)
+            removed += 1
+    return removed
+
+
+def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
+    """Apply optional ABBYY-specific OXML cleanup by profile.
+
+    Profiles:
+    - off: no cleanup
+    - safe: remove only strict row-height locks (w:trHeight with hRule='exact')
+    - aggressive: safe + remove paragraph frame locks (w:framePr)
+    """
+    mode = str(profile or "off").strip().lower()
+    if mode not in {"off", "safe", "aggressive"}:
+        raise ValueError(f"Unsupported ABBYY profile: {profile!r}")
+
+    stats = {
+        "tr_height_exact_removed": 0,
+        "frame_pr_removed": 0,
+    }
+    if mode == "off":
+        return stats
+
+    stats["tr_height_exact_removed"] = remove_exact_tr_height(document)
+    if mode == "aggressive":
+        stats["frame_pr_removed"] = remove_frame_pr(document)
+    return stats

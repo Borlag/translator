@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,14 +15,27 @@ from tqdm import tqdm
 
 from .config import PipelineConfig
 from .docx_reader import collect_segments
-from .llm import build_hard_glossary_replacements, build_llm_client, supports_repair
+from .llm import (
+    build_glossary_matchers,
+    build_hard_glossary_replacements,
+    build_llm_client,
+    select_matched_glossary_terms,
+    supports_repair,
+)
 from .logging_utils import setup_logging
 from .models import Issue, Segment, Severity
+from .oxml_table_fix import normalize_abbyy_oxml
 from .qa_report import write_qa_jsonl, write_qa_report
 from .tagging import is_supported_paragraph, paragraph_to_tagged, tagged_to_runs
-from .tm import TMStore, normalize_text, sha256_hex
+from .tm import FuzzyTMHit, TMStore, normalize_text, sha256_hex
 from .token_shield import BRACKET_TOKEN_RE, shield, shield_terms, strip_bracket_tokens, unshield
-from .validator import validate_all, validate_numbers, validate_placeholders
+from .validator import (
+    is_glossary_lemma_check_available,
+    validate_all,
+    validate_glossary_lemmas,
+    validate_numbers,
+    validate_placeholders,
+)
 
 
 def _build_repair_payload(source_shielded: str, bad_output: str) -> str:
@@ -29,6 +43,30 @@ def _build_repair_payload(source_shielded: str, bad_output: str) -> str:
         "TASK: REPAIR_MARKERS\n\n"
         f"SOURCE:\n{source_shielded}\n\n"
         f"OUTPUT:\n{bad_output}"
+    )
+
+
+def _build_glossary_retry_payload(
+    source_shielded: str,
+    bad_output: str,
+    missing_terms: list[dict[str, str]],
+) -> str:
+    terms = "\n".join(
+        f"- {item['source']} -> {item['target']}"
+        for item in missing_terms
+        if item.get("source") and item.get("target")
+    )
+    if not terms:
+        terms = "- (no terms)"
+    return (
+        "TASK: REWRITE_FOR_GLOSSARY\n\n"
+        "Keep marker tokens exactly as in SOURCE.\n"
+        "Do not add comments or explanations.\n\n"
+        f"SOURCE:\n{source_shielded}\n\n"
+        f"OUTPUT:\n{bad_output}\n\n"
+        "REQUIRED_TERMS (EN -> RU):\n"
+        f"{terms}\n\n"
+        "Return only corrected translated text."
     )
 
 
@@ -48,6 +86,8 @@ def _read_optional_text(path_value: str | None, logger: logging.Logger, label: s
 
 
 _STYLE_START_RE = re.compile(r"⟦S_(\d+)(?:\|[^⟧]*)?⟧")
+_PLACEHOLDER_RE = re.compile(r"⟦(?!/?S_)[A-Z][A-Z0-9]*_\d+⟧")
+_BRLINE_RE = re.compile(r"⟦BRLINE_\d+⟧")
 _LATIN_RE = re.compile(r"[A-Za-z]")
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 _LAYOUT_SPLIT_RE = re.compile(r"((?:\.\s*){3,}|\t+)")
@@ -77,6 +117,7 @@ _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/mai
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
 _TM_RULESET_VERSION = "2026-02-22-consistency-v4-heading-normalization"
 _BATCH_PROVIDER_ALLOWLIST = {"openai", "ollama"}
+_BATCH_MAX_PLACEHOLDER_TOKENS = 12
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 
 
@@ -277,6 +318,49 @@ def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
     return flat[: max_chars - 3].rstrip() + "..."
 
 
+def _build_matched_glossary_context(
+    text: str,
+    glossary_matchers,
+    *,
+    limit: int,
+) -> list[dict[str, str]]:
+    matched_pairs = select_matched_glossary_terms(text, glossary_matchers, limit=limit)
+    if not matched_pairs:
+        return []
+    return [{"source": source, "target": target} for source, target in matched_pairs]
+
+
+def _build_tm_references_context(
+    hits: list[FuzzyTMHit],
+    *,
+    max_chars: int,
+) -> list[dict[str, Any]]:
+    if not hits:
+        return []
+
+    refs: list[dict[str, Any]] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for hit in hits:
+        source = _compact_context_text(strip_bracket_tokens(hit.source_norm), max_chars=180)
+        target = _compact_context_text(strip_bracket_tokens(hit.target_text), max_chars=180)
+        if not source or not target:
+            continue
+        line = f"{source} => {target}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        refs.append(
+            {
+                "source": source,
+                "target": target,
+                "similarity": round(float(hit.similarity), 4),
+            }
+        )
+        consumed += line_cost
+    return refs
+
+
 def _should_attach_neighbor_context(seg: Segment) -> bool:
     if seg.context.get("in_table"):
         return False
@@ -444,6 +528,33 @@ def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
     return issues
 
 
+def _target_plain_from_candidate(seg: Segment, out: str) -> str:
+    target_unshielded = unshield(out, seg.token_map or {})
+    return strip_bracket_tokens(target_unshielded)
+
+
+def _extract_missing_glossary_terms(issues: list[Issue]) -> list[dict[str, str]]:
+    missing_terms: list[dict[str, str]] = []
+    for issue in issues:
+        if issue.code != "glossary_lemma_mismatch":
+            continue
+        raw_missing = issue.details.get("missing")
+        if not isinstance(raw_missing, list):
+            continue
+        for item in raw_missing:
+            if not isinstance(item, dict):
+                continue
+            source = item.get("source")
+            target = item.get("target")
+            if isinstance(source, str) and isinstance(target, str):
+                missing_terms.append({"source": source, "target": target})
+    return missing_terms
+
+
+def _count_missing_glossary_terms(issues: list[Issue]) -> int:
+    return len(_extract_missing_glossary_terms(issues))
+
+
 def _utc_now_iso() -> str:
     utc = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
     return datetime.now(utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -469,7 +580,18 @@ def _build_tm_profile_key(
             f"target_lang={cfg.llm.target_lang.strip().lower()}",
             f"hard_glossary={int(bool(cfg.llm.hard_glossary))}",
             f"glossary_in_prompt={int(bool(cfg.llm.glossary_in_prompt))}",
+            f"glossary_prompt_mode={cfg.llm.glossary_prompt_mode.strip().lower()}",
+            f"glossary_match_limit={int(cfg.llm.glossary_match_limit)}",
+            f"structured_output_mode={cfg.llm.structured_output_mode.strip().lower()}",
             f"batch_segments={int(cfg.llm.batch_segments)}",
+            f"batch_skip_on_brline={int(bool(cfg.llm.batch_skip_on_brline))}",
+            f"batch_max_style_tokens={int(cfg.llm.batch_max_style_tokens)}",
+            f"fuzzy_enabled={int(bool(cfg.tm.fuzzy_enabled))}",
+            f"fuzzy_top_k={int(cfg.tm.fuzzy_top_k)}",
+            f"fuzzy_min_similarity={cfg.tm.fuzzy_min_similarity:.4f}",
+            f"fuzzy_prompt_max_chars={int(cfg.tm.fuzzy_prompt_max_chars)}",
+            f"abbyy_profile={cfg.abbyy_profile.strip().lower()}",
+            f"glossary_lemma_check={cfg.glossary_lemma_check.strip().lower()}",
             f"reasoning_effort={(cfg.llm.reasoning_effort or '').strip().lower() or 'default'}",
             f"system_prompt_sha={_tm_text_fingerprint(custom_system_prompt)}",
             f"glossary_sha={_tm_text_fingerprint(glossary_text)}",
@@ -576,6 +698,26 @@ def _chunk_translation_jobs(
     return groups
 
 
+def _batch_ineligibility_reasons(seg: Segment, cfg: PipelineConfig) -> list[str]:
+    text = seg.shielded_tagged or ""
+    reasons: list[str] = []
+    if cfg.llm.batch_skip_on_brline and _BRLINE_RE.search(text):
+        reasons.append("contains_brline")
+    if cfg.llm.batch_max_style_tokens >= 0 and len(_STYLE_START_RE.findall(text)) > cfg.llm.batch_max_style_tokens:
+        reasons.append("too_many_style_tokens")
+    if len(_PLACEHOLDER_RE.findall(text)) > _BATCH_MAX_PLACEHOLDER_TOKENS:
+        reasons.append("too_many_placeholders")
+    return reasons
+
+
+def _collect_issue_code_counts(segments: list[Segment]) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for seg in segments:
+        for issue in seg.issues:
+            counts[issue.code] += 1
+    return counts
+
+
 def _build_batch_translation_prompt(items: list[dict[str, str]]) -> str:
     input_json = json.dumps(items, ensure_ascii=False)
     return (
@@ -678,6 +820,22 @@ def _translate_batch_once(
     return _parse_batch_translation_output(raw, [item["id"] for item in items])
 
 
+def _is_batch_json_contract_error(error: Exception) -> bool:
+    message = str(error).strip().lower()
+    if not message:
+        return False
+    return any(
+        token in message
+        for token in (
+            "json",
+            "schema",
+            "missing ids",
+            "unexpected ids",
+            "duplicate id",
+        )
+    )
+
+
 def _translate_batch_group(
     jobs: list[tuple[Segment, str, str]],
     cfg: PipelineConfig,
@@ -694,9 +852,20 @@ def _translate_batch_group(
     except Exception as e:
         logger.warning(f"Batch translate failed (size={len(jobs)}), fallback to single-segment: {e}")
         results: list[tuple[Segment, str, str, str, list[Issue]]] = []
+        has_json_contract_error = _is_batch_json_contract_error(e)
         for seg, source_hash, source_norm in jobs:
             out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
-            issues = [
+            diagnostics: list[Issue] = []
+            if has_json_contract_error:
+                diagnostics.append(
+                    Issue(
+                        code="batch_json_schema_violation",
+                        severity=Severity.WARN,
+                        message=f"Batch JSON/schema validation failed: {e}",
+                        details={"batch_size": len(jobs)},
+                    )
+                )
+            issues = diagnostics + [
                 Issue(
                     code="batch_fallback_single",
                     severity=Severity.WARN,
@@ -766,6 +935,11 @@ def _translate_one(
     issues: list[Issue] = []
     can_repair = supports_repair(llm_client)
     max_attempts = cfg.llm.retries if can_repair else 1
+    glossary_mode = cfg.glossary_lemma_check.strip().lower()
+    if glossary_mode not in {"off", "warn", "retry"}:
+        glossary_mode = "off"
+    glossary_retry_enabled = glossary_mode == "retry" and can_repair
+    glossary_retry_done = False
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -798,7 +972,84 @@ def _translate_one(
 
         hard_errors = [i for i in issues if i.severity == Severity.ERROR]
         if not hard_errors:
-            return out, issues
+            glossary_issues = validate_glossary_lemmas(
+                _target_plain_from_candidate(seg, out),
+                seg.context.get("matched_glossary_terms"),
+                mode=glossary_mode,
+            )
+            if not glossary_issues:
+                return out, issues
+
+            base_issues = [*issues, *glossary_issues]
+            if not glossary_retry_enabled or glossary_retry_done:
+                return out, base_issues
+
+            missing_terms = _extract_missing_glossary_terms(glossary_issues)
+            if not missing_terms:
+                return out, base_issues
+
+            glossary_retry_done = True
+            retry_ctx = dict(seg.context)
+            retry_ctx["task"] = "repair"
+            retry_ctx["glossary_retry"] = True
+            try:
+                retry_out = llm_client.translate(
+                    _build_glossary_retry_payload(seg.shielded_tagged or "", out, missing_terms),
+                    retry_ctx,
+                )
+            except Exception as e:
+                return out, [
+                    *base_issues,
+                    Issue(
+                        code="glossary_retry_llm_error",
+                        severity=Severity.WARN,
+                        message=f"Glossary-focused rewrite failed: {e}",
+                        details={"attempt": attempt},
+                    ),
+                ]
+
+            retry_marker_issues = _validate_segment_candidate(seg, retry_out)
+            retry_hard_errors = [i for i in retry_marker_issues if i.severity == Severity.ERROR]
+            if retry_hard_errors:
+                return out, [
+                    *base_issues,
+                    Issue(
+                        code="glossary_retry_rejected",
+                        severity=Severity.WARN,
+                        message="Glossary-focused rewrite failed marker validation; previous output kept.",
+                        details={"attempt": attempt},
+                    ),
+                    *_as_warn_issues(retry_marker_issues),
+                ]
+
+            retry_glossary_issues = validate_glossary_lemmas(
+                _target_plain_from_candidate(seg, retry_out),
+                seg.context.get("matched_glossary_terms"),
+                mode=glossary_mode,
+            )
+            if _count_missing_glossary_terms(retry_glossary_issues) < _count_missing_glossary_terms(glossary_issues):
+                return retry_out, [
+                    Issue(
+                        code="glossary_retry_applied",
+                        severity=Severity.INFO,
+                        message="Glossary-focused rewrite improved term coverage.",
+                        details={"attempt": attempt},
+                    ),
+                    *retry_marker_issues,
+                    *retry_glossary_issues,
+                ]
+
+            return out, [
+                *base_issues,
+                Issue(
+                    code="glossary_retry_no_improvement",
+                    severity=Severity.INFO,
+                    message="Glossary-focused rewrite did not improve term coverage; previous output kept.",
+                    details={"attempt": attempt},
+                ),
+                *retry_marker_issues,
+                *_as_warn_issues(retry_glossary_issues),
+            ]
 
         # If we still have marker errors and there is room to retry, go to repair attempt.
         if attempt < max_attempts:
@@ -838,11 +1089,19 @@ def translate_docx(
         f"concurrency={cfg.concurrency}; "
         f"headers={cfg.include_headers}; "
         f"footers={cfg.include_footers}; "
+        f"structured_output_mode={cfg.llm.structured_output_mode}; "
         f"glossary_in_prompt={cfg.llm.glossary_in_prompt}; "
+        f"glossary_prompt_mode={cfg.llm.glossary_prompt_mode}; "
+        f"glossary_match_limit={cfg.llm.glossary_match_limit}; "
         f"hard_glossary={cfg.llm.hard_glossary}; "
+        f"batch_skip_on_brline={cfg.llm.batch_skip_on_brline}; "
+        f"batch_max_style_tokens={cfg.llm.batch_max_style_tokens}; "
         f"reasoning_effort={cfg.llm.reasoning_effort or '(default)'}; "
         f"batch_segments={cfg.llm.batch_segments}; "
         f"batch_max_chars={cfg.llm.batch_max_chars}; "
+        f"fuzzy_enabled={cfg.tm.fuzzy_enabled}; "
+        f"abbyy_profile={cfg.abbyy_profile}; "
+        f"glossary_lemma_check={cfg.glossary_lemma_check}; "
         f"history_jsonl={cfg.translation_history_path or '(off)'}"
     )
     logger.info(f"TM ruleset version: {_TM_RULESET_VERSION}")
@@ -868,13 +1127,22 @@ def translate_docx(
             seg.context["next_text"] = next_text
 
     tm = TMStore(cfg.tm.path)
+    if cfg.tm.fuzzy_enabled and not tm.fts_enabled:
+        logger.info("Fuzzy TM requested, but SQLite FTS5 is unavailable; continuing with exact-only TM behavior.")
     custom_system_prompt = _read_optional_text(cfg.llm.system_prompt_path, logger, "custom system prompt")
     glossary_text = _read_optional_text(cfg.llm.glossary_path, logger, "glossary")
+    if cfg.glossary_lemma_check != "off" and not is_glossary_lemma_check_available():
+        logger.info(
+            "glossary_lemma_check=%s requested, but pymorphy3 is unavailable; check is skipped.",
+            cfg.glossary_lemma_check,
+        )
     if cfg.llm.provider.strip().lower() == "google" and custom_system_prompt:
         logger.info("Provider 'google' does not support system prompts; custom prompt is ignored for this run.")
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = ()
+    glossary_matchers = build_glossary_matchers(glossary_text) if glossary_text else ()
     provider_norm = cfg.llm.provider.strip().lower()
     glossary_in_prompt = bool(cfg.llm.glossary_in_prompt)
+    glossary_prompt_mode = cfg.llm.glossary_prompt_mode.strip().lower()
     hard_glossary = bool(cfg.llm.hard_glossary)
     if glossary_text and hard_glossary:
         glossary_terms = build_hard_glossary_replacements(glossary_text)
@@ -882,12 +1150,25 @@ def translate_docx(
             f"Hard glossary enforcement enabled ({len(glossary_terms)} terms); provider={cfg.llm.provider}; "
             f"glossary_in_prompt={glossary_in_prompt}; hard_glossary={hard_glossary}"
         )
-    effective_glossary_text = glossary_text if glossary_in_prompt else None
-    if glossary_text and not glossary_in_prompt:
-        logger.info(
-            "Glossary prompt injection is disabled; only post-translation glossary replacements are active "
-            "(unless hard_glossary=true)."
-        )
+    if glossary_prompt_mode == "off" or not glossary_in_prompt:
+        effective_glossary_text = None
+    elif glossary_prompt_mode == "matched":
+        # Segment-level term selection: only matched glossary entries are injected into prompts.
+        effective_glossary_text = None
+        if glossary_text:
+            logger.info("Glossary prompt mode 'matched' enabled: prompts will include only matched terms.")
+    else:
+        effective_glossary_text = glossary_text
+    if glossary_text and effective_glossary_text is None:
+        if glossary_prompt_mode == "matched" and glossary_in_prompt:
+            logger.info(
+                "Global glossary prompt injection is disabled; matched segment-level glossary hints are enabled."
+            )
+        else:
+            logger.info(
+                "Glossary prompt injection is disabled; only post-translation glossary replacements are active "
+                "(unless hard_glossary=true)."
+            )
     if glossary_text and provider_norm == "google" and not hard_glossary:
         logger.info(
             "Provider 'google' is running without hard glossary locking; terminology can be less stable "
@@ -909,10 +1190,12 @@ def translate_docx(
         target_lang=cfg.llm.target_lang,
         base_url=cfg.llm.base_url,
         custom_system_prompt=custom_system_prompt,
-        glossary_text=effective_glossary_text,
+        glossary_text=glossary_text,
+        glossary_prompt_text=effective_glossary_text,
         reasoning_effort=cfg.llm.reasoning_effort,
         prompt_cache_key=cfg.llm.prompt_cache_key,
         prompt_cache_retention=cfg.llm.prompt_cache_retention,
+        structured_output_mode=cfg.llm.structured_output_mode,
     )
 
     # Stage 1: tagging + shielding + TM lookup
@@ -925,6 +1208,8 @@ def translate_docx(
     segment_source_hash: dict[str, str] = {}
     tm_hit_segments: set[str] = set()
     llm_translated_segments: set[str] = set()
+    matched_glossary_segments = 0
+    fuzzy_reference_segments = 0
 
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
         prev_progress = tm.get_progress(seg.segment_id) if resume else None
@@ -942,6 +1227,16 @@ def translate_docx(
             )
             tm.set_progress(seg.segment_id, "skip", source_hash=None)
             continue
+
+        if glossary_prompt_mode == "matched" and glossary_matchers:
+            matched_terms = _build_matched_glossary_context(
+                seg.source_plain,
+                glossary_matchers,
+                limit=cfg.llm.glossary_match_limit,
+            )
+            if matched_terms:
+                seg.context["matched_glossary_terms"] = matched_terms
+                matched_glossary_segments += 1
 
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
         # to avoid reordering/corruption when rebuilding runs.
@@ -1026,6 +1321,20 @@ def translate_docx(
             tm_hit_segments.add(seg.segment_id)
             tm.set_progress(seg.segment_id, "tm", source_hash=source_hash)
         else:
+            if cfg.tm.fuzzy_enabled:
+                fuzzy_hits = tm.get_fuzzy(
+                    source_norm,
+                    top_k=cfg.tm.fuzzy_top_k,
+                    min_similarity=cfg.tm.fuzzy_min_similarity,
+                )
+                tm_refs = _build_tm_references_context(
+                    fuzzy_hits,
+                    max_chars=cfg.tm.fuzzy_prompt_max_chars,
+                )
+                if tm_refs:
+                    seg.context["tm_references"] = tm_refs
+                    seg.context["tm_references_max_chars"] = int(cfg.tm.fuzzy_prompt_max_chars)
+                    fuzzy_reference_segments += 1
             to_translate.append((seg, source_hash, source_norm))
 
     logger.info(f"TM hits: {tm_hits}")
@@ -1033,6 +1342,8 @@ def translate_docx(
         logger.info(f"Resume hits: {resume_hits}")
     logger.info(f"Tagging errors: {tagging_errors}")
     logger.info(f"Complex paragraphs translated in-place: {complex_translated}")
+    logger.info(f"Segments with matched glossary prompt hints: {matched_glossary_segments}")
+    logger.info(f"Segments with fuzzy TM prompt hints: {fuzzy_reference_segments}")
     logger.info(f"LLM segments: {len(to_translate)}")
 
     # Stage 2: LLM translate (single-segment or grouped batches)
@@ -1045,12 +1356,30 @@ def translate_docx(
             )
 
         if grouped_mode:
-            grouped_jobs = _chunk_translation_jobs(
-                to_translate,
-                max_segments=cfg.llm.batch_segments,
-                max_chars=cfg.llm.batch_max_chars,
+            batch_eligible: list[tuple[Segment, str, str]] = []
+            single_only: list[tuple[tuple[Segment, str, str], list[str]]] = []
+            for job in to_translate:
+                reasons = _batch_ineligibility_reasons(job[0], cfg)
+                if reasons:
+                    single_only.append((job, reasons))
+                else:
+                    batch_eligible.append(job)
+
+            logger.info(
+                f"Batch-eligible segments: {len(batch_eligible)}; "
+                f"forced single by eligibility filter: {len(single_only)}"
             )
-            logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
+
+            if batch_eligible:
+                grouped_jobs = _chunk_translation_jobs(
+                    batch_eligible,
+                    max_segments=cfg.llm.batch_segments,
+                    max_chars=cfg.llm.batch_max_chars,
+                )
+                logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
+            else:
+                grouped_jobs = []
+                logger.info("No grouped batches prepared after eligibility filtering.")
 
             for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
                 batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
@@ -1104,6 +1433,86 @@ def translate_docx(
                             source_hash=source_hash,
                             error="; ".join(i.code for i in issues),
                         )
+
+            for (seg, source_hash, source_norm), reasons in tqdm(
+                single_only,
+                desc="Translate (single-filter)",
+                unit="seg",
+            ):
+                try:
+                    out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+                except Exception as e:
+                    seg.issues.append(
+                        Issue(
+                            code="translate_crash",
+                            severity=Severity.ERROR,
+                            message=f"Translate crash: {e}",
+                            details={},
+                        )
+                    )
+                    tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                    continue
+
+                issues = [
+                    Issue(
+                        code="batch_ineligible_single",
+                        severity=Severity.INFO,
+                        message=(
+                            "Segment excluded from grouped batch by eligibility filter; translated via single-pass mode."
+                        ),
+                        details={"reasons": reasons},
+                    ),
+                    *issues,
+                ]
+                hard_errors = any(i.severity == Severity.ERROR for i in issues)
+                if hard_errors:
+                    changed, fallback_issues = _translate_complex_paragraph_in_place(
+                        seg,
+                        cfg,
+                        llm_client,
+                        complex_chunk_cache,
+                        glossary_terms,
+                    )
+                    if changed:
+                        complex_translated += 1
+                        seg.target_shielded_tagged = None
+                        seg.issues.extend(
+                            [
+                                Issue(
+                                    code="complex_fallback_after_hard_errors",
+                                    severity=Severity.WARN,
+                                    message=(
+                                        "Segment translated with complex in-place fallback after strict marker "
+                                        "validation failure."
+                                    ),
+                                    details={},
+                                ),
+                                *_as_warn_issues(fallback_issues),
+                            ]
+                        )
+                        tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
+                        continue
+
+                seg.target_shielded_tagged = out
+                seg.issues.extend(issues)
+
+                # Store to TM only if no hard errors (avoid caching broken markers).
+                if not hard_errors:
+                    llm_translated_segments.add(seg.segment_id)
+                    tm.put_exact(
+                        source_hash=source_hash,
+                        source_norm=source_norm,
+                        target_text=out,
+                        meta=_build_tm_meta(seg, cfg, source_hash, origin="llm"),
+                    )
+                    tm.set_progress(seg.segment_id, "ok", source_hash=source_hash)
+                else:
+                    tm.set_progress(
+                        seg.segment_id,
+                        "error",
+                        source_hash=source_hash,
+                        error="; ".join(i.code for i in issues),
+                    )
         else:
             with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
                 futures = {
@@ -1223,6 +1632,31 @@ def translate_docx(
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info(f"Final run-level cleanup changes: {cleaned_runs}")
+    issue_counts = _collect_issue_code_counts(segments)
+    for code in (
+        "placeholders_mismatch",
+        "style_tags_mismatch",
+        "batch_fallback_single",
+        "batch_validation_fallback",
+    ):
+        logger.info(f"Metric {code}: {issue_counts.get(code, 0)}")
+    if issue_counts:
+        logger.info(
+            "Issue codes summary (top 12): "
+            + ", ".join(f"{code}={count}" for code, count in issue_counts.most_common(12))
+        )
+
+    if cfg.abbyy_profile != "off":
+        try:
+            oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
+            logger.info(
+                "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d",
+                cfg.abbyy_profile,
+                int(oxml_stats.get("tr_height_exact_removed", 0)),
+                int(oxml_stats.get("frame_pr_removed", 0)),
+            )
+        except Exception as e:
+            logger.warning(f"ABBYY OXML normalization failed: {e}")
 
     # Save outputs
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -13,21 +13,32 @@ llm:
   reasoning_effort: null   # openai hint: none|minimal|low|medium|high|xhigh
   prompt_cache_key: null   # optional openai cache key for repeated prompt prefixes
   prompt_cache_retention: null # optional openai retention hint, e.g. "24h"
+  structured_output_mode: "auto" # off | auto | strict
   temperature: 0.1
   max_output_tokens: 2000
   retries: 2
   timeout_s: 60.0
+  glossary_prompt_mode: "full" # off | full | matched
+  glossary_match_limit: 24
   batch_segments: 1      # >1 enables grouped translation (OpenAI/Ollama) for better context continuity
   batch_max_chars: 12000 # soft payload cap per grouped request
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
 
 tm:
   path: translation_cache.sqlite
+  fuzzy_enabled: false
+  fuzzy_top_k: 3
+  fuzzy_min_similarity: 0.75
+  fuzzy_prompt_max_chars: 500
 
 include_headers: false
 include_footers: false
 
 concurrency: 4
 mode: reflow              # reflow | com
+abbyy_profile: "off"        # off | safe | aggressive
+glossary_lemma_check: "off" # off | warn | retry
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl

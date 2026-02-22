@@ -44,6 +44,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Soft character cap per batch request payload.",
     )
+    t.add_argument(
+        "--structured-output",
+        choices=["off", "auto", "strict"],
+        default=None,
+        help="Structured output mode for prompt-based LLM providers.",
+    )
+    t.add_argument(
+        "--glossary-prompt-mode",
+        choices=["off", "full", "matched"],
+        default=None,
+        help="Glossary injection mode for LLM prompts.",
+    )
+    t.add_argument(
+        "--fuzzy-tm",
+        action="store_true",
+        help="Enable fuzzy TM lookup on top of exact TM.",
+    )
+    t.add_argument(
+        "--abbyy-profile",
+        choices=["off", "safe", "aggressive"],
+        default=None,
+        help="Enable optional ABBYY-specific normalization profile.",
+    )
     t.add_argument("--concurrency", type=int, default=None, help="Override concurrency from config.")
     t.add_argument("--qa", default=None, help="Override QA report HTML path.")
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
@@ -88,6 +111,26 @@ def main(argv: list[str] | None = None) -> int:
         if args.batch_max_chars is not None:
             llm_cfg = cfg.llm.__class__(**{**cfg.llm.__dict__, "batch_max_chars": int(args.batch_max_chars)})
             cfg = cfg.__class__(**{**cfg.__dict__, "llm": llm_cfg})
+        if args.structured_output is not None:
+            llm_cfg = cfg.llm.__class__(
+                **{**cfg.llm.__dict__, "structured_output_mode": str(args.structured_output)}
+            )
+            cfg = cfg.__class__(**{**cfg.__dict__, "llm": llm_cfg})
+        if args.glossary_prompt_mode is not None:
+            glossary_mode = str(args.glossary_prompt_mode)
+            llm_cfg = cfg.llm.__class__(
+                **{
+                    **cfg.llm.__dict__,
+                    "glossary_prompt_mode": glossary_mode,
+                    "glossary_in_prompt": glossary_mode != "off",
+                }
+            )
+            cfg = cfg.__class__(**{**cfg.__dict__, "llm": llm_cfg})
+        if args.fuzzy_tm:
+            tm_cfg = cfg.tm.__class__(**{**cfg.tm.__dict__, "fuzzy_enabled": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "tm": tm_cfg})
+        if args.abbyy_profile is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "abbyy_profile": str(args.abbyy_profile)})
         if args.no_headers:
             cfg = cfg.__class__(**{**cfg.__dict__, "include_headers": False})
         if args.no_footers:

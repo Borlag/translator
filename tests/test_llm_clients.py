@@ -232,7 +232,7 @@ def test_apply_glossary_replacements_fixes_repair_procedure_conditions():
 
 def test_apply_glossary_replacements_fixes_repair_no_merges():
     out = apply_glossary_replacements("Ремонт № 1-1 Ремонт узла нижнего подшипника №1-1601", ())
-    assert "Ремонт № 1-1 узла нижнего подшипника № 1-1 601" == out
+    assert out == "Ремонт № 1-1 узла нижнего подшипника № 1-1 601"
 
 
 def test_ollama_client_translate_with_mocked_http():
@@ -249,6 +249,31 @@ def test_ollama_client_translate_with_mocked_http():
     assert out == "Привет"
     assert payloads and payloads[0]["model"] == "qwen2.5:7b"
     assert payloads[0]["stream"] is False
+
+
+def test_ollama_client_translate_reads_structured_json_when_available():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"message":{"content":"{\\"translated_text\\":\\"Привет\\"}"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b", structured_output_mode="auto")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("Hello", {"task": "translate"})
+
+    assert out == "Привет"
+
+
+def test_ollama_client_strict_translate_rejects_invalid_json():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"message":{"content":"plain text"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b", structured_output_mode="strict")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        try:
+            client.translate("Hello", {"task": "translate"})
+        except RuntimeError as err:
+            assert "Strict structured translate parse failed" in str(err)
+        else:
+            raise AssertionError("Expected RuntimeError for strict structured mode")
 
 
 def test_ollama_client_repair_extracts_output_payload():
@@ -315,6 +340,41 @@ def test_openai_client_non_gpt5_uses_max_tokens():
     assert out == "ok"
     assert payloads and payloads[0]["max_tokens"] == client.max_output_tokens
     assert "max_completion_tokens" not in payloads[0]
+
+
+def test_openai_client_translate_reads_structured_json_when_available():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"{\\"translated_text\\":\\"Привет\\"}"}}]}')
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", structured_output_mode="auto")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "Привет"
+    assert payloads and payloads[0]["response_format"] == {"type": "json_object"}
+
+
+def test_openai_client_strict_translate_rejects_invalid_json():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"choices":[{"message":{"content":"plain text"}}]}')
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", structured_output_mode="strict")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        try:
+            client.translate("hello", {"task": "translate"})
+        except RuntimeError as err:
+            assert "Strict structured translate parse failed" in str(err)
+        else:
+            raise AssertionError("Expected RuntimeError for strict structured mode")
 
 
 def test_openai_client_repair_extracts_output_payload():

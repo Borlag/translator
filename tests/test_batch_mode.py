@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 
+from docxru.config import LLMConfig, PipelineConfig
 from docxru.models import Segment
-from docxru.pipeline import _chunk_translation_jobs, _parse_batch_translation_output
+from docxru.pipeline import (
+    _batch_ineligibility_reasons,
+    _chunk_translation_jobs,
+    _parse_batch_translation_output,
+    _translate_batch_group,
+)
 
 
 def _make_job(seg_id: str, text: str) -> tuple[Segment, str, str]:
@@ -49,3 +57,57 @@ def test_chunk_translation_jobs_respects_char_limit():
     jobs = [_make_job("1", "x" * 50), _make_job("2", "y" * 50), _make_job("3", "z" * 50)]
     chunks = _chunk_translation_jobs(jobs, max_segments=10, max_chars=300)
     assert [len(chunk) for chunk in chunks] == [1, 1, 1]
+
+
+def test_batch_ineligibility_detects_brline():
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="A",
+        paragraph_ref=None,
+        shielded_tagged="A⟦BRLINE_1⟧B",
+    )
+    cfg = PipelineConfig(llm=LLMConfig(batch_skip_on_brline=True))
+    reasons = _batch_ineligibility_reasons(seg, cfg)
+    assert "contains_brline" in reasons
+
+
+def test_batch_ineligibility_detects_many_style_tokens():
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="A",
+        paragraph_ref=None,
+        shielded_tagged="⟦S_1⟧a⟦/S_1⟧⟦S_2⟧b⟦/S_2⟧",
+    )
+    cfg = PipelineConfig(llm=LLMConfig(batch_max_style_tokens=1))
+    reasons = _batch_ineligibility_reasons(seg, cfg)
+    assert "too_many_style_tokens" in reasons
+
+
+def test_translate_batch_group_marks_json_schema_violation():
+    class FakeClient:
+        supports_repair = True
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            self.calls += 1
+            if context.get("task") == "batch_translate":
+                # Missing one of expected ids -> batch schema contract violation.
+                return '{"translations":[{"id":"1","text":"T1"}]}'
+            return "OK"
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
+    cfg = PipelineConfig(llm=LLMConfig(retries=1))
+
+    results = _translate_batch_group(jobs, cfg, FakeClient(), logging.getLogger("test"))
+
+    assert len(results) == 2
+    for _, _, _, _, issues in results:
+        codes = {issue.code for issue in issues}
+        assert "batch_fallback_single" in codes
+        assert "batch_json_schema_violation" in codes

@@ -125,6 +125,7 @@ Reliability and terminology controls:
 - Batch guardrails:
   - `llm.batch_skip_on_brline: true`
   - `llm.batch_max_style_tokens: 16`
+  - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped batch mode.
 - Fuzzy TM hints in prompt context:
   - `tm.fuzzy_enabled`, `tm.fuzzy_top_k`, `tm.fuzzy_min_similarity`, `tm.fuzzy_prompt_max_chars`
   - CLI switch: `--fuzzy-tm`
@@ -134,12 +135,22 @@ Reliability and terminology controls:
 - Optional glossary morphology check (`pymorphy3`, if installed):
   - `glossary_lemma_check: "off" | "warn" | "retry"`
   - In `retry` mode, pipeline performs one additional glossary-focused rewrite when matched terms are missing.
+- Optional consistency and layout checks:
+  - `layout_check: true|false`
+  - `layout_expansion_warn_ratio: 1.5` (warn on high RU/EN expansion ratio)
+  - `layout_auto_fix: true|false` (apply optional spacing/font reductions on risky segments)
+  - `layout_font_reduction_pt`, `layout_spacing_factor`
 
 New QA/diagnostic issue codes:
 
 - `batch_json_schema_violation`: grouped batch response failed JSON/schema contract.
 - `batch_validation_fallback`: grouped output failed marker validation, single-segment fallback used.
 - `batch_fallback_single`: grouped request failed, translated segment-by-segment.
+- `consistency_term_variation`: same glossary source term observed with multiple RU variants.
+- `length_ratio_high`: translated segment expansion ratio exceeds configured threshold.
+- `layout_table_overflow_risk`: translated table-cell text likely exceeds available width.
+- `layout_textbox_overflow_risk`: translated textbox text likely exceeds available area.
+- `layout_auto_fix_applied`: auto-fix (spacing/font reduction) was applied to a segment.
 
 YAML note:
 

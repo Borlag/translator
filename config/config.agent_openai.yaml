@@ -24,6 +24,7 @@ llm:
   batch_max_chars: 14000
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
+  context_window_chars: 0 # keep grouped batch mode enabled for this profile
 
 tm:
   path: ../translation_cache.sqlite

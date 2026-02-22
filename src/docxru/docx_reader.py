@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
-from typing import Any, Iterator, Optional
+from collections.abc import Iterator
+from typing import Any
 
 from docx.document import Document as DocxDocument
-from docx.table import _Cell, Table
+from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 from .models import Segment
@@ -15,6 +17,7 @@ _TOC_TITLE_RE = re.compile(r"\btable\s+of\s+contents\b", flags=re.IGNORECASE)
 _TOC_CONTINUED_RE = re.compile(r"\bcontents?\s*\(continued\)", flags=re.IGNORECASE)
 _TOC_PAGE_REF_RE = re.compile(r"\t+\s*[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
 _TOC_DOTS_PAGE_RE = re.compile(r"(?:\.\s*){6,}[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
+_logger = logging.getLogger(__name__)
 
 
 def _looks_like_toc_style(style_name: str) -> bool:
@@ -32,9 +35,7 @@ def _looks_like_toc_text(text: str) -> bool:
         return False
     if _TOC_TITLE_RE.search(flat) or _TOC_CONTINUED_RE.search(flat):
         return True
-    if _TOC_PAGE_REF_RE.search(text) or _TOC_DOTS_PAGE_RE.search(flat):
-        return True
-    return False
+    return bool(_TOC_PAGE_REF_RE.search(text) or _TOC_DOTS_PAGE_RE.search(flat))
 
 
 def _stable_segment_id(location: str, source_plain: str) -> str:
@@ -75,13 +76,36 @@ def iter_textbox_contents(parent: Any) -> Iterator[Any]:
             yield node
 
 
+def _iter_textbox_paragraphs(parent: Any) -> Iterator[tuple[int, int, Paragraph]]:
+    """Yield (textbox index, paragraph index, Paragraph) tuples from textbox content."""
+    for txbx_i, txbx_content in enumerate(iter_textbox_contents(parent)):
+        p_i = 0
+        for child in txbx_content.iterchildren():
+            tag = str(getattr(child, "tag", "")).lower()
+            if not tag.endswith("}p"):
+                continue
+            try:
+                paragraph = Paragraph(child, parent)
+            except Exception as exc:
+                _logger.warning(
+                    "Skipping malformed textbox paragraph at textbox%d/p%d: %s",
+                    txbx_i,
+                    p_i,
+                    exc,
+                )
+                p_i += 1
+                continue
+            yield txbx_i, p_i, paragraph
+            p_i += 1
+
+
 def collect_segments(
     doc: DocxDocument,
     include_headers: bool = False,
     include_footers: bool = False,
 ) -> list[Segment]:
     segments: list[Segment] = []
-    last_heading: Optional[str] = None
+    last_heading: str | None = None
 
     def handle_paragraph(p: Paragraph, location: str, context: dict[str, Any]) -> None:
         nonlocal last_heading
@@ -134,22 +158,36 @@ def collect_segments(
                         t_i += 1
 
     def walk_textboxes(container: Any, base_loc: str, context: dict[str, Any]) -> None:
+        paragraph_map = {(txbx_i, p_i): p for txbx_i, p_i, p in _iter_textbox_paragraphs(container)}
         for txbx_i, txbx_content in enumerate(iter_textbox_contents(container)):
             p_i = 0
             t_i = 0
             for child in txbx_content.iterchildren():
-                tag = child.tag.lower()
+                tag = str(getattr(child, "tag", "")).lower()
                 if tag.endswith("}p"):
-                    handle_paragraph(
-                        Paragraph(child, container),
-                        f"{base_loc}/txbx{txbx_i}/p{p_i}",
-                        {**context, "in_textbox": True},
-                    )
+                    paragraph = paragraph_map.get((txbx_i, p_i))
+                    if paragraph is not None:
+                        handle_paragraph(
+                            paragraph,
+                            f"{base_loc}/textbox{txbx_i}/p{p_i}",
+                            {**context, "in_textbox": True},
+                        )
                     p_i += 1
                 elif tag.endswith("}tbl"):
+                    try:
+                        textbox_table = Table(child, container)
+                    except Exception as exc:
+                        _logger.warning(
+                            "Skipping malformed textbox table at textbox%d/t%d: %s",
+                            txbx_i,
+                            t_i,
+                            exc,
+                        )
+                        t_i += 1
+                        continue
                     walk_table(
-                        Table(child, container),
-                        f"{base_loc}/txbx{txbx_i}/t{t_i}",
+                        textbox_table,
+                        f"{base_loc}/textbox{txbx_i}/t{t_i}",
                         {**context, "in_textbox": True, "table_index": t_i},
                     )
                     t_i += 1

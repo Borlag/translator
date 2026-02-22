@@ -47,7 +47,7 @@ class LLMConfig:
     batch_max_style_tokens: int = 16
     # Sliding prompt context for near-neighbor snippets and recent translations.
     # 0 disables sequential recent-translation context mode.
-    context_window_chars: int = 0
+    context_window_chars: int = 600
 
 
 @dataclass(frozen=True)
@@ -74,6 +74,12 @@ class PipelineConfig:
     log_path: str = "run.log"
     abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive'
     glossary_lemma_check: str = "off"  # 'off' | 'warn' | 'retry'
+    # Optional post-translation layout validation/autofix heuristics.
+    layout_check: bool = False
+    layout_expansion_warn_ratio: float = 1.5
+    layout_auto_fix: bool = False
+    layout_font_reduction_pt: float = 0.5
+    layout_spacing_factor: float = 0.8
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
 
@@ -158,7 +164,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         glossary_match_limit=int(llm_data.get("glossary_match_limit", 24)),
         batch_skip_on_brline=bool(llm_data.get("batch_skip_on_brline", True)),
         batch_max_style_tokens=int(llm_data.get("batch_max_style_tokens", 16)),
-        context_window_chars=max(0, int(llm_data.get("context_window_chars", 0))),
+        context_window_chars=max(0, int(llm_data.get("context_window_chars", 600))),
     )
     tm = TMConfig(
         path=str(tm_data.get("path", "translation_cache.sqlite")),
@@ -188,6 +194,11 @@ def load_config(path: str | Path) -> PipelineConfig:
         allowed={"off", "warn", "retry"},
         default="off",
     )
+    layout_check = bool(data.get("layout_check", False))
+    layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
+    layout_auto_fix = bool(data.get("layout_auto_fix", False))
+    layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
+    layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
@@ -231,5 +242,10 @@ def load_config(path: str | Path) -> PipelineConfig:
         log_path=log_path,
         abbyy_profile=abbyy_profile,
         glossary_lemma_check=glossary_lemma_check,
+        layout_check=layout_check,
+        layout_expansion_warn_ratio=layout_expansion_warn_ratio,
+        layout_auto_fix=layout_auto_fix,
+        layout_font_reduction_pt=layout_font_reduction_pt,
+        layout_spacing_factor=layout_spacing_factor,
         pattern_set=pattern_set,
     )

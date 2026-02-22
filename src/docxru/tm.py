@@ -236,3 +236,29 @@ class TMStore:
             "error": row[3],
             "updated_at": row[4],
         }
+
+    def get_progress_bulk(self, segment_ids: list[str]) -> dict[str, dict[str, Any]]:
+        if not segment_ids:
+            return {}
+
+        out: dict[str, dict[str, Any]] = {}
+        # Keep below common SQLite host parameter limits.
+        chunk_size = 900
+        for i in range(0, len(segment_ids), chunk_size):
+            chunk = [seg_id for seg_id in segment_ids[i : i + chunk_size] if seg_id]
+            if not chunk:
+                continue
+            placeholders = ",".join("?" for _ in chunk)
+            cur = self.conn.execute(
+                f"SELECT segment_id, status, source_hash, error, updated_at FROM progress WHERE segment_id IN ({placeholders})",
+                tuple(chunk),
+            )
+            for row in cur.fetchall():
+                out[str(row[0])] = {
+                    "segment_id": row[0],
+                    "status": row[1],
+                    "source_hash": row[2],
+                    "error": row[3],
+                    "updated_at": row[4],
+                }
+        return out

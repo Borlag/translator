@@ -14,7 +14,10 @@ from docx.oxml.ns import qn
 from tqdm import tqdm
 
 from .config import PipelineConfig
+from .consistency import report_consistency
 from .docx_reader import collect_segments
+from .layout_check import validate_layout
+from .layout_fix import fix_expansion_issues
 from .llm import (
     build_glossary_matchers,
     build_hard_glossary_replacements,
@@ -440,9 +443,7 @@ def _should_apply_hard_glossary_to_segment(seg: Segment) -> bool:
         return True
     if len(latin_words) >= 14:
         return False
-    if _looks_sentence_like_english(source):
-        return False
-    return True
+    return not _looks_sentence_like_english(source)
 
 
 def _segment_glossary_terms(
@@ -681,6 +682,11 @@ def _build_tm_profile_key(
             f"fuzzy_prompt_max_chars={int(cfg.tm.fuzzy_prompt_max_chars)}",
             f"abbyy_profile={cfg.abbyy_profile.strip().lower()}",
             f"glossary_lemma_check={cfg.glossary_lemma_check.strip().lower()}",
+            f"layout_check={int(bool(cfg.layout_check))}",
+            f"layout_expansion_warn_ratio={float(cfg.layout_expansion_warn_ratio):.3f}",
+            f"layout_auto_fix={int(bool(cfg.layout_auto_fix))}",
+            f"layout_font_reduction_pt={float(cfg.layout_font_reduction_pt):.3f}",
+            f"layout_spacing_factor={float(cfg.layout_spacing_factor):.3f}",
             f"reasoning_effort={(cfg.llm.reasoning_effort or '').strip().lower() or 'default'}",
             f"system_prompt_sha={_tm_text_fingerprint(custom_system_prompt)}",
             f"glossary_sha={_tm_text_fingerprint(glossary_text)}",
@@ -797,7 +803,6 @@ def _finalize_translation_result(
                     *_as_warn_issues(fallback_issues),
                 ]
             )
-            tm.set_progress(seg.segment_id, "complex_ok", source_hash=source_hash)
             return 1
 
     seg.target_shielded_tagged = out
@@ -881,13 +886,35 @@ def _collect_issue_code_counts(segments: list[Segment]) -> Counter[str]:
     return counts
 
 
+def _attach_issues_to_segments(segments: list[Segment], issues: list[Issue]) -> int:
+    if not segments or not issues:
+        return 0
+    seg_by_id = {seg.segment_id: seg for seg in segments}
+    attached = 0
+    for issue in issues:
+        segment_id = str(issue.details.get("segment_id", "")).strip()
+        if segment_id:
+            seg = seg_by_id.get(segment_id)
+            if seg is None:
+                continue
+            seg.issues.append(issue)
+            attached += 1
+            continue
+        segments[0].issues.append(issue)
+        attached += 1
+    return attached
+
+
 def _build_batch_translation_prompt(items: list[dict[str, str]]) -> str:
     input_json = json.dumps(items, ensure_ascii=False)
     return (
         "TASK: BATCH_TRANSLATE_SEGMENTS\n"
         "Translate each item.text from English to Russian.\n"
         "Keep marker placeholders and style tags unchanged.\n"
-        "Return only valid JSON object in this shape:\n"
+        "Return ONLY valid JSON object (no markdown, no prose) where key=id and value=translated text.\n"
+        "Preferred shape:\n"
+        '{"<id>":"<translated_text>","<id2>":"<translated_text2>"}\n'
+        "Also accepted shape:\n"
         '{"translations":[{"id":"<id>","text":"<translated_text>"}]}\n'
         "Rules:\n"
         "- Keep all IDs exactly as provided.\n"
@@ -898,27 +925,79 @@ def _build_batch_translation_prompt(items: list[dict[str, str]]) -> str:
     )
 
 
+def _iter_balanced_json_chunks(text: str, *, open_char: str, close_char: str) -> list[str]:
+    chunks: list[str] = []
+    in_string = False
+    escaped = False
+    depth = 0
+    start_idx = -1
+
+    for idx, ch in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+                continue
+            if ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == open_char:
+            if depth == 0:
+                start_idx = idx
+            depth += 1
+            continue
+        if ch == close_char and depth > 0:
+            depth -= 1
+            if depth == 0 and start_idx >= 0:
+                candidate = text[start_idx : idx + 1].strip()
+                if candidate:
+                    chunks.append(candidate)
+                start_idx = -1
+    return chunks
+
+
 def _extract_json_payload(raw: str) -> Any:
     text = (raw or "").strip()
     if not text:
         raise RuntimeError("Empty batch response")
 
-    candidates: list[str] = [text]
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def _add_candidate(value: str) -> None:
+        candidate = (value or "").strip()
+        if not candidate or candidate in seen:
+            return
+        seen.add(candidate)
+        candidates.append(candidate)
+
+    _add_candidate(text)
 
     for m in _JSON_FENCE_RE.finditer(text):
         fenced = (m.group(1) or "").strip()
         if fenced:
-            candidates.append(fenced)
+            _add_candidate(fenced)
 
     obj_start = text.find("{")
     obj_end = text.rfind("}")
     if obj_start >= 0 and obj_end > obj_start:
-        candidates.append(text[obj_start : obj_end + 1].strip())
+        _add_candidate(text[obj_start : obj_end + 1])
 
     arr_start = text.find("[")
     arr_end = text.rfind("]")
     if arr_start >= 0 and arr_end > arr_start:
-        candidates.append(text[arr_start : arr_end + 1].strip())
+        _add_candidate(text[arr_start : arr_end + 1])
+
+    for chunk in _iter_balanced_json_chunks(text, open_char="{", close_char="}"):
+        _add_candidate(chunk)
+    for chunk in _iter_balanced_json_chunks(text, open_char="[", close_char="]"):
+        _add_candidate(chunk)
 
     for candidate in candidates:
         try:
@@ -1266,6 +1345,11 @@ def translate_docx(
         f"fuzzy_enabled={cfg.tm.fuzzy_enabled}; "
         f"abbyy_profile={cfg.abbyy_profile}; "
         f"glossary_lemma_check={cfg.glossary_lemma_check}; "
+        f"layout_check={cfg.layout_check}; "
+        f"layout_expansion_warn_ratio={cfg.layout_expansion_warn_ratio}; "
+        f"layout_auto_fix={cfg.layout_auto_fix}; "
+        f"layout_font_reduction_pt={cfg.layout_font_reduction_pt}; "
+        f"layout_spacing_factor={cfg.layout_spacing_factor}; "
         f"history_jsonl={cfg.translation_history_path or '(off)'}"
     )
     logger.info(f"TM ruleset version: {_TM_RULESET_VERSION}")
@@ -1369,9 +1453,16 @@ def translate_docx(
     fuzzy_reference_segments = 0
     toc_inplace_translated = 0
     document_glossary: dict[str, str] = {}
+    progress_cache: dict[str, dict[str, Any]] = {}
+    if resume and segments:
+        try:
+            progress_cache = tm.get_progress_bulk([seg.segment_id for seg in segments])
+            logger.info(f"Resume progress cache loaded: {len(progress_cache)} records")
+        except Exception as e:
+            logger.warning(f"Resume progress bulk load failed; fallback to per-segment lookup: {e}")
 
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
-        prev_progress = tm.get_progress(seg.segment_id) if resume else None
+        prev_progress = progress_cache.get(seg.segment_id) if resume else None
 
         # Fast-path: if the segment contains no English (Latin) text, do not touch the paragraph at all.
         # This preserves layout and avoids degrading already-RU content in partially translated manuals.
@@ -1384,7 +1475,6 @@ def translate_docx(
                     details={},
                 )
             )
-            tm.set_progress(seg.segment_id, "skip", source_hash=None)
             continue
 
         if glossary_prompt_mode == "matched" and glossary_in_prompt and document_glossary:
@@ -1424,9 +1514,6 @@ def translate_docx(
             seg.issues.extend(toc_issues)
             if changed:
                 toc_inplace_translated += 1
-                tm.set_progress(seg.segment_id, "toc_ok", source_hash=None)
-            else:
-                tm.set_progress(seg.segment_id, "skip", source_hash=None)
             continue
 
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
@@ -1442,7 +1529,6 @@ def translate_docx(
             seg.issues.extend(complex_issues)
             if changed:
                 complex_translated += 1
-                tm.set_progress(seg.segment_id, "complex_ok", source_hash=None)
             else:
                 seg.issues.append(
                     Issue(
@@ -1452,7 +1538,6 @@ def translate_docx(
                         details={},
                     )
                 )
-                tm.set_progress(seg.segment_id, "skip", source_hash=None)
             continue
         try:
             tagged, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
@@ -1635,66 +1720,133 @@ def translate_docx(
                     grouped_jobs = []
                     logger.info("No grouped batches prepared after eligibility filtering.")
 
-                for jobs in tqdm(grouped_jobs, desc="Translate (batch)", unit="batch"):
-                    batch_results = _translate_batch_group(jobs, cfg, llm_client, logger)
-                    for seg, source_hash, source_norm, out, issues in batch_results:
-                        complex_translated += _finalize_translation_result(
-                            seg=seg,
-                            source_hash=source_hash,
-                            source_norm=source_norm,
-                            out=out,
-                            issues=issues,
-                            cfg=cfg,
-                            llm_client=llm_client,
-                            tm=tm,
-                            complex_chunk_cache=complex_chunk_cache,
-                            glossary_terms=_segment_glossary_terms(seg, glossary_terms),
-                            llm_translated_segments=llm_translated_segments,
-                        )
+                if grouped_jobs:
+                    batch_workers = min(max(1, cfg.concurrency), len(grouped_jobs))
+                    logger.info(f"Grouped batch workers: {batch_workers}")
+                    with ThreadPoolExecutor(max_workers=batch_workers) as ex:
+                        futures = {
+                            ex.submit(_translate_batch_group, jobs, cfg, llm_client, logger): jobs
+                            for jobs in grouped_jobs
+                        }
+                        for fut in tqdm(as_completed(futures), total=len(futures), desc="Translate (batch)", unit="batch"):
+                            jobs = futures[fut]
+                            try:
+                                batch_results = fut.result()
+                            except Exception as e:
+                                logger.warning(
+                                    f"Batch worker crashed (size={len(jobs)}), fallback to single-segment: {e}"
+                                )
+                                for seg, source_hash, source_norm in jobs:
+                                    try:
+                                        out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+                                    except Exception as single_err:
+                                        seg.issues.append(
+                                            Issue(
+                                                code="translate_crash",
+                                                severity=Severity.ERROR,
+                                                message=f"Translate crash: {single_err}",
+                                                details={},
+                                            )
+                                        )
+                                        tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(single_err))
+                                        continue
+                                    issues = [
+                                        Issue(
+                                            code="batch_worker_crash_fallback",
+                                            severity=Severity.WARN,
+                                            message=f"Batch worker crashed, fallback to single segment translation: {e}",
+                                            details={"batch_size": len(jobs)},
+                                        ),
+                                        *issues,
+                                    ]
+                                    complex_translated += _finalize_translation_result(
+                                        seg=seg,
+                                        source_hash=source_hash,
+                                        source_norm=source_norm,
+                                        out=out,
+                                        issues=issues,
+                                        cfg=cfg,
+                                        llm_client=llm_client,
+                                        tm=tm,
+                                        complex_chunk_cache=complex_chunk_cache,
+                                        glossary_terms=_segment_glossary_terms(seg, glossary_terms),
+                                        llm_translated_segments=llm_translated_segments,
+                                    )
+                                continue
 
-                for (seg, source_hash, source_norm), reasons in tqdm(
-                    single_only,
-                    desc="Translate (single-filter)",
-                    unit="seg",
-                ):
-                    try:
-                        out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
-                    except Exception as e:
-                        seg.issues.append(
-                            Issue(
-                                code="translate_crash",
-                                severity=Severity.ERROR,
-                                message=f"Translate crash: {e}",
-                                details={},
+                            for seg, source_hash, source_norm, out, issues in batch_results:
+                                complex_translated += _finalize_translation_result(
+                                    seg=seg,
+                                    source_hash=source_hash,
+                                    source_norm=source_norm,
+                                    out=out,
+                                    issues=issues,
+                                    cfg=cfg,
+                                    llm_client=llm_client,
+                                    tm=tm,
+                                    complex_chunk_cache=complex_chunk_cache,
+                                    glossary_terms=_segment_glossary_terms(seg, glossary_terms),
+                                    llm_translated_segments=llm_translated_segments,
+                                )
+
+                if single_only:
+                    single_workers = min(max(1, cfg.concurrency), len(single_only))
+                    logger.info(f"Single-filter workers: {single_workers}")
+                    with ThreadPoolExecutor(max_workers=single_workers) as ex:
+                        futures = {
+                            ex.submit(_translate_one, seg, cfg, llm_client, source_hash, source_norm, logger): (
+                                seg,
+                                source_hash,
+                                source_norm,
+                                reasons,
                             )
-                        )
-                        tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
-                        continue
+                            for (seg, source_hash, source_norm), reasons in single_only
+                        }
+                        for fut in tqdm(
+                            as_completed(futures),
+                            total=len(futures),
+                            desc="Translate (single-filter)",
+                            unit="seg",
+                        ):
+                            seg, source_hash, source_norm, reasons = futures[fut]
+                            try:
+                                out, issues = fut.result()
+                            except Exception as e:
+                                seg.issues.append(
+                                    Issue(
+                                        code="translate_crash",
+                                        severity=Severity.ERROR,
+                                        message=f"Translate crash: {e}",
+                                        details={},
+                                    )
+                                )
+                                tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                                continue
 
-                    issues = [
-                        Issue(
-                            code="batch_ineligible_single",
-                            severity=Severity.INFO,
-                            message=(
-                                "Segment excluded from grouped batch by eligibility filter; translated via single-pass mode."
-                            ),
-                            details={"reasons": reasons},
-                        ),
-                        *issues,
-                    ]
-                    complex_translated += _finalize_translation_result(
-                        seg=seg,
-                        source_hash=source_hash,
-                        source_norm=source_norm,
-                        out=out,
-                        issues=issues,
-                        cfg=cfg,
-                        llm_client=llm_client,
-                        tm=tm,
-                        complex_chunk_cache=complex_chunk_cache,
-                        glossary_terms=_segment_glossary_terms(seg, glossary_terms),
-                        llm_translated_segments=llm_translated_segments,
-                    )
+                            issues = [
+                                Issue(
+                                    code="batch_ineligible_single",
+                                    severity=Severity.INFO,
+                                    message=(
+                                        "Segment excluded from grouped batch by eligibility filter; translated via single-pass mode."
+                                    ),
+                                    details={"reasons": reasons},
+                                ),
+                                *issues,
+                            ]
+                            complex_translated += _finalize_translation_result(
+                                seg=seg,
+                                source_hash=source_hash,
+                                source_norm=source_norm,
+                                out=out,
+                                issues=issues,
+                                cfg=cfg,
+                                llm_client=llm_client,
+                                tm=tm,
+                                complex_chunk_cache=complex_chunk_cache,
+                                glossary_terms=_segment_glossary_terms(seg, glossary_terms),
+                                llm_translated_segments=llm_translated_segments,
+                            )
             else:
                 with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
                     futures = {
@@ -1775,6 +1927,21 @@ def translate_docx(
             )
 
     logger.info(f"Written segments: {written}/{len(segments)}; complex in-place: {complex_translated}")
+
+    if glossary_matchers:
+        consistency_issues = report_consistency(segments, glossary_matchers)
+        attached = _attach_issues_to_segments(segments, consistency_issues)
+        if consistency_issues:
+            logger.info(f"Consistency check issues: {len(consistency_issues)} (attached={attached})")
+
+    if cfg.layout_check or cfg.layout_auto_fix:
+        layout_issues = validate_layout(doc, segments, cfg)
+        attached = _attach_issues_to_segments(segments, layout_issues)
+        if layout_issues:
+            logger.info(f"Layout validation issues: {len(layout_issues)} (attached={attached})")
+        if cfg.layout_auto_fix and layout_issues:
+            applied_fixes = fix_expansion_issues(segments, layout_issues, cfg)
+            logger.info(f"Layout auto-fixes applied: {applied_fixes}")
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info(f"Final run-level cleanup changes: {cleaned_runs}")

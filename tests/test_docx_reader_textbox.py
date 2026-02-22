@@ -33,7 +33,7 @@ def test_collect_segments_includes_body_textbox_paragraphs():
     assert "Text from body textbox" in texts
     textbox_seg = next(seg for seg in segments if seg.source_plain == "Text from body textbox")
     assert textbox_seg.context.get("in_textbox") is True
-    assert textbox_seg.location.startswith("body/txbx")
+    assert textbox_seg.location.startswith("body/textbox")
 
 
 def test_collect_segments_textbox_in_header_respects_include_headers_flag():
@@ -49,7 +49,7 @@ def test_collect_segments_textbox_in_header_respects_include_headers_flag():
     header_textbox_seg = next(seg for seg in header_segments if seg.source_plain == "Header textbox text")
     assert header_textbox_seg.context.get("part") == "header"
     assert header_textbox_seg.context.get("in_textbox") is True
-    assert header_textbox_seg.location.startswith("header0/txbx")
+    assert header_textbox_seg.location.startswith("header0/textbox")
 
 
 def test_collect_segments_marks_toc_like_entries():

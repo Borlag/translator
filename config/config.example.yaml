@@ -24,7 +24,7 @@ llm:
   batch_max_chars: 12000 # soft payload cap per grouped request
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
-  context_window_chars: 0 # >0 disables grouped/parallel translate and injects recent EN=>RU context
+  context_window_chars: 600 # >0 disables grouped/parallel translate and injects recent EN=>RU context
 
 tm:
   path: translation_cache.sqlite
@@ -40,6 +40,11 @@ concurrency: 4
 mode: reflow              # reflow | com
 abbyy_profile: "off"        # off | safe | aggressive
 glossary_lemma_check: "off" # off | warn | retry
+layout_check: false         # run layout risk checks after translation
+layout_expansion_warn_ratio: 1.5
+layout_auto_fix: false      # apply optional spacing/font fixes for risky segments
+layout_font_reduction_pt: 0.5
+layout_spacing_factor: 0.8
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl

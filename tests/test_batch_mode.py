@@ -41,6 +41,18 @@ def test_parse_batch_translation_output_accepts_fenced_json():
     assert out == {"a": "AA", "b": "BB"}
 
 
+def test_parse_batch_translation_output_accepts_id_to_text_object():
+    raw = '{"s1":"T1","s2":"T2"}'
+    out = _parse_batch_translation_output(raw, ["s1", "s2"])
+    assert out == {"s1": "T1", "s2": "T2"}
+
+
+def test_parse_batch_translation_output_accepts_json_with_outer_text():
+    raw = 'Result follows: {"s1":"T1","s2":"T2"} -- end.'
+    out = _parse_batch_translation_output(raw, ["s1", "s2"])
+    assert out == {"s1": "T1", "s2": "T2"}
+
+
 def test_parse_batch_translation_output_rejects_missing_ids():
     raw = '{"translations":[{"id":"s1","text":"Only one"}]}'
     with pytest.raises(RuntimeError, match="missing ids"):

@@ -210,6 +210,31 @@ def test_hard_glossary_matches_across_brline_tokens():
     assert "нижний узел подшипника" in token_map.values()
 
 
+def test_hard_glossary_skips_single_word_entries():
+    terms = build_hard_glossary_replacements(
+        "Repair — Ремонт\nMain Landing Gear Leg — Стойка основного шасси"
+    )
+    _, token_map = shield_terms("Repair Main Landing Gear Leg", terms, token_prefix="GLS")
+    assert "Стойка основного шасси" in token_map.values()
+    assert "Ремонт" not in token_map.values()
+
+
+def test_apply_glossary_replacements_normalizes_with_and_pn_and():
+    out = apply_glossary_replacements("WITH\n⟦PN_1⟧ AND ⟦PN_2⟧", ())
+    assert "С" in out
+    assert "⟦PN_1⟧ И ⟦PN_2⟧" in out
+
+
+def test_apply_glossary_replacements_fixes_repair_procedure_conditions():
+    out = apply_glossary_replacements("Repair Procedure Conditions 602", ())
+    assert out == "Условия выполнения процедуры ремонта 602"
+
+
+def test_apply_glossary_replacements_fixes_repair_no_merges():
+    out = apply_glossary_replacements("Ремонт № 1-1 Ремонт узла нижнего подшипника №1-1601", ())
+    assert "Ремонт № 1-1 узла нижнего подшипника № 1-1 601" == out
+
+
 def test_ollama_client_translate_with_mocked_http():
     payloads: list[dict] = []
 

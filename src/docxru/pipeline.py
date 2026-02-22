@@ -54,6 +54,8 @@ _LAYOUT_SPLIT_RE = re.compile(r"((?:\.\s*){3,}|\t+)")
 _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Remove zero-width spaces sometimes produced by machine translation (Google).
     (re.compile("\u200b"), ""),
+    # Converted manuals often keep standalone English joiners on the title page.
+    (re.compile(r"^\s*WITH\s*$", flags=re.IGNORECASE), "С"),
     (re.compile(r"\bNEW/REVISED\b"), "НОВЫЕ/ПЕРЕСМОТРЕННЫЕ"),
     (re.compile(r"\bTable\b"), "Таблица"),
     (re.compile(r"\btable\b"), "таблица"),
@@ -73,7 +75,7 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
-_TM_RULESET_VERSION = "2026-02-21-consistency-v2-soft-glossary"
+_TM_RULESET_VERSION = "2026-02-22-consistency-v4-heading-normalization"
 _BATCH_PROVIDER_ALLOWLIST = {"openai", "ollama"}
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 

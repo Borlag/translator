@@ -397,7 +397,7 @@ def build_hard_glossary_replacements(glossary_text: str | None) -> tuple[Glossar
     User glossary entries override domain defaults for the same source term.
     """
     domain_pairs = [item for item in DOMAIN_TERM_PAIRS if re.search(r"\s", item[0])]
-    glossary_pairs = parse_glossary_pairs(glossary_text)
+    glossary_pairs = [item for item in parse_glossary_pairs(glossary_text) if re.search(r"\s", item[0])]
 
     # Deduplicate source terms case-insensitively; user glossary overrides domain defaults.
     merged: dict[str, tuple[str, str]] = {}
@@ -429,6 +429,7 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
 
     # Canonical EN heading fallback (for partially untranslated outputs).
     out = re.sub(r"\bMain Landing Gear Leg\b", "Стойка основного шасси", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bRepair Procedure Conditions\b", "Условия выполнения процедуры ремонта", out, flags=re.IGNORECASE)
     out = re.sub(r"\bMLG\s+Leg\b", "Стойка MLG", out, flags=re.IGNORECASE)
     out = re.sub(r"\bList of Effective Pages\b", "Перечень действующих страниц", out, flags=re.IGNORECASE)
     out = re.sub(r"\bRevision Record\b", "Запись изменений", out, flags=re.IGNORECASE)
@@ -481,9 +482,14 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
         out,
         flags=re.IGNORECASE,
     )
+    # Keep heading joiners consistent in OCR/PDF-converted manuals.
+    out = re.sub(r"(?m)^\s*WITH\s*$", "С", out, flags=re.IGNORECASE)
+    out = re.sub(r"(⟦PN_\d+⟧)\s+AND\s+(⟦PN_\d+⟧)", r"\1 И \2", out, flags=re.IGNORECASE)
 
     # TOC artifact cleanup: merged "Repair No. X-Y601" -> "Ремонт № X-Y 601"
     out = re.sub(r"Ремонт\s*№\s*(\d+-\d+)(\d{3,4})\b", r"Ремонт № \1 \2", out)
+    out = re.sub(r"(Ремонт\s*№\s*\d+-\d+)\s+Ремонт\s+", r"\1 ", out, flags=re.IGNORECASE)
+    out = re.sub(r"№\s*(\d+-\d+)(\d{3,4})\b", r"№ \1 \2", out)
     # Normalize occasional machine-translated abbreviation variants.
     out = out.replace("Ремонт Ном.", "Ремонт №")
     out = out.replace("Ремонт Нет.", "Ремонт №")

@@ -195,8 +195,12 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         ctx_parts.append(f"SECTION: {context['section_header']}")
     if context.get("in_table"):
         ctx_parts.append("TABLE_CELL")
-    if context.get("part"):
-        ctx_parts.append(f"PART: {context.get('part')}")
+    part = str(context.get("part") or "").strip().lower()
+    if part and part != "body":
+        # Keep this short but avoid "PART: body" leakage into translated text.
+        ctx_parts.append(f"DOC_SECTION={part}")
+    if context.get("is_toc_entry"):
+        ctx_parts.append("TOC_ENTRY")
     if not context.get("in_table"):
         prev_text = _compact_prompt_snippet(context.get("prev_text"))
         next_text = _compact_prompt_snippet(context.get("next_text"))
@@ -703,6 +707,26 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = re.sub(r"Ремонт\s*№\s*(\d+-\d+)(\d{3,4})\b", r"Ремонт № \1 \2", out)
     out = re.sub(r"(Ремонт\s*№\s*\d+-\d+)\s+Ремонт\s+", r"\1 ", out, flags=re.IGNORECASE)
     out = re.sub(r"№\s*(\d+-\d+)(\d{3,4})\b", r"№ \1 \2", out)
+    # Cover-page phrase normalization for correct case agreement.
+    out = re.sub(
+        r"\bС\s+Иллюстрирован(?:ный|ные|ная)\s+(?:перечень|список)\s+детал(?:ей|и)\b",
+        "С иллюстрированным перечнем деталей",
+        out,
+        flags=re.IGNORECASE,
+    )
+    # Remove occasional prompt-context leakage fragments such as "(См. [PART: body])".
+    out = re.sub(
+        r"\(\s*См\.\s*[\[\(]?\s*PART\s*:\s*(?:body|header|footer)\s*[\]\)]?\s*\)\s*[кК]?\s*",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"[\[\(]?\s*PART\s*:\s*(?:body|header|footer)\s*[\]\)]?",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
     # Normalize occasional machine-translated abbreviation variants.
     out = out.replace("Ремонт Ном.", "Ремонт №")
     out = out.replace("Ремонт Нет.", "Ремонт №")
@@ -1078,7 +1102,14 @@ def build_llm_client(
         custom_system_prompt=custom_system_prompt,
         glossary_text=prompt_glossary_text,
     )
-    glossary_replacements = build_domain_replacements() + build_glossary_replacements(glossary_text)
+    domain_replacements = build_domain_replacements()
+    # Post-replacement of user glossary terms can force nominative forms in RU sentences.
+    # Keep strict post-glossary replacements for google-free mode (no prompt control),
+    # and prefer prompt-driven morphology for OpenAI/Ollama providers.
+    if provider_norm == "google":
+        glossary_replacements = domain_replacements + build_glossary_replacements(glossary_text)
+    else:
+        glossary_replacements = domain_replacements
     if provider_norm == "mock":
         return MockLLMClient()
     if provider_norm == "openai":

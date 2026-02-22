@@ -101,6 +101,20 @@ def test_batch_ineligibility_prefers_pre_hard_glossary_text_from_context():
     assert "contains_brline" in reasons
 
 
+def test_batch_ineligibility_detects_toc_segments():
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body", "is_toc_entry": True},
+        source_plain="A",
+        paragraph_ref=None,
+        shielded_tagged="A",
+    )
+    cfg = PipelineConfig(llm=LLMConfig(batch_skip_on_brline=True))
+    reasons = _batch_ineligibility_reasons(seg, cfg)
+    assert "toc_entry" in reasons
+
+
 def test_translate_batch_group_marks_json_schema_violation():
     class FakeClient:
         supports_repair = True

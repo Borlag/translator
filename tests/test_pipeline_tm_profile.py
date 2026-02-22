@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from docxru.config import LLMConfig, PipelineConfig, TMConfig
 from docxru.models import Segment
-from docxru.pipeline import _build_document_glossary_context, _build_tm_profile_key, _should_attach_neighbor_context
+from docxru.pipeline import (
+    _build_document_glossary_context,
+    _build_tm_profile_key,
+    _should_apply_hard_glossary_to_segment,
+    _should_attach_neighbor_context,
+)
 
 
 def _make_segment(text: str, *, in_table: bool = False) -> Segment:
@@ -119,3 +124,19 @@ def test_build_document_glossary_context_respects_last_n_limit():
         {"source": "Bearing", "target": "Bearing RU"},
         {"source": "Tube", "target": "Tube RU"},
     ]
+
+
+def test_should_apply_hard_glossary_to_segment_relaxes_long_body_sentence():
+    seg = _make_segment(
+        "The sliding tube subassembly moves into the main fitting subassembly and compresses nitrogen."
+    )
+    assert not _should_apply_hard_glossary_to_segment(seg)
+
+
+def test_should_apply_hard_glossary_to_segment_keeps_toc_and_table_labels():
+    toc_seg = _make_segment("Repair No. 1-1 Lower Bearing\tRepair No.\t1-1\t601")
+    toc_seg.context["is_toc_entry"] = True
+    assert _should_apply_hard_glossary_to_segment(toc_seg)
+
+    table_seg = _make_segment("Main fitting subassembly", in_table=True)
+    assert _should_apply_hard_glossary_to_segment(table_seg)

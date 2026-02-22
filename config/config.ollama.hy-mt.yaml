@@ -9,7 +9,7 @@ llm:
   system_prompt_path: ../general_prompt.md
   glossary_path: ../glossary.md
   glossary_in_prompt: true
-  hard_glossary: true
+  hard_glossary: false  # adaptive hard glossary now exists; keep false unless strict locking is required
   reasoning_effort: null
   prompt_cache_key: null
   prompt_cache_retention: null

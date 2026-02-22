@@ -295,6 +295,63 @@ def test_build_user_prompt_passthrough_for_batch_task():
     assert out == text
 
 
+def test_build_user_prompt_does_not_emit_part_body_marker():
+    prompt = build_user_prompt("Install Main Fitting.", {"task": "translate", "part": "body"})
+    assert "PART:" not in prompt
+    assert "DOC_SECTION=body" not in prompt
+
+    header_prompt = build_user_prompt(
+        "Install Main Fitting.",
+        {"task": "translate", "part": "header", "is_toc_entry": True},
+    )
+    assert "DOC_SECTION=header" in header_prompt
+    assert "TOC_ENTRY" in header_prompt
+
+
+def test_apply_glossary_replacements_removes_part_context_leak():
+    out = apply_glossary_replacements("Описание (См. [PART: body]) к .", ())
+    assert "[PART:" not in out
+    assert "PART:" not in out
+
+
+def test_apply_glossary_replacements_normalizes_cover_illustrated_parts_phrase():
+    out = apply_glossary_replacements("Руководство по ... С Иллюстрированный перечень деталей", ())
+    assert "С иллюстрированным перечнем деталей" in out
+
+
+def test_build_llm_client_prompt_providers_do_not_postreplace_user_glossary():
+    openai_client = build_llm_client(
+        provider="openai",
+        model="gpt-4o-mini",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    ollama_client = build_llm_client(
+        provider="ollama",
+        model="qwen2.5:7b",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    assert "корпус стойки" not in {repl for _, repl in openai_client.glossary_replacements}
+    assert "корпус стойки" not in {repl for _, repl in ollama_client.glossary_replacements}
+
+    google_client = build_llm_client(
+        provider="google",
+        model="ignored",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        source_lang="en",
+        target_lang="ru",
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    assert "корпус стойки" in {repl for _, repl in google_client.glossary_replacements}
+
+
 def test_openai_client_batch_uses_json_mode_and_skips_temperature_for_gpt5():
     payloads: list[dict] = []
 

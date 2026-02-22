@@ -3,8 +3,9 @@
 Проект: **параграф/ячейка‑уровневый** перевод авиационной техдокументации (DOCX, часто после PDF→DOCX) на русский
 с **инлайн‑защитой** PN/ATA/размеров/ссылок, **строгой валидацией** маркеров и **QA‑отчётом**.
 
-> Важно: `python-docx` **не пересчитывает поля Word** (TOC/PAGEREF). В cross‑platform режиме документ
-> может потребовать ручного “Update Fields” в Word.
+> Важно: `python-docx` **не пересчитывает поля Word** (TOC/PAGEREF).
+> Если `mode: com`, pipeline теперь автоматически запускает COM-проход Word:
+> обновляет поля/TOC и делает автофит текстбоксов (с уменьшением шрифта до 1-2 шагов при переполнении).
 
 ---
 
@@ -99,7 +100,8 @@ Notes:
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
 - `llm.glossary_path` is applied for all providers.
 - `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens).
-- `llm.hard_glossary: true` enables strict placeholder-based term locking. Use only when required: it can reduce natural RU morphology (падеж/согласование).
+- `llm.hard_glossary: true` enables strict placeholder-based term locking.
+  Scope is adaptive in pipeline (TOC/table/short labels), but for natural prose keep it `false` unless strict locking is required.
 - `llm.reasoning_effort` can tune OpenAI reasoning spend (`none|minimal|low|medium|high|xhigh`).
 - `llm.prompt_cache_key` / `llm.prompt_cache_retention` can reduce cost for repeated prompt prefixes in OpenAI calls.
 - Grouped translation mode is available for `openai` and `ollama`:

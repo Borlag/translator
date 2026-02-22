@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Any, Iterator, Optional
 
 from docx.document import Document as DocxDocument
@@ -8,6 +9,32 @@ from docx.table import _Cell, Table
 from docx.text.paragraph import Paragraph
 
 from .models import Segment
+
+_TOC_STYLE_HINTS = ("toc", "table of contents", "оглавлен", "содержан")
+_TOC_TITLE_RE = re.compile(r"\btable\s+of\s+contents\b", flags=re.IGNORECASE)
+_TOC_CONTINUED_RE = re.compile(r"\bcontents?\s*\(continued\)", flags=re.IGNORECASE)
+_TOC_PAGE_REF_RE = re.compile(r"\t+\s*[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
+_TOC_DOTS_PAGE_RE = re.compile(r"(?:\.\s*){6,}[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
+
+
+def _looks_like_toc_style(style_name: str) -> bool:
+    key = re.sub(r"\s+", " ", style_name or "").strip().lower()
+    if not key:
+        return False
+    return any(hint in key for hint in _TOC_STYLE_HINTS)
+
+
+def _looks_like_toc_text(text: str) -> bool:
+    if not text:
+        return False
+    flat = re.sub(r"\s+", " ", text).strip()
+    if not flat:
+        return False
+    if _TOC_TITLE_RE.search(flat) or _TOC_CONTINUED_RE.search(flat):
+        return True
+    if _TOC_PAGE_REF_RE.search(text) or _TOC_DOTS_PAGE_RE.search(flat):
+        return True
+    return False
 
 
 def _stable_segment_id(location: str, source_plain: str) -> str:
@@ -68,6 +95,10 @@ def collect_segments(
 
         ctx = dict(context)
         ctx.setdefault("section_header", last_heading)
+        if style_name:
+            ctx["paragraph_style"] = style_name
+        if _looks_like_toc_style(style_name) or _looks_like_toc_text(text):
+            ctx["is_toc_entry"] = True
 
         seg_id = _stable_segment_id(location, text)
         segments.append(

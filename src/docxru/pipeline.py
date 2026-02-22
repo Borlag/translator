@@ -115,10 +115,11 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
 _W_RUN_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
-_TM_RULESET_VERSION = "2026-02-22-consistency-v4-heading-normalization"
+_TM_RULESET_VERSION = "2026-02-22-consistency-v5-toc-and-morphology"
 _BATCH_PROVIDER_ALLOWLIST = {"openai", "ollama"}
 _BATCH_MAX_PLACEHOLDER_TOKENS = 12
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
+_LATIN_WORD_RE = re.compile(r"[A-Za-z]+")
 
 
 def _style_start_tag(span_id: int, flags: tuple[str, ...]) -> str:
@@ -409,6 +410,50 @@ def _build_document_glossary_context(
     if capped > 0:
         items = items[-capped:]
     return [{"source": source, "target": target} for source, target in items]
+
+
+def _looks_sentence_like_english(text: str) -> bool:
+    words = _LATIN_WORD_RE.findall(text or "")
+    if len(words) < 8:
+        return False
+    return bool(re.search(r"[.!?;:]", text or ""))
+
+
+def _should_apply_hard_glossary_to_segment(seg: Segment) -> bool:
+    """Keep hard glossary on compact labels/TOC, relax for long narrative sentences.
+
+    Hard glossary placeholders improve strict term stability, but can lock terms into
+    nominative forms inside long RU sentences. We keep locking for TOC/table labels
+    and short heading-like text, and relax it for sentence-like body prose.
+    """
+    if seg.context.get("is_toc_entry"):
+        return True
+    if seg.context.get("in_table"):
+        return True
+
+    source = (seg.source_plain or "").strip()
+    if not source:
+        return False
+
+    latin_words = _LATIN_WORD_RE.findall(source)
+    if len(latin_words) <= 6:
+        return True
+    if len(latin_words) >= 14:
+        return False
+    if _looks_sentence_like_english(source):
+        return False
+    return True
+
+
+def _segment_glossary_terms(
+    seg: Segment,
+    glossary_terms: tuple[tuple[re.Pattern[str], str], ...],
+) -> tuple[tuple[re.Pattern[str], str], ...]:
+    if not glossary_terms:
+        return ()
+    if _should_apply_hard_glossary_to_segment(seg):
+        return glossary_terms
+    return ()
 
 
 def _append_recent_translation(
@@ -817,6 +862,8 @@ def _chunk_translation_jobs(
 def _batch_ineligibility_reasons(seg: Segment, cfg: PipelineConfig) -> list[str]:
     text = str(seg.context.get("_batch_eligibility_text") or seg.shielded_tagged or "")
     reasons: list[str] = []
+    if seg.context.get("is_toc_entry"):
+        reasons.append("toc_entry")
     if cfg.llm.batch_skip_on_brline and _BRLINE_RE.search(text):
         reasons.append("contains_brline")
     if cfg.llm.batch_max_style_tokens >= 0 and len(_STYLE_START_RE.findall(text)) > cfg.llm.batch_max_style_tokens:
@@ -1257,7 +1304,8 @@ def translate_docx(
         glossary_terms = build_hard_glossary_replacements(glossary_text)
         logger.info(
             f"Hard glossary enforcement enabled ({len(glossary_terms)} terms); provider={cfg.llm.provider}; "
-            f"glossary_in_prompt={glossary_in_prompt}; hard_glossary={hard_glossary}"
+            f"glossary_in_prompt={glossary_in_prompt}; hard_glossary={hard_glossary}; "
+            "scope=adaptive(toc/table/short-labels)"
         )
     if glossary_prompt_mode == "off" or not glossary_in_prompt:
         effective_glossary_text = None
@@ -1319,6 +1367,7 @@ def translate_docx(
     llm_translated_segments: set[str] = set()
     matched_glossary_segments = 0
     fuzzy_reference_segments = 0
+    toc_inplace_translated = 0
     document_glossary: dict[str, str] = {}
 
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
@@ -1361,6 +1410,25 @@ def translate_docx(
                             document_glossary.pop(source_term, None)
                         document_glossary[source_term] = target_term
 
+        seg_glossary_terms = _segment_glossary_terms(seg, glossary_terms)
+
+        # Dedicated TOC flow: preserve tab/page layout and translate column chunks in-place.
+        if seg.context.get("is_toc_entry"):
+            changed, toc_issues = _translate_complex_paragraph_in_place(
+                seg,
+                cfg,
+                llm_client,
+                complex_chunk_cache,
+                seg_glossary_terms,
+            )
+            seg.issues.extend(toc_issues)
+            if changed:
+                toc_inplace_translated += 1
+                tm.set_progress(seg.segment_id, "toc_ok", source_hash=None)
+            else:
+                tm.set_progress(seg.segment_id, "skip", source_hash=None)
+            continue
+
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
         # to avoid reordering/corruption when rebuilding runs.
         if not is_supported_paragraph(seg.paragraph_ref):
@@ -1369,7 +1437,7 @@ def translate_docx(
                 cfg,
                 llm_client,
                 complex_chunk_cache,
-                glossary_terms,
+                seg_glossary_terms,
             )
             seg.issues.extend(complex_issues)
             if changed:
@@ -1413,10 +1481,10 @@ def translate_docx(
         token_map: dict[str, str] = {}
         # Apply hard glossary before generic shielding so long phrases with dimensions
         # are not broken by DIM placeholders before glossary matching.
-        if glossary_terms and _LATIN_RE.search(shielded_text):
+        if seg_glossary_terms and _LATIN_RE.search(shielded_text):
             shielded_text, glossary_map = shield_terms(
                 shielded_text,
-                glossary_terms,
+                seg_glossary_terms,
                 token_prefix="GLS",
                 bridge_break_tokens=False,
             )
@@ -1475,6 +1543,7 @@ def translate_docx(
         logger.info(f"Resume hits: {resume_hits}")
     logger.info(f"Tagging errors: {tagging_errors}")
     logger.info(f"Complex paragraphs translated in-place: {complex_translated}")
+    logger.info(f"TOC segments translated in-place: {toc_inplace_translated}")
     logger.info(f"Segments with matched glossary prompt hints: {matched_glossary_segments}")
     logger.info(f"Segments with fuzzy TM prompt hints: {fuzzy_reference_segments}")
     logger.info(f"LLM segments: {len(to_translate)}")
@@ -1523,7 +1592,7 @@ def translate_docx(
                     llm_client=llm_client,
                     tm=tm,
                     complex_chunk_cache=complex_chunk_cache,
-                    glossary_terms=glossary_terms,
+                    glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                     llm_translated_segments=llm_translated_segments,
                     recent_translations=recent_translations,
                 )
@@ -1579,7 +1648,7 @@ def translate_docx(
                             llm_client=llm_client,
                             tm=tm,
                             complex_chunk_cache=complex_chunk_cache,
-                            glossary_terms=glossary_terms,
+                            glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                             llm_translated_segments=llm_translated_segments,
                         )
 
@@ -1623,7 +1692,7 @@ def translate_docx(
                         llm_client=llm_client,
                         tm=tm,
                         complex_chunk_cache=complex_chunk_cache,
-                        glossary_terms=glossary_terms,
+                        glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                         llm_translated_segments=llm_translated_segments,
                     )
             else:
@@ -1658,7 +1727,7 @@ def translate_docx(
                             llm_client=llm_client,
                             tm=tm,
                             complex_chunk_cache=complex_chunk_cache,
-                            glossary_terms=glossary_terms,
+                            glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                             llm_translated_segments=llm_translated_segments,
                         )
 
@@ -1742,6 +1811,23 @@ def translate_docx(
     doc.save(str(output_path))
     logger.info("DOCX сохранён")
 
+    if cfg.mode.lower() == "com":
+        try:
+            from .com_word import update_fields_via_com
+
+            com_stats = update_fields_via_com(output_path)
+            logger.info(
+                "Word COM post-process: fields_updated=%d; tocs_updated=%d; "
+                "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d",
+                int(com_stats.get("fields_updated", 0)),
+                int(com_stats.get("tocs_updated", 0)),
+                int(com_stats.get("textboxes_seen", 0)),
+                int(com_stats.get("textboxes_autofit", 0)),
+                int(com_stats.get("textboxes_shrunk", 0)),
+            )
+        except Exception as e:
+            logger.warning(f"Word COM post-process failed: {e}")
+
     # QA outputs
     qa_html = Path(cfg.qa_report_path)
     qa_jsonl = Path(cfg.qa_jsonl_path)
@@ -1770,11 +1856,5 @@ def translate_docx(
             )
         _append_history_jsonl(history_path, history_records)
         logger.info(f"Translation history appended: {history_path} ({len(history_records)} records)")
-
-    # Optional COM mode is not invoked automatically here (platform specific).
-    if cfg.mode.lower() == "com":
-        logger.warning(
-            "Mode 'com' выбран: обновление полей Word через COM нужно запускать отдельно (см. src/docxru/com_word.py)."
-        )
 
     tm.close()

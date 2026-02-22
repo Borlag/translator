@@ -50,3 +50,16 @@ def test_collect_segments_textbox_in_header_respects_include_headers_flag():
     assert header_textbox_seg.context.get("part") == "header"
     assert header_textbox_seg.context.get("in_textbox") is True
     assert header_textbox_seg.location.startswith("header0/txbx")
+
+
+def test_collect_segments_marks_toc_like_entries():
+    doc = Document()
+    doc.add_paragraph("TABLE OF CONTENTS")
+    doc.add_paragraph("Repair No. 1-1 Lower Bearing\tRepair No.\t1-1\t601")
+
+    segments = collect_segments(doc, include_headers=False, include_footers=False)
+
+    title = next(seg for seg in segments if seg.source_plain == "TABLE OF CONTENTS")
+    entry = next(seg for seg in segments if "Repair No. 1-1 Lower Bearing" in seg.source_plain)
+    assert title.context.get("is_toc_entry") is True
+    assert entry.context.get("is_toc_entry") is True

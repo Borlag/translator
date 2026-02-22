@@ -18,16 +18,19 @@ def _stable_segment_id(location: str, source_plain: str) -> str:
     return h.hexdigest()[:16]
 
 
+def _parent_element(parent: Any):
+    if isinstance(parent, _Cell):
+        return parent._tc
+    # Document / Header / Footer
+    return parent._element.body if hasattr(parent._element, "body") else parent._element
+
+
 def iter_block_items(parent: Any) -> Iterator[Paragraph | Table]:
     """Yield Paragraph and Table objects in document order for the given parent.
 
     Parent can be a Document, _Cell, Header, Footer.
     """
-    if isinstance(parent, _Cell):
-        parent_elm = parent._tc
-    else:
-        # Document / Header / Footer
-        parent_elm = parent._element.body if hasattr(parent._element, "body") else parent._element
+    parent_elm = _parent_element(parent)
 
     for child in parent_elm.iterchildren():
         tag = child.tag.lower()
@@ -35,6 +38,14 @@ def iter_block_items(parent: Any) -> Iterator[Paragraph | Table]:
             yield Paragraph(child, parent)
         elif tag.endswith("}tbl"):
             yield Table(child, parent)
+
+
+def iter_textbox_contents(parent: Any) -> Iterator[Any]:
+    """Yield all <w:txbxContent> nodes for the given container."""
+    parent_elm = _parent_element(parent)
+    for node in parent_elm.iter():
+        if node.tag.lower().endswith("}txbxcontent"):
+            yield node
 
 
 def collect_segments(
@@ -91,6 +102,27 @@ def collect_segments(
                         )
                         t_i += 1
 
+    def walk_textboxes(container: Any, base_loc: str, context: dict[str, Any]) -> None:
+        for txbx_i, txbx_content in enumerate(iter_textbox_contents(container)):
+            p_i = 0
+            t_i = 0
+            for child in txbx_content.iterchildren():
+                tag = child.tag.lower()
+                if tag.endswith("}p"):
+                    handle_paragraph(
+                        Paragraph(child, container),
+                        f"{base_loc}/txbx{txbx_i}/p{p_i}",
+                        {**context, "in_textbox": True},
+                    )
+                    p_i += 1
+                elif tag.endswith("}tbl"):
+                    walk_table(
+                        Table(child, container),
+                        f"{base_loc}/txbx{txbx_i}/t{t_i}",
+                        {**context, "in_textbox": True, "table_index": t_i},
+                    )
+                    t_i += 1
+
     # Body
     tbl_idx = 0
     p_idx = 0
@@ -101,6 +133,7 @@ def collect_segments(
         else:
             walk_table(item, f"body/t{tbl_idx}", {"part": "body", "table_index": tbl_idx})
             tbl_idx += 1
+    walk_textboxes(doc, "body", {"part": "body"})
 
     # Headers/Footers per section
     for s_i, section in enumerate(doc.sections):
@@ -119,6 +152,7 @@ def collect_segments(
                         {"part": "header", "section": s_i, "table_index": t_i},
                     )
                     t_i += 1
+            walk_textboxes(header, f"header{s_i}", {"part": "header", "section": s_i})
 
         if include_footers:
             footer = section.footer
@@ -135,5 +169,6 @@ def collect_segments(
                         {"part": "footer", "section": s_i, "table_index": t_i},
                     )
                     t_i += 1
+            walk_textboxes(footer, f"footer{s_i}", {"part": "footer", "section": s_i})
 
     return segments

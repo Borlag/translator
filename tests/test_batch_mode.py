@@ -87,6 +87,20 @@ def test_batch_ineligibility_detects_many_style_tokens():
     assert "too_many_style_tokens" in reasons
 
 
+def test_batch_ineligibility_prefers_pre_hard_glossary_text_from_context():
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body", "_batch_eligibility_text": "A⟦BRLINE_1⟧B"},
+        source_plain="A",
+        paragraph_ref=None,
+        shielded_tagged="A⟦GLS_1⟧B",
+    )
+    cfg = PipelineConfig(llm=LLMConfig(batch_skip_on_brline=True))
+    reasons = _batch_ineligibility_reasons(seg, cfg)
+    assert "contains_brline" in reasons
+
+
 def test_translate_batch_group_marks_json_schema_violation():
     class FakeClient:
         supports_repair = True

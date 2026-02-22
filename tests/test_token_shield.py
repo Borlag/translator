@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from docxru.token_shield import PatternRule, PatternSet, shield, unshield
+import re
+
+from docxru.token_shield import PatternRule, PatternSet, shield, shield_terms, unshield
 
 
 def test_shield_unshield_preserves_bracket_tokens():
@@ -24,3 +26,32 @@ def test_shield_unshield_preserves_bracket_tokens():
 
     restored = unshield(shielded, token_map)
     assert restored == text
+
+
+def test_shield_terms_can_preserve_break_boundaries():
+    replacements = (
+        (
+            re.compile(r"lower(?:\s+|⟦BRLINE_\d+⟧)+bearing(?:\s+|⟦BRLINE_\d+⟧)+subassembly", flags=re.IGNORECASE),
+            "нижний узел подшипника",
+        ),
+    )
+
+    wrapped = "lower⟦BRLINE_1⟧bearing⟦BRLINE_2⟧subassembly"
+    shielded_wrapped, token_map_wrapped = shield_terms(
+        wrapped,
+        replacements,
+        token_prefix="GLS",
+        bridge_break_tokens=False,
+    )
+    assert shielded_wrapped == wrapped
+    assert token_map_wrapped == {}
+
+    plain = "lower bearing subassembly"
+    shielded_plain, token_map_plain = shield_terms(
+        plain,
+        replacements,
+        token_prefix="GLS",
+        bridge_break_tokens=False,
+    )
+    assert shielded_plain == "⟦GLS_1⟧"
+    assert token_map_plain == {"⟦GLS_1⟧": "нижний узел подшипника"}

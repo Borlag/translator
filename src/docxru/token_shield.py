@@ -117,6 +117,7 @@ def shield_terms(
     replacements: Iterable[tuple[Pattern[str], str]],
     *,
     token_prefix: str = "GLS",
+    bridge_break_tokens: bool = True,
 ) -> tuple[str, dict[str, str]]:
     """Replace matched terms with deterministic placeholders ⟦PREFIX_n⟧.
 
@@ -125,8 +126,10 @@ def shield_terms(
 
     Notes:
     - Does NOT touch style tags/placeholders inside ⟦...⟧.
-    - Break tokens ⟦BRLINE_n⟧ / ⟦BRCOL_n⟧ / ⟦BRPAGE_n⟧ are treated as text separators so
-      multi-word glossary patterns can match across wrapped lines.
+    - When `bridge_break_tokens=True` (default), break tokens ⟦BRLINE_n⟧ / ⟦BRCOL_n⟧ / ⟦BRPAGE_n⟧
+      are treated as text separators so multi-word glossary patterns can match across wrapped lines.
+      This can collapse break-token boundaries for matched fragments.
+    - When `bridge_break_tokens=False`, break tokens are preserved as hard boundaries.
     - Placeholder numbering is based on replacement-rule order (1-based), not match order.
     - The returned token_map maps placeholder -> replacement text, and is suitable for `unshield()`.
     """
@@ -148,8 +151,9 @@ def shield_terms(
         if m.start() > pos:
             chunks_raw.append((text[pos : m.start()], False))
         token = m.group(0)
-        # Keep line-break tokens in text stream to allow phrase matching across wraps.
-        is_protected_token = _BREAK_TOKEN_RE.fullmatch(token) is None
+        # Keep line-break tokens in text stream only when bridging is enabled.
+        is_break_token = _BREAK_TOKEN_RE.fullmatch(token) is not None
+        is_protected_token = (not is_break_token) or (not bridge_break_tokens)
         chunks_raw.append((token, is_protected_token))
         pos = m.end()
     if pos < len(text):

@@ -212,7 +212,12 @@ def _translate_plain_chunk(
     # Apply hard glossary before generic shielding so phrase-level rules can still match
     # raw text fragments that would otherwise be split into DIM/PN placeholders.
     if glossary_terms and _LATIN_RE.search(shielded):
-        shielded, glossary_map = shield_terms(shielded, glossary_terms, token_prefix="GLS")
+        shielded, glossary_map = shield_terms(
+            shielded,
+            glossary_terms,
+            token_prefix="GLS",
+            bridge_break_tokens=False,
+        )
         if glossary_map:
             token_map = {**token_map, **glossary_map}
     shielded, pattern_map = shield(shielded, cfg.pattern_set)
@@ -699,7 +704,7 @@ def _chunk_translation_jobs(
 
 
 def _batch_ineligibility_reasons(seg: Segment, cfg: PipelineConfig) -> list[str]:
-    text = seg.shielded_tagged or ""
+    text = str(seg.context.get("_batch_eligibility_text") or seg.shielded_tagged or "")
     reasons: list[str] = []
     if cfg.llm.batch_skip_on_brline and _BRLINE_RE.search(text):
         reasons.append("contains_brline")
@@ -1281,12 +1286,22 @@ def translate_docx(
         seg.spans = spans
         seg.inline_run_map = inline_map
 
+        # Compute batch-eligibility view before hard glossary shielding so BRLINE decisions
+        # are based on original OCR line-break markers.
+        batch_eligibility_text, _ = shield(tagged, cfg.pattern_set)
+        seg.context["_batch_eligibility_text"] = batch_eligibility_text
+
         shielded_text = tagged
         token_map: dict[str, str] = {}
         # Apply hard glossary before generic shielding so long phrases with dimensions
         # are not broken by DIM placeholders before glossary matching.
         if glossary_terms and _LATIN_RE.search(shielded_text):
-            shielded_text, glossary_map = shield_terms(shielded_text, glossary_terms, token_prefix="GLS")
+            shielded_text, glossary_map = shield_terms(
+                shielded_text,
+                glossary_terms,
+                token_prefix="GLS",
+                bridge_break_tokens=False,
+            )
             if glossary_map:
                 token_map = {**token_map, **glossary_map}
         shielded_text, pattern_map = shield(shielded_text, cfg.pattern_set)
@@ -1369,6 +1384,12 @@ def translate_docx(
                 f"Batch-eligible segments: {len(batch_eligible)}; "
                 f"forced single by eligibility filter: {len(single_only)}"
             )
+            if single_only:
+                reason_counts = Counter(reason for _, reasons in single_only for reason in reasons)
+                logger.info(
+                    "Batch ineligibility reasons: "
+                    + ", ".join(f"{reason}={count}" for reason, count in reason_counts.most_common())
+                )
 
             if batch_eligible:
                 grouped_jobs = _chunk_translation_jobs(

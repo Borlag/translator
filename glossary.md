@@ -7,7 +7,7 @@
 
 | English | Русский термин |
 |---|---|
-| Main Landing Gear Leg | Основная стойка шасси |
+| Main Landing Gear Leg | Стойка основного шасси |
 | MLG Shock Strut | Стойка амортизатора основного шасси |
 | NLG (Nose Landing Gear) | Передняя стойка шасси |
 | Main Fitting | Корпус стойки |
@@ -213,6 +213,9 @@
 | English | Русский термин |
 |---|---|
 | Main Landing Gear Leg | Стойка основного шасси |
+| Component Maintenance Manual | Руководство по техническому обслуживанию компонентов |
+| Illustrated Parts List | Иллюстрированный перечень деталей |
+| With Illustrated Parts List | С иллюстрированным перечнем деталей |
 | List of Effective Pages | Перечень действующих страниц |
 | Revision Record | Запись изменений |
 | Date Incorporated Into Manual | Дата включения в руководство |

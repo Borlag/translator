@@ -275,6 +275,28 @@ def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
     return flat[: max_chars - 3].rstrip() + "..."
 
 
+def _should_attach_neighbor_context(seg: Segment) -> bool:
+    if seg.context.get("in_table"):
+        return False
+    source = (seg.source_plain or "").strip()
+    if not source:
+        return False
+
+    # Keep rich context for long paragraphs.
+    if len(source) >= 80:
+        return True
+
+    # Also add context for very short ALL-CAPS fragments ("WITH", "AND", etc.)
+    # that are often heading continuations in OCR/PDF-converted manuals.
+    if len(source) > 24 or not _LATIN_RE.search(source):
+        return False
+    letters = [ch for ch in source if ch.isalpha()]
+    if not letters:
+        return False
+    upper_ratio = sum(1 for ch in letters if ch.isupper()) / len(letters)
+    return upper_ratio >= 0.75
+
+
 def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
     changed_runs = 0
     seen_paragraphs: set[int] = set()
@@ -423,6 +445,34 @@ def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
 def _utc_now_iso() -> str:
     utc = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
     return datetime.now(utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _tm_text_fingerprint(text: str | None) -> str:
+    if not text:
+        return "none"
+    return sha256_hex(normalize_text(text))
+
+
+def _build_tm_profile_key(
+    cfg: PipelineConfig,
+    *,
+    custom_system_prompt: str | None,
+    glossary_text: str | None,
+) -> str:
+    return "|".join(
+        (
+            f"provider={cfg.llm.provider.strip().lower()}",
+            f"model={cfg.llm.model.strip()}",
+            f"source_lang={cfg.llm.source_lang.strip().lower()}",
+            f"target_lang={cfg.llm.target_lang.strip().lower()}",
+            f"hard_glossary={int(bool(cfg.llm.hard_glossary))}",
+            f"glossary_in_prompt={int(bool(cfg.llm.glossary_in_prompt))}",
+            f"batch_segments={int(cfg.llm.batch_segments)}",
+            f"reasoning_effort={(cfg.llm.reasoning_effort or '').strip().lower() or 'default'}",
+            f"system_prompt_sha={_tm_text_fingerprint(custom_system_prompt)}",
+            f"glossary_sha={_tm_text_fingerprint(glossary_text)}",
+        )
+    )
 
 
 def _build_tm_meta(seg: Segment, cfg: PipelineConfig, source_hash: str, *, origin: str) -> dict[str, Any]:
@@ -804,11 +854,9 @@ def translate_docx(
         logger.info(f"Segment limit enabled: {len(segments)} segments")
     logger.info(f"Segments найдено: {len(segments)}")
 
-    # Attach small neighbor snippets to improve local consistency in tables/lists.
+    # Attach neighbor snippets to improve local consistency.
     for idx, seg in enumerate(segments):
-        if seg.context.get("in_table"):
-            continue
-        if len((seg.source_plain or "").strip()) < 80:
+        if not _should_attach_neighbor_context(seg):
             continue
         prev_text = _compact_context_text(segments[idx - 1].source_plain) if idx > 0 else ""
         next_text = _compact_context_text(segments[idx + 1].source_plain) if idx + 1 < len(segments) else ""
@@ -843,6 +891,12 @@ def translate_docx(
             "Provider 'google' is running without hard glossary locking; terminology can be less stable "
             "but wording is usually more natural."
         )
+    tm_profile_key = _build_tm_profile_key(
+        cfg,
+        custom_system_prompt=custom_system_prompt,
+        glossary_text=glossary_text,
+    )
+    logger.info(f"TM profile key: {tm_profile_key}")
     llm_client = build_llm_client(
         provider=cfg.llm.provider,
         model=cfg.llm.model,
@@ -945,7 +999,7 @@ def translate_docx(
         seg.token_map = token_map
 
         source_norm = normalize_text(shielded_text)
-        source_norm_for_hash = f"{_TM_RULESET_VERSION}\n{source_norm}"
+        source_norm_for_hash = f"{_TM_RULESET_VERSION}\n{tm_profile_key}\n{source_norm}"
         source_hash = sha256_hex(source_norm_for_hash)
         segment_source_hash[seg.segment_id] = source_hash
 

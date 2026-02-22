@@ -9,7 +9,7 @@ llm:
   system_prompt_path: ../general_prompt.md
   glossary_path: ../glossary.md
   glossary_in_prompt: true
-  hard_glossary: false
+  hard_glossary: true
   reasoning_effort: minimal
   prompt_cache_key: docxru-en-ru-v1
   prompt_cache_retention: 24h

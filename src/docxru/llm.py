@@ -69,6 +69,12 @@ Preserve all marker tokens exactly (for example: ⟦...⟧ / 🦦...🧧).
 Preserve numbers, units, and punctuation.
 """
 
+BATCH_JSON_INSTRUCTIONS = """BATCH MODE: Return ONLY valid JSON in the requested schema.
+Do not add commentary outside JSON.
+Preserve all marker tokens exactly (including placeholder and style tags).
+Preserve numbers, units, and punctuation.
+"""
+
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 
 GlossaryReplacement = tuple[re.Pattern[str], str]
@@ -280,6 +286,13 @@ def _normalize_structured_output_mode(mode: str | None) -> str:
     if value not in {"off", "auto", "strict"}:
         raise ValueError(f"Unsupported structured_output_mode: {mode!r}")
     return value
+
+
+def _build_batch_system_prompt(translation_system_prompt: str | None) -> str:
+    base_prompt = (translation_system_prompt or "").strip()
+    if not base_prompt:
+        return BATCH_SYSTEM_PROMPT_TEMPLATE
+    return f"{base_prompt}\n\n{BATCH_JSON_INSTRUCTIONS}"
 
 
 def _extract_json_payload(raw: str) -> Any:
@@ -814,7 +827,7 @@ class OpenAIChatCompletionsClient:
             if structured_for_text:
                 system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
         elif task == "batch_translate":
-            system_prompt = BATCH_SYSTEM_PROMPT_TEMPLATE
+            system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
         else:
             system_prompt = self.translation_system_prompt
             if structured_for_text:
@@ -1032,7 +1045,7 @@ class OllamaChatClient:
             if structured_for_text:
                 system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
         elif task == "batch_translate":
-            system_prompt = BATCH_SYSTEM_PROMPT_TEMPLATE
+            system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
         else:
             system_prompt = self.translation_system_prompt
             if structured_for_text:

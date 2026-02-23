@@ -34,6 +34,77 @@ def reduce_font_size(paragraph, reduction_pt: float = 0.5) -> bool:
     return changed
 
 
+def _resolve_run_size_pt(run, paragraph) -> float | None:
+    direct = run.font.size
+    if direct is not None:
+        return float(direct.pt)
+
+    run_style = getattr(run, "style", None)
+    run_style_font = getattr(run_style, "font", None)
+    run_style_size = getattr(run_style_font, "size", None)
+    if run_style_size is not None:
+        return float(run_style_size.pt)
+
+    para_style = getattr(paragraph, "style", None)
+    para_style_font = getattr(para_style, "font", None)
+    para_style_size = getattr(para_style_font, "size", None)
+    if para_style_size is not None:
+        return float(para_style_size.pt)
+
+    return None
+
+
+def apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> int:
+    """Unconditionally reduce font sizes after write-back for translated segments."""
+    body_shrink = max(0.0, float(cfg.font_shrink_body_pt))
+    table_shrink = max(0.0, float(cfg.font_shrink_table_pt))
+    if body_shrink <= 0.0 and table_shrink <= 0.0:
+        return 0
+
+    min_font_pt = 6.0
+    changed_segments = 0
+    for seg in segments:
+        paragraph = seg.paragraph_ref
+        if paragraph is None or seg.target_tagged is None:
+            continue
+
+        in_table_like = bool(seg.context.get("in_table") or seg.context.get("in_textbox"))
+        shrink = table_shrink if in_table_like else body_shrink
+        if shrink <= 0.0:
+            continue
+
+        changed = False
+        for run in paragraph.runs:
+            if not (run.text or "").strip():
+                continue
+            current_size = _resolve_run_size_pt(run, paragraph)
+            if current_size is None:
+                continue
+            new_size = max(min_font_pt, current_size - shrink)
+            if new_size + 1e-6 >= current_size:
+                continue
+            run.font.size = Pt(new_size)
+            changed = True
+
+        if changed:
+            changed_segments += 1
+            seg.issues.append(
+                Issue(
+                    code="global_font_shrink_applied",
+                    severity=Severity.INFO,
+                    message="Applied unconditional post-writeback font shrink.",
+                    details={
+                        "segment_id": seg.segment_id,
+                        "location": seg.location,
+                        "shrink_pt": shrink,
+                        "table_or_textbox": in_table_like,
+                    },
+                )
+            )
+
+    return changed_segments
+
+
 def reduce_cell_spacing(cell: _Cell, factor: float = 0.8) -> bool:
     changed = False
     ratio = min(1.0, max(0.1, float(factor)))

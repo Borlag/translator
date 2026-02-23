@@ -10,7 +10,7 @@ llm:
   glossary_path: ../glossary.md
   glossary_in_prompt: true
   hard_glossary: true  # strict term lock for TOC/table/labels to prevent glossary drift
-  reasoning_effort: minimal
+  reasoning_effort: low
   prompt_cache_key: docxru-en-ru-v1
   prompt_cache_retention: 24h
   structured_output_mode: "strict"
@@ -20,15 +20,15 @@ llm:
   timeout_s: 90.0
   glossary_prompt_mode: "matched"
   glossary_match_limit: 24
-  batch_segments: 1
+  batch_segments: 6
   batch_max_chars: 14000
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
-  context_window_chars: 600
+  context_window_chars: 0
 
 tm:
   path: ../translation_cache.sqlite
-  fuzzy_enabled: false
+  fuzzy_enabled: true
   fuzzy_top_k: 3
   fuzzy_min_similarity: 0.75
   fuzzy_prompt_max_chars: 500
@@ -53,6 +53,8 @@ concurrency: 4
 mode: reflow
 abbyy_profile: "off" # set to "safe" for ABBYY-converted files
 glossary_lemma_check: "retry"
+font_shrink_body_pt: 2.0
+font_shrink_table_pt: 3.0
 
 qa_report_path: ../qa_report.html
 qa_jsonl_path: ../qa.jsonl

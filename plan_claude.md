@@ -1,191 +1,131 @@
 Context
-The project is a DOCX EN→RU aviation/technical document translation pipeline (src/docxru/). It uses paragraph-level segmentation, inline style tagging (⟦S_n|B|I⟧), token shielding for part numbers/dimensions, multi-provider LLM backends (OpenAI, Google, Ollama, Mock), translation memory (SQLite), and QA reporting.
-The user wants three deliverables:
+The user previously translated aviation technical documents manually in ChatGPT — providing a large prompt with glossary, sending screenshots of 15-20 pages per chat session, and translating conversationally with full context. This produced excellent translations. The automated pipeline (docxru) produces significantly worse results because:
 
-T1: Repo audit (architecture, failure modes, prioritized fix plan)
-T2: Implement improvements (better context, glossary enforcement, layout validation, auto-fix)
-T3: Evaluation harness (python -m docxru eval)
-
-This plan focuses on the implementation work (T2 + T3), with T1 delivered as documentation.
-
-Identified Bugs & Root Causes
-Bug 1: No neighbor context for short/medium paragraphs
-
-File: pipeline.py:364-383 — _should_attach_neighbor_context()
-Paragraphs 25-79 chars (common procedural steps like "Remove the bolt.") get NO prev_text/next_text
-Table cell segments always get False (line 365-366)
-
-Bug 2: No cross-segment translation context
-
-pipeline.py:1119-1127 attaches SOURCE neighbor text before translation, never previous TRANSLATED text
-Each segment is translated without knowledge of how neighbors were rendered in Russian
-
-Bug 3: Document-level glossary terms not accumulated
-
-pipeline.py:1155-1159 — glossary_prompt_mode="matched" only injects terms matching the current segment
-A term defined in segment 5 is invisible to segments 6-100
-
-Bug 4: Final cleanup runs on untranslated segments
-
-pipeline.py:386-406 — _apply_final_run_level_cleanup() iterates ALL segments, not just translated ones
-Rules like \bTable\b → Таблица could fire on intentionally-skipped English content
-
-Bug 5: Text box content not extracted
-
-docx_reader.py only walks <w:body>, tables, headers/footers
-Text inside <w:txbxContent> (text boxes from PDF→DOCX conversion) is invisible
-
-Bug 6: No layout validation or auto-fix
-
-No mechanism detects post-translation overflow, clipping, or off-page elements
-No auto-fixes for text expansion (RU is typically 20-40% longer than EN)
+Critical bug: Batch translation mode (used for most segments) completely bypasses the glossary, custom system prompt, and all per-segment context — using only a 5-line generic English prompt instead of the full professional Russian translator prompt with glossary.
+Formatting: Russian text is 30-50% longer than English, but font sizes are preserved exactly from the source, causing layout overflow in tables and textboxes. The user wants proactive font shrinking.
 
 
-Implementation Plan
-Phase 1 — P0: Critical Fixes
-1.1 Sliding context window + sequential mode
-Files: pipeline.py, llm.py, config.py
-Changes in pipeline.py:
+Part 1: Fix Translation Quality (Batch Mode + Context)
+1A. Use full system prompt in batch mode
+Root cause: When task == "batch_translate", the LLM clients use BATCH_SYSTEM_PROMPT_TEMPLATE (a 5-line English-only prompt with no glossary/expertise). This means ~90% of segments translated in batch mode get no glossary, no domain context, no professional translator instructions.
+Files to modify:
 
-Relax _should_attach_neighbor_context(): always return True for segments with Latin text; use shorter budget (100 chars) for table cells instead of blocking them entirely
-Add recent_translations: list[tuple[str, str]] ring buffer (max 3 entries) in translate_docx()
-After each segment is translated, append (source_plain, target_plain) to the buffer
-Before translating each segment, attach seg.context["recent_translations"] with the last 3 entries
-When context_window_chars > 0, force sequential processing (override concurrency to 1) and log a message
+src/docxru/llm.py — lines 65-70, 787-788, 1007-1008
 
-Changes in llm.py:
+Changes:
 
-In build_user_prompt() (line 165), add a RECENT_TRANSLATIONS block after TM_REFERENCES formatting the recent source→target pairs
+In OpenAIChatCompletionsClient.translate(): when task == "batch_translate", use self.translation_system_prompt (which already contains the full base prompt + custom prompt + glossary) and append the batch-specific JSON output instructions to it, instead of using BATCH_SYSTEM_PROMPT_TEMPLATE.
+Same change in OllamaChatClient.translate().
+Keep BATCH_SYSTEM_PROMPT_TEMPLATE as a fallback for providers that don't have translation_system_prompt.
 
-Changes in config.py:
+Concrete change in OpenAIChatCompletionsClient.translate():
+pythonelif task == "batch_translate":
+    # Use the full translation prompt (with glossary + custom instructions)
+    # and append batch-specific JSON output instructions
+    system_prompt = self.translation_system_prompt + "\n\n" + BATCH_JSON_INSTRUCTIONS
+Where BATCH_JSON_INSTRUCTIONS is a new constant containing only the JSON output format rules (extracted from the current BATCH_SYSTEM_PROMPT_TEMPLATE):
+pythonBATCH_JSON_INSTRUCTIONS = """BATCH MODE — return ONLY valid JSON in the requested schema.
+Do not add commentary outside the JSON.
+Preserve all marker tokens exactly (⟦...⟧).
+Preserve numbers, units, and punctuation."""
+1B. Add per-segment context to batch items
+Root cause: _build_batch_translation_prompt() sends only {"id": "...", "text": "..."} per segment — no section header, no table/textbox flag, no matched glossary.
+Files to modify:
 
-Add context_window_chars: int = 600 to LLMConfig
+src/docxru/pipeline.py — _build_batch_translation_prompt() (line 908) and _translate_batch_once() (line 1049)
 
-1.2 Document-level glossary accumulation
-Files: pipeline.py, llm.py
-Changes in pipeline.py:
+Changes:
 
-Add document_glossary: dict[str, str] = {} accumulator in translate_docx()
-After processing each segment, merge its matched_glossary_terms into document_glossary
-Before translating each segment, attach seg.context["document_glossary"] (limited to last N entries by config glossary_match_limit)
+Extend each batch item to include context:
 
-Changes in llm.py:
+python  {"id": seg_id, "text": text, "context": "SECTION: 32-10-00 | TABLE_CELL", "glossary": "term1->перевод1; term2->перевод2"}
 
-In build_user_prompt(), add a DOCUMENT_GLOSSARY block (separate from MATCHED_GLOSSARY) showing accumulated terms
+In _translate_batch_once(), build matched glossary terms for the combined batch text and include section headers from each segment's context.
+Update the batch prompt instructions to tell the LLM to use the per-item context for disambiguation.
 
-1.3 Text box content extraction
-Files: docx_reader.py
+1C. Update config defaults for better quality
+File: config/config.agent_openai.yaml
+SettingCurrentNewReasonreasoning_effortminimallowGives GPT-5 more room to think about contextbatch_segments64Smaller batches = better per-segment attentionfuzzy_enabledfalsetrueEnable reference translations from TM cachecontext_window_chars00Keep batch mode but improve its quality first
+1D. Improve batch translation prompt
+File: src/docxru/pipeline.py — _build_batch_translation_prompt() (line 908)
+Update the prompt to:
 
-Add _iter_textbox_paragraphs(doc) function: walk document XML for <w:txbxContent> elements, yield (location_prefix, Paragraph) pairs
-Modify collect_segments(): call _iter_textbox_paragraphs() after body/header/footer passes, with location prefix textbox{n}/p{m}
-Add safety: skip if structure is unexpected, log warnings
-
-1.4 Fix final cleanup applying to untranslated segments
-Files: pipeline.py
-
-In _apply_final_run_level_cleanup(), skip segments where seg.target_shielded_tagged is None
-
-
-Phase 2 — P1: Significant Quality Gains
-2.1 Cross-segment consistency checking
-New file: src/docxru/consistency.py (~150 lines)
-Functions:
-
-build_phrase_translation_map(segments, glossary_matchers) -> dict[str, set[str]] — for each EN glossary phrase found in source, collect all RU translations used
-detect_inconsistencies(phrase_map) -> list[Issue] — flag cases where same EN phrase got multiple distinct RU renderings
-report_consistency(segments, glossary_matchers) -> list[Issue] — top-level orchestrator
-
-Changes in pipeline.py:
-
-After Stage 2, call report_consistency() and log summary
-Append issues to QA report
-
-2.2 Layout validation module
-New file: src/docxru/layout_check.py (~200 lines)
-Functions:
-
-check_text_expansion(segments, warn_ratio=1.5) -> list[Issue] — flag segments where RU/EN char ratio exceeds threshold
-check_table_cell_overflow(doc) -> list[Issue] — parse <w:tcW> cell widths, estimate if translated text fits (heuristic: ~120 twips/char at 10pt)
-check_textbox_overflow(doc) -> list[Issue] — parse text box dimensions from <wp:extent>, compare against content length
-validate_layout(doc, segments, cfg) -> list[Issue] — orchestrator
-
-Changes in pipeline.py:
-
-After Stage 3 write-back, call validate_layout() if enabled
-Log results and add issues to QA report
-
-Changes in config.py:
-
-Add to PipelineConfig: layout_check: bool = False, layout_expansion_warn_ratio: float = 1.5
-
-2.3 Layout auto-fix for text expansion
-New file: src/docxru/layout_fix.py (~200 lines)
-Functions:
-
-reduce_font_size(paragraph, reduction_pt=0.5) — reduce all run font sizes by N points
-reduce_cell_spacing(cell, factor=0.8) — reduce paragraph before/after spacing in a cell
-fix_expansion_issues(doc, issues, cfg) -> int — for each overflow issue: first try spacing reduction, then font size reduction; return fix count
-
-Changes in pipeline.py:
-
-After layout validation, call fix_expansion_issues() if layout_auto_fix is enabled
-
-Changes in config.py:
-
-Add: layout_auto_fix: bool = False, layout_font_reduction_pt: float = 0.5, layout_spacing_factor: float = 0.8
-
-2.4 Enhanced ABBYY artifact cleanup
-Files: oxml_table_fix.py
-
-Add normalize_line_spacing(document) -> int: convert <w:spacing w:lineRule="exact"> to lineRule="atLeast" to allow RU text expansion
-Update normalize_abbyy_oxml(): include line spacing normalization in aggressive profile
+Reference the per-item context and glossary fields
+Instruct the LLM to use context for disambiguation and glossary for terminology
+Keep the JSON output format requirements
 
 
-Phase 3 — P2: Evaluation Harness & Documentation
-3.1 Evaluation harness
-New file: src/docxru/eval.py (~250 lines)
-Data structures:
+Part 2: Formatting — Unconditional Font Size Reduction
+2A. Add new config options
+File: src/docxru/config.py
+Add two new fields to the config dataclass:
 
-EvalResult dataclass: file path, segment count, TM hits, error/warning counts, glossary compliance rate, text expansion stats, layout issues, auto-fixes applied, timing
+font_shrink_body_pt: float = 0.0 (default 0 = disabled; user sets to 2.0)
+font_shrink_table_pt: float = 0.0 (default 0 = disabled; user sets to 3.0)
 
-Functions:
+2B. Implement global font shrink function
+File: src/docxru/layout_fix.py
+Add new function apply_global_font_shrink(segments, cfg) -> int:
+pythondef apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> int:
+    """Unconditionally reduce font sizes for all translated segments."""
+    body_shrink = float(cfg.font_shrink_body_pt)
+    table_shrink = float(cfg.font_shrink_table_pt)
+    if body_shrink <= 0 and table_shrink <= 0:
+        return 0
 
-evaluate_single(input_path, output_dir, cfg) -> EvalResult — run translation, collect all metrics
-evaluate_batch(input_dir, output_dir, cfg) -> list[EvalResult] — process all .docx files
-write_eval_report(results, report_path) — JSON report with per-file + aggregate metrics
-Exit non-zero if error thresholds fail
+    MIN_FONT_PT = 6.0
+    changed_count = 0
+    for seg in segments:
+        if seg.paragraph_ref is None or not seg.target_tagged:
+            continue
 
-Changes in cli.py:
+        shrink = table_shrink if seg.context.get("in_table") or seg.context.get("in_textbox") else body_shrink
+        if shrink <= 0:
+            continue
 
-Add eval subcommand: --input-dir, --output-dir, --config, --report, --threshold-errors
+        para = seg.paragraph_ref
+        changed = False
+        for run in para.runs:
+            if run.font.size is not None:
+                current = run.font.size.pt
+                new_size = max(MIN_FONT_PT, current - shrink)
+                if new_size < current:
+                    run.font.size = Pt(new_size)
+                    changed = True
+        if changed:
+            changed_count += 1
+    return changed_count
+2C. Call the function in the pipeline
+File: src/docxru/pipeline.py
+Insert the call after the write-back loop and before layout checks:
+python# After write-back, before layout check
+if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
+    shrunk = apply_global_font_shrink(segments, cfg)
+    logger.info(f"Global font shrink applied to {shrunk} segments")
+2D. Set config values
+File: config/config.agent_openai.yaml
+Add:
+yamlfont_shrink_body_pt: 2.0
+font_shrink_table_pt: 3.0
 
-CLI:
-python -m docxru eval --input-dir samples/ --output-dir out/ --config config/config.example.yaml --report out/report.json
-3.2 Architecture documentation
-New file: docs/architecture.md
+Files to Modify (Summary)
+FileChangessrc/docxru/llm.pyNew BATCH_JSON_INSTRUCTIONS constant; modify batch system prompt in OpenAI and Ollama clientssrc/docxru/pipeline.pyUpdate _build_batch_translation_prompt() with context/glossary; update _translate_batch_once() to build per-item context; add global font shrink callsrc/docxru/layout_fix.pyAdd apply_global_font_shrink() functionsrc/docxru/config.pyAdd font_shrink_body_pt and font_shrink_table_pt config fieldsconfig/config.agent_openai.yamlUpdate reasoning_effort, batch_segments, fuzzy_enabled; add font shrink settings
 
-Module descriptions with data flow diagram
-Configuration knobs reference
-Known failure modes and mitigations
-Fix plan summary (P0/P1/P2 with status)
+Verification
+
+Unit test: Run existing tests to ensure no regressions: python -m pytest
+Dry run with mock: Run pipeline with provider: mock to verify:
+
+Font shrink function is called and modifies font sizes correctly
+Batch prompt now includes full system prompt text
+Config parsing works for new fields
 
 
-Files Modified/Created Summary
-FileActionPhasesrc/docxru/pipeline.pyModify (context window, glossary accum, consistency hook, layout hook, cleanup fix)P0+P1src/docxru/llm.pyModify (new prompt blocks for recent_translations, document_glossary)P0src/docxru/config.pyModify (new config fields)P0+P1src/docxru/docx_reader.pyModify (text box extraction)P0src/docxru/oxml_table_fix.pyModify (line spacing normalization)P1src/docxru/cli.pyModify (eval subcommand)P2src/docxru/consistency.pyCreateP1src/docxru/layout_check.pyCreateP1src/docxru/layout_fix.pyCreateP1src/docxru/eval.pyCreateP2docs/architecture.mdCreateP2
-Existing Code to Reuse
+Integration test: Run a real translation of a small DOCX file with the updated config and verify:
 
-token_shield.strip_bracket_tokens() — for extracting plain text in consistency checks
-validator.validate_all() pattern — for layout_check module structure
-qa_report.write_qa_report() / write_qa_jsonl() — for eval report output
-oxml_table_fix.normalize_abbyy_oxml() — extend with new normalization rules
-models.Issue / models.Severity — for all new validation modules
-scripts/render_docx_pages.py — for optional visual comparison in eval
-config.PipelineConfig dataclass pattern — for new config fields
+Translated text uses correct glossary terms (check QA report for glossary_lemma_mismatch)
+Font sizes in output DOCX are reduced by expected amounts
+Tables have smaller font than body text
 
-Verification Plan
 
-Unit tests: Add tests for each new module (test_consistency.py, test_layout_check.py, test_layout_fix.py, test_eval.py)
-Integration test: Run python -m docxru translate on samples/test_1.docx with mock LLM before and after changes, compare QA reports
-Eval harness: Run python -m docxru eval --input-dir samples/ --output-dir out/ --config config/config.example.yaml --report out/report.json with mock LLM, verify JSON report structure
-Existing tests: Run pytest tests/ to ensure no regressions
-Manual spot-check: Translate one sample with OpenAI, open output in Word, visually inspect formatting
+Compare output: Translate the same document with old config (batch_segments=6, minimal reasoning, no fuzzy TM) vs new config and compare translation quality in QA reports

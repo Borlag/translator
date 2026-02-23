@@ -8,8 +8,10 @@ from docxru.config import LLMConfig, PipelineConfig
 from docxru.models import Segment
 from docxru.pipeline import (
     _batch_ineligibility_reasons,
+    _build_batch_translation_prompt,
     _chunk_translation_jobs,
     _parse_batch_translation_output,
+    _translate_batch_once,
     _translate_batch_group,
 )
 
@@ -151,3 +153,55 @@ def test_translate_batch_group_marks_json_schema_violation():
         codes = {issue.code for issue in issues}
         assert "batch_fallback_single" in codes
         assert "batch_json_schema_violation" in codes
+
+
+def test_build_batch_translation_prompt_mentions_context_and_glossary():
+    prompt = _build_batch_translation_prompt(
+        [
+            {
+                "id": "s1",
+                "text": "Install Main Fitting",
+                "context": "SECTION=32-10-00 | TABLE_CELL",
+                "glossary": [{"source": "Main Fitting", "target": "Корпус стойки"}],
+            }
+        ]
+    )
+    assert "Use item.context for disambiguation" in prompt
+    assert "item.glossary" in prompt
+    assert '"context"' in prompt
+    assert '"glossary"' in prompt
+
+
+def test_translate_batch_once_includes_per_item_context_and_glossary_in_prompt():
+    class FakeClient:
+        supports_repair = True
+
+        def __init__(self) -> None:
+            self.prompt = ""
+            self.context = {}
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            self.prompt = text
+            self.context = context
+            return '{"1":"T1","2":"T2"}'
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
+    jobs[0][0].context.update(
+        {
+            "section_header": "32-10-00",
+            "in_table": True,
+            "matched_glossary_terms": [{"source": "Main Fitting", "target": "Корпус стойки"}],
+        }
+    )
+    jobs[1][0].context.update({"section_header": "32-20-00"})
+
+    fake = FakeClient()
+    out = _translate_batch_once(fake, jobs)
+
+    assert out == {"1": "T1", "2": "T2"}
+    assert fake.context.get("task") == "batch_translate"
+    assert '"context"' in fake.prompt
+    assert "SECTION=32-10-00" in fake.prompt
+    assert "TABLE_CELL" in fake.prompt
+    assert '"glossary"' in fake.prompt
+    assert "Main Fitting" in fake.prompt

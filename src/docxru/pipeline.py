@@ -17,7 +17,7 @@ from .config import PipelineConfig
 from .consistency import report_consistency
 from .docx_reader import collect_segments
 from .layout_check import validate_layout
-from .layout_fix import fix_expansion_issues
+from .layout_fix import apply_global_font_shrink, fix_expansion_issues
 from .llm import (
     apply_glossary_replacements,
     build_glossary_matchers,
@@ -94,6 +94,7 @@ _PLACEHOLDER_RE = re.compile(r"⟦(?!/?S_)[A-Z][A-Z0-9]*_\d+⟧")
 _BRLINE_RE = re.compile(r"⟦BRLINE_\d+⟧")
 _LATIN_RE = re.compile(r"[A-Za-z]")
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
+_CYRILLIC_WORD_RE = re.compile(r"[А-Яа-яЁё]{2,}")
 _LAYOUT_SPLIT_RE = re.compile(r"((?:\.\s*){3,}|\t+)")
 _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Remove zero-width spaces sometimes produced by machine translation (Google).
@@ -326,12 +327,24 @@ def _should_translate_segment_text(text: str) -> bool:
     """
     if not text or not text.strip():
         return False
-    latin = len(_LATIN_RE.findall(text))
-    if latin == 0:
+    latin_chars = len(_LATIN_RE.findall(text))
+    if latin_chars == 0:
         return False
-    cyr = len(_CYRILLIC_RE.findall(text))
-    # Mostly Cyrillic with only a few Latin letters (abbreviations, brand names) -> keep as-is.
-    return not (cyr >= latin * 3 and latin <= 12)
+    cyr_chars = len(_CYRILLIC_RE.findall(text))
+    if cyr_chars == 0:
+        return True
+
+    latin_words = _LATIN_WORD_RE.findall(text)
+    cyr_words = _CYRILLIC_WORD_RE.findall(text)
+
+    # Strong RU dominance with sparse Latin tokens (IDs, acronyms) -> keep as-is.
+    if cyr_chars >= latin_chars * 2 and len(latin_words) <= 14:
+        return False
+    if len(cyr_words) >= max(3, len(latin_words) * 2):
+        return False
+
+    # Backward-compatible conservative rule for short mixed labels.
+    return not (cyr_chars >= latin_chars * 3 and latin_chars <= 12)
 
 
 def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
@@ -921,11 +934,60 @@ def _attach_issues_to_segments(segments: list[Segment], issues: list[Issue]) -> 
     return attached
 
 
-def _build_batch_translation_prompt(items: list[dict[str, str]]) -> str:
+def _coerce_batch_glossary_context(value: Any, *, limit: int = 12) -> list[dict[str, str]]:
+    if value is None:
+        return []
+
+    items = value if isinstance(value, (list, tuple)) else [value]
+    max_items = max(0, int(limit))
+    out: list[dict[str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        target = str(item.get("target") or "").strip()
+        if not source or not target:
+            continue
+        out.append({"source": source, "target": target})
+        if max_items and len(out) >= max_items:
+            break
+    return out
+
+
+def _build_batch_item_context(seg: Segment) -> str:
+    parts: list[str] = []
+    section_header = _compact_context_text(seg.context.get("section_header"), max_chars=120)
+    if section_header:
+        parts.append(f"SECTION={section_header}")
+
+    part = str(seg.context.get("part") or "").strip().lower()
+    if part and part != "body":
+        parts.append(f"DOC_SECTION={part}")
+    if seg.context.get("in_table"):
+        parts.append("TABLE_CELL")
+    if seg.context.get("in_textbox"):
+        parts.append("TEXTBOX")
+    if seg.context.get("is_toc_entry"):
+        parts.append("TOC_ENTRY")
+
+    prev_text = _compact_context_text(seg.context.get("prev_text"), max_chars=80)
+    next_text = _compact_context_text(seg.context.get("next_text"), max_chars=80)
+    if prev_text:
+        parts.append(f"PREV={prev_text}")
+    if next_text:
+        parts.append(f"NEXT={next_text}")
+
+    return " | ".join(parts) if parts else "(no context)"
+
+
+def _build_batch_translation_prompt(items: list[dict[str, Any]]) -> str:
     input_json = json.dumps(items, ensure_ascii=False)
     return (
         "TASK: BATCH_TRANSLATE_SEGMENTS\n"
         "Translate each item.text from English to Russian.\n"
+        "Use item.context for disambiguation between homonyms and nearby segment intent.\n"
+        "If item.glossary is provided, prefer those EN->RU term mappings.\n"
+        "Do not translate item.id, item.context, or glossary keys.\n"
         "Keep marker placeholders and style tags unchanged.\n"
         "Return ONLY valid JSON object (no markdown, no prose) where key=id and value=translated text.\n"
         "Preferred shape:\n"
@@ -1066,7 +1128,18 @@ def _translate_batch_once(
     llm_client,
     jobs: list[tuple[Segment, str, str]],
 ) -> dict[str, str]:
-    items = [{"id": seg.segment_id, "text": seg.shielded_tagged or ""} for seg, _, _ in jobs]
+    items: list[dict[str, Any]] = []
+    for seg, _, _ in jobs:
+        item: dict[str, Any] = {
+            "id": seg.segment_id,
+            "text": seg.shielded_tagged or "",
+            "context": _build_batch_item_context(seg),
+        }
+        matched_glossary = _coerce_batch_glossary_context(seg.context.get("matched_glossary_terms"), limit=10)
+        if matched_glossary:
+            item["glossary"] = matched_glossary
+        items.append(item)
+
     prompt = _build_batch_translation_prompt(items)
     first_seg = jobs[0][0]
     context = {
@@ -1943,6 +2016,15 @@ def translate_docx(
             )
 
     logger.info(f"Written segments: {written}/{len(segments)}; complex in-place: {complex_translated}")
+
+    if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
+        shrunk = apply_global_font_shrink(segments, cfg)
+        logger.info(
+            "Global font shrink applied: %d segments (body=%.2fpt, table/textbox=%.2fpt)",
+            shrunk,
+            float(cfg.font_shrink_body_pt),
+            float(cfg.font_shrink_table_pt),
+        )
 
     if glossary_matchers:
         consistency_issues = report_consistency(segments, glossary_matchers)

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 from docxru.llm import (
+    BATCH_JSON_INSTRUCTIONS,
+    BATCH_SYSTEM_PROMPT_TEMPLATE,
     GoogleFreeTranslateClient,
     MockLLMClient,
     OllamaChatClient,
@@ -400,6 +402,49 @@ def test_openai_client_batch_uses_json_mode_and_skips_temperature_for_gpt5():
     assert "max_tokens" not in payloads[0]
     assert payloads[0]["prompt_cache_key"] == "docxru-test"
     assert payloads[0]["prompt_cache_retention"] == "24h"
+    system_prompt = payloads[0]["messages"][0]["content"]
+    assert BATCH_JSON_INSTRUCTIONS.strip() in system_prompt
+    assert system_prompt != BATCH_SYSTEM_PROMPT_TEMPLATE
+
+
+def test_openai_client_batch_uses_fallback_template_when_translation_prompt_is_empty():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"{\\"translations\\":[{\\"id\\":\\"s1\\",\\"text\\":\\"T1\\"}]}"}}]}')
+
+    client = OpenAIChatCompletionsClient(
+        model="gpt-4o-mini",
+        translation_system_prompt="  ",
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        client.translate("{}", {"task": "batch_translate"})
+
+    assert payloads
+    assert payloads[0]["messages"][0]["content"] == BATCH_SYSTEM_PROMPT_TEMPLATE
+
+
+def test_ollama_client_batch_uses_translation_prompt_plus_batch_json_contract():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"message":{"content":"{\\"translations\\":[{\\"id\\":\\"s1\\",\\"text\\":\\"T1\\"}]}"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("{}", {"task": "batch_translate"})
+
+    assert '"translations"' in out
+    assert payloads
+    system_prompt = payloads[0]["messages"][0]["content"]
+    assert BATCH_JSON_INSTRUCTIONS.strip() in system_prompt
+    assert system_prompt != BATCH_SYSTEM_PROMPT_TEMPLATE
+    assert payloads[0]["format"] == "json"
 
 
 def test_openai_client_non_gpt5_uses_max_tokens():

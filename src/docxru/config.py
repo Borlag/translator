@@ -96,6 +96,10 @@ class PipelineConfig:
     layout_auto_fix: bool = False
     layout_font_reduction_pt: float = 0.5
     layout_spacing_factor: float = 0.8
+    # Optional unconditional post-writeback font shrink.
+    # 0.0 disables shrinking for the corresponding scope.
+    font_shrink_body_pt: float = 0.0
+    font_shrink_table_pt: float = 0.0
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
 
@@ -234,6 +238,8 @@ def load_config(path: str | Path) -> PipelineConfig:
     layout_auto_fix = bool(data.get("layout_auto_fix", False))
     layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
+    font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", 0.0)))
+    font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", 0.0)))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
@@ -283,5 +289,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         layout_auto_fix=layout_auto_fix,
         layout_font_reduction_pt=layout_font_reduction_pt,
         layout_spacing_factor=layout_spacing_factor,
+        font_shrink_body_pt=font_shrink_body_pt,
+        font_shrink_table_pt=font_shrink_table_pt,
         pattern_set=pattern_set,
     )

@@ -34,21 +34,67 @@ class UsageTotals:
         self._cost_total = 0.0
         self._cost_known = 0
         self._currency = "USD"
+        self._by_phase: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _phase_key(phase: str) -> str:
+        key = str(phase or "").strip().lower()
+        return key if key else "unknown"
 
     def add(self, record: UsageRecord) -> None:
         with self._lock:
             self._records.append(record)
-            self._input_tokens += max(0, int(record.input_tokens))
-            self._output_tokens += max(0, int(record.output_tokens))
-            self._total_tokens += max(0, int(record.total_tokens))
+            in_tokens = max(0, int(record.input_tokens))
+            out_tokens = max(0, int(record.output_tokens))
+            total_tokens = max(0, int(record.total_tokens))
+
+            self._input_tokens += in_tokens
+            self._output_tokens += out_tokens
+            self._total_tokens += total_tokens
             if record.cost is not None:
                 self._cost_total += float(record.cost)
                 self._cost_known += 1
             if record.currency:
                 self._currency = str(record.currency)
 
+            phase_key = self._phase_key(record.phase)
+            bucket = self._by_phase.get(phase_key)
+            if bucket is None:
+                bucket = {
+                    "requests": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                    "cost_total": 0.0,
+                    "cost_records": 0,
+                    "currency": self._currency,
+                }
+                self._by_phase[phase_key] = bucket
+
+            bucket["requests"] = int(bucket["requests"]) + 1
+            bucket["input_tokens"] = int(bucket["input_tokens"]) + in_tokens
+            bucket["output_tokens"] = int(bucket["output_tokens"]) + out_tokens
+            bucket["total_tokens"] = int(bucket["total_tokens"]) + total_tokens
+            if record.cost is not None:
+                bucket["cost_total"] = float(bucket["cost_total"]) + float(record.cost)
+                bucket["cost_records"] = int(bucket["cost_records"]) + 1
+            if record.currency:
+                bucket["currency"] = str(record.currency)
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
+            by_phase: dict[str, Any] = {}
+            for phase, bucket in self._by_phase.items():
+                cost_records = int(bucket.get("cost_records", 0))
+                by_phase[phase] = {
+                    "requests": int(bucket.get("requests", 0)),
+                    "input_tokens": int(bucket.get("input_tokens", 0)),
+                    "output_tokens": int(bucket.get("output_tokens", 0)),
+                    "total_tokens": int(bucket.get("total_tokens", 0)),
+                    "cost": (float(bucket.get("cost_total", 0.0)) if cost_records > 0 else None),
+                    "currency": str(bucket.get("currency") or self._currency),
+                    "cost_records": cost_records,
+                }
             return {
                 "requests": len(self._records),
                 "input_tokens": self._input_tokens,
@@ -57,6 +103,7 @@ class UsageTotals:
                 "cost": (self._cost_total if self._cost_known > 0 else None),
                 "currency": self._currency,
                 "cost_records": self._cost_known,
+                "by_phase": by_phase,
             }
 
     def records(self) -> list[UsageRecord]:

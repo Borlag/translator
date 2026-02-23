@@ -545,7 +545,9 @@ def _build_studio_html() -> str:
         <div class="k">Segments</div><div id="segments" class="mono">0 / 0</div>
         <div class="k">ETA</div><div id="eta" class="mono">-</div>
         <div class="k">Tokens</div><div id="tokens" class="mono">0</div>
+        <div class="k">Token I/O</div><div id="tokenIo" class="mono">0 / 0</div>
         <div class="k">Cost</div><div id="cost" class="mono">N/A</div>
+        <div class="k">Checker Token I/O</div><div id="checkerTokenIo" class="mono">0 / 0</div>
         <div class="k">Checker Req</div><div id="checkerReq" class="mono">0 / 0 / 0</div>
         <div class="k">Checker Edits</div><div id="checkerEdits" class="mono">0</div>
         <div class="k">Return Code</div><div id="returnCode">-</div>
@@ -808,6 +810,8 @@ def _build_studio_html() -> str:
       const status = data.status || {};
       const metrics = status.metrics || {};
       const usage = status.usage || {};
+      const byPhase = usage.by_phase || {};
+      const checkerUsage = byPhase.checker || {};
       const done = Number(status.done_segments || 0);
       const total = Number(status.total_segments || 0);
       const pct = Number(metrics.progress_pct || (total > 0 ? (100 * done / total) : 0));
@@ -821,7 +825,11 @@ def _build_studio_html() -> str:
       document.getElementById("segments").textContent = `${fmtNum(done)} / ${fmtNum(total)}`;
       document.getElementById("eta").textContent = fmtSeconds(metrics.eta_seconds);
       document.getElementById("tokens").textContent = fmtNum(usage.total_tokens || 0);
+      document.getElementById("tokenIo").textContent =
+        `${fmtNum(usage.input_tokens || 0)} / ${fmtNum(usage.output_tokens || 0)}`;
       document.getElementById("cost").textContent = fmtCost(usage.cost, usage.currency);
+      document.getElementById("checkerTokenIo").textContent =
+        `${fmtNum(checkerUsage.input_tokens || 0)} / ${fmtNum(checkerUsage.output_tokens || 0)}`;
       document.getElementById("checkerReq").textContent =
         `${fmtNum(checkerReqTotal)} / ${fmtNum(checkerReqOk)} / ${fmtNum(checkerReqFail)}`;
       document.getElementById("checkerEdits").textContent = fmtNum(metrics.checker_suggestions || 0);

@@ -106,6 +106,10 @@ def _build_dashboard_html() -> str:
         <div id="tokens" class="v mono">0</div>
       </div>
       <div class="card">
+        <div class="k">Token I/O</div>
+        <div id="tokenIo" class="v mono">0 / 0</div>
+      </div>
+      <div class="card">
         <div class="k">Cost</div>
         <div id="cost" class="v mono">N/A</div>
       </div>
@@ -116,6 +120,10 @@ def _build_dashboard_html() -> str:
       <div class="card">
         <div class="k">Checker Requests</div>
         <div id="checkerReq" class="v mono">0</div>
+      </div>
+      <div class="card">
+        <div class="k">Checker I/O</div>
+        <div id="checkerTokenIo" class="v mono">0 / 0</div>
       </div>
       <div class="card">
         <div class="k">Issues Total</div>
@@ -160,6 +168,8 @@ def _build_dashboard_html() -> str:
       const s = await resp.json();
       const metrics = s.metrics || {};
       const usage = s.usage || {};
+      const byPhase = usage.by_phase || {};
+      const checkerUsage = byPhase.checker || {};
       const paths = s.paths || {};
       const done = Number(s.done_segments || 0);
       const total = Number(s.total_segments || 0);
@@ -171,9 +181,13 @@ def _build_dashboard_html() -> str:
       document.getElementById("segments").textContent = `${fmtNum(done)} / ${fmtNum(total)}`;
       document.getElementById("eta").textContent = fmtSeconds(eta);
       document.getElementById("tokens").textContent = fmtNum(usage.total_tokens || 0);
+      document.getElementById("tokenIo").textContent =
+        `${fmtNum(usage.input_tokens || 0)} / ${fmtNum(usage.output_tokens || 0)}`;
       document.getElementById("cost").textContent = fmtCost(usage.cost, usage.currency);
       document.getElementById("checker").textContent = fmtNum(metrics.checker_suggestions || 0);
       document.getElementById("checkerReq").textContent = fmtNum(metrics.checker_requests_total || 0);
+      document.getElementById("checkerTokenIo").textContent =
+        `${fmtNum(checkerUsage.input_tokens || 0)} / ${fmtNum(checkerUsage.output_tokens || 0)}`;
       document.getElementById("issues").textContent = fmtNum(metrics.issues_total || 0);
       document.getElementById("updated").textContent = `updated: ${s.updated_at || "-"}`;
       if (paths.qa_report) document.getElementById("qaLink").setAttribute("href", paths.qa_report);

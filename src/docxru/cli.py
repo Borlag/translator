@@ -5,10 +5,12 @@ import sys
 from pathlib import Path
 
 from .config import load_config
+from .dashboard_server import serve_dashboard
 from .eval import evaluate_batch, write_eval_report
 from .pdf_pipeline import translate_pdf
 from .pipeline import translate_docx
 from .structure_check import compare_docx_structure, write_structure_report
+from .studio_server import serve_studio
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,6 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable fuzzy TM lookup on top of exact TM.",
     )
     t.add_argument(
+        "--checker-openai-batch",
+        action="store_true",
+        help="Run checker via OpenAI Batch API (async, high-latency, lower cost).",
+    )
+    t.add_argument(
         "--abbyy-profile",
         choices=["off", "safe", "aggressive"],
         default=None,
@@ -89,9 +96,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_pdf.add_argument("--bilingual", action="store_true", help="Enable bilingual EN/RU OCG layer mode.")
     p_pdf.add_argument("--max-pages", type=int, default=None, help="Translate only first N PDF pages.")
     p_pdf.add_argument("--ocr-fallback", action="store_true", help="Run OCR fallback for scanned pages.")
+    p_pdf.add_argument(
+        "--checker-openai-batch",
+        action="store_true",
+        help="Run checker via OpenAI Batch API (async, high-latency, lower cost).",
+    )
     p_pdf.add_argument("--qa", default=None, help="Override QA report HTML path.")
     p_pdf.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
     p_pdf.add_argument("--log", default=None, help="Override log path.")
+
+    d = sub.add_parser("dashboard", help="Serve run directory dashboard on localhost.")
+    d.add_argument("--dir", required=True, help="Run directory containing dashboard.html and run_status.json")
+    d.add_argument("--port", type=int, default=0, help="Port to bind on 127.0.0.1 (0 = random free port)")
+    d.add_argument("--open-browser", action="store_true", help="Open dashboard URL in default browser")
+
+    s = sub.add_parser("studio", help="Serve interactive local UI to start translation runs.")
+    s.add_argument(
+        "--base-dir",
+        default="output/studio",
+        help="Workspace for UI runs/artifacts (contains runs/<run_id>/...).",
+    )
+    s.add_argument("--port", type=int, default=0, help="Port to bind on 127.0.0.1 (0 = random free port)")
+    s.add_argument("--open-browser", action="store_true", help="Open studio URL in default browser")
 
     v = sub.add_parser("verify", help="Verify structural invariants between two DOCX files.")
     v.add_argument("--input", "-i", required=True, help="Path to source .docx")
@@ -170,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
             cfg = cfg.__class__(**{**cfg.__dict__, "tm": tm_cfg})
         if args.abbyy_profile is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "abbyy_profile": str(args.abbyy_profile)})
+        if args.checker_openai_batch:
+            checker_cfg = cfg.checker.__class__(**{**cfg.checker.__dict__, "openai_batch_enabled": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "checker": checker_cfg})
         if args.no_headers:
             cfg = cfg.__class__(**{**cfg.__dict__, "include_headers": False})
         if args.no_footers:
@@ -201,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.ocr_fallback:
             pdf_cfg = cfg.pdf.__class__(**{**cfg.pdf.__dict__, "ocr_fallback": True})
             cfg = cfg.__class__(**{**cfg.__dict__, "pdf": pdf_cfg})
+        if args.checker_openai_batch:
+            checker_cfg = cfg.checker.__class__(**{**cfg.checker.__dict__, "openai_batch_enabled": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "checker": checker_cfg})
 
         translate_pdf(
             input_path=Path(args.input),
@@ -234,6 +266,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.report:
             write_structure_report(report, Path(args.report))
             print(f"Report written: {args.report}")
+        return 0
+
+    if args.cmd == "dashboard":
+        serve_dashboard(
+            run_dir=Path(args.dir),
+            port=int(args.port),
+            open_browser=bool(args.open_browser),
+        )
+        return 0
+
+    if args.cmd == "studio":
+        serve_studio(
+            base_dir=Path(args.base_dir),
+            port=int(args.port),
+            open_browser=bool(args.open_browser),
+        )
         return 0
 
     if args.cmd == "eval":

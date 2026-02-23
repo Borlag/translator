@@ -317,6 +317,12 @@ def test_build_user_prompt_passthrough_for_batch_task():
     assert out == text
 
 
+def test_build_user_prompt_passthrough_for_checker_task():
+    text = '{"chunk_id":"pages_1_3","segments":[]}'
+    out = build_user_prompt(text, {"task": "checker", "part": "body"})
+    assert out == text
+
+
 def test_build_user_prompt_does_not_emit_part_body_marker():
     prompt = build_user_prompt("Install Main Fitting.", {"task": "translate", "part": "body"})
     assert "PART:" not in prompt
@@ -517,6 +523,28 @@ def test_openai_client_repair_extracts_output_payload():
     assert out == "restored"
 
 
+def test_openai_client_checker_reports_empty_content_with_refusal():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse(
+            '{"choices":[{"finish_reason":"content_filter","message":{"content":null,"refusal":"policy refusal"}}]}'
+        )
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", structured_output_mode="strict")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        try:
+            client.translate("{}", {"task": "checker"})
+        except RuntimeError as err:
+            msg = str(err)
+            assert "OpenAI checker returned empty content" in msg
+            assert "finish_reason=content_filter" in msg
+            assert "policy refusal" in msg
+        else:
+            raise AssertionError("Expected RuntimeError for empty checker content")
+
+
 def test_openai_client_repair_skips_temperature_for_gpt5():
     payloads: list[dict] = []
 
@@ -579,3 +607,123 @@ def test_openai_client_retries_without_prompt_cache_retention_when_unsupported()
     assert len(payloads) == 2
     assert "prompt_cache_retention" in payloads[0]
     assert "prompt_cache_retention" not in payloads[1]
+
+
+def test_openai_client_emits_usage_record_with_cost_estimate():
+    records = []
+
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse(
+            '{"choices":[{"message":{"content":"{\\"translated_text\\":\\"ok\\"}"}}],'
+            '"usage":{"prompt_tokens":10,"completion_tokens":6,"total_tokens":16}}'
+        )
+
+    client = OpenAIChatCompletionsClient(
+        model="gpt-4o-mini",
+        on_usage=records.append,
+        estimate_cost=lambda provider, model, in_tokens, out_tokens: 0.1234,
+        pricing_currency="USD",
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "ok"
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.provider == "openai"
+    assert rec.model == "gpt-4o-mini"
+    assert rec.phase == "translate"
+    assert rec.input_tokens == 10
+    assert rec.output_tokens == 6
+    assert rec.total_tokens == 16
+    assert rec.cost == 0.1234
+    assert rec.currency == "USD"
+
+
+def test_openai_client_run_checker_batch_returns_content_and_usage():
+    records = []
+    calls: list[str] = []
+
+    def fake_urlopen(req, timeout=0):
+        del timeout
+        url = req.full_url
+        calls.append(f"{req.get_method()} {url}")
+        if req.get_method() == "POST" and url.endswith("/v1/files"):
+            assert req.data is not None
+            assert b'"custom_id": "chunk-1"' in req.data
+            return _FakeResponse('{"id":"file_in_1"}')
+        if req.get_method() == "POST" and url.endswith("/v1/batches"):
+            payload = json.loads((req.data or b"{}").decode("utf-8"))
+            assert payload["input_file_id"] == "file_in_1"
+            assert payload["endpoint"] == "/v1/chat/completions"
+            return _FakeResponse('{"id":"batch_1","status":"in_progress"}')
+        if req.get_method() == "GET" and url.endswith("/v1/batches/batch_1"):
+            return _FakeResponse('{"id":"batch_1","status":"completed","output_file_id":"file_out_1"}')
+        if req.get_method() == "GET" and url.endswith("/v1/files/file_out_1/content"):
+            line = json.dumps(
+                {
+                    "custom_id": "chunk-1",
+                    "response": {
+                        "status_code": 200,
+                        "body": {
+                            "choices": [{"message": {"content": '{"chunk_id":"chunk-1","edits":[]}'}}],
+                            "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+                        },
+                    },
+                },
+                ensure_ascii=False,
+            )
+            return _FakeResponse(line)
+        raise AssertionError(f"Unexpected request: {req.get_method()} {url}")
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", on_usage=records.append)
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ), patch("docxru.llm.time.sleep", return_value=None):
+        out = client.run_checker_batch(
+            [("chunk-1", "CHECKER_PROMPT")],
+            completion_window="24h",
+            poll_interval_s=0.1,
+            timeout_s=60.0,
+        )
+
+    assert "POST https://api.openai.com/v1/files" in calls
+    assert "POST https://api.openai.com/v1/batches" in calls
+    assert "GET https://api.openai.com/v1/batches/batch_1" in calls
+    assert out["chunk-1"].error is None
+    assert out["chunk-1"].content == '{"chunk_id":"chunk-1","edits":[]}'
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.phase == "checker"
+    assert rec.input_tokens == 12
+    assert rec.output_tokens == 3
+    assert rec.total_tokens == 15
+
+
+def test_ollama_client_emits_usage_record_with_cost_estimate():
+    records = []
+
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"message":{"content":"ok"},"prompt_eval_count":30,"eval_count":9}')
+
+    client = OllamaChatClient(
+        model="qwen2.5:7b",
+        on_usage=records.append,
+        estimate_cost=lambda provider, model, in_tokens, out_tokens: 0.0,
+        pricing_currency="USD",
+    )
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "ok"
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.provider == "ollama"
+    assert rec.phase == "translate"
+    assert rec.input_tokens == 30
+    assert rec.output_tokens == 9
+    assert rec.total_tokens == 39

@@ -6,8 +6,11 @@ import subprocess
 from collections import deque
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
+from .checker import CHECKER_SYSTEM_PROMPT, run_llm_checker, write_checker_suggestions
 from .config import PipelineConfig
+from .dashboard_server import ensure_dashboard_html
 from .llm import (
     build_glossary_matchers,
     build_hard_glossary_replacements,
@@ -16,15 +19,20 @@ from .llm import (
     supports_repair,
 )
 from .logging_utils import setup_logging
+from .model_sizing import recommend_runtime_model_sizing
 from .models import Issue, Segment, Severity
 from .pdf_font_map import select_font_for_style
 from .pdf_layout import group_all_pages
 from .pdf_models import PdfSegment, PdfSpan, PdfTextBlock
 from .pdf_reader import extract_pdf_pages
 from .pdf_writer import build_bilingual_ocg, replace_block_text
+from .pricing import PricingTable, load_pricing_table
 from .qa_report import write_qa_jsonl, write_qa_report
+from .run_context import resolve_run_paths
+from .run_status import RunStatusWriter
 from .tm import TMStore, normalize_text, sha256_hex
 from .token_shield import shield, shield_terms, strip_bracket_tokens, unshield
+from .usage import UsageTotals
 from .validator import validate_all, validate_placeholders
 
 try:
@@ -151,6 +159,14 @@ def _translate_segment_text(
                 if source_term in document_glossary:
                     document_glossary.pop(source_term, None)
                 document_glossary[source_term] = target_term
+    elif glossary_matchers and not seg.context.get("matched_glossary_terms"):
+        checker_terms = select_matched_glossary_terms(
+            source_plain,
+            glossary_matchers,
+            limit=min(12, cfg.llm.glossary_match_limit),
+        )
+        if checker_terms:
+            seg.context["matched_glossary_terms"] = [{"source": s, "target": t} for s, t in checker_terms]
 
     context_window_chars = max(0, int(cfg.llm.context_window_chars))
     if context_window_chars > 0:
@@ -355,11 +371,66 @@ def _translate_and_write_pdf(
     resume: bool,
     bilingual_mode: bool,
 ) -> None:
+    run_paths = resolve_run_paths(cfg, output_path=output_path)
+    run_paths.run_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dashboard_html(run_paths.dashboard_html_path.parent, filename=run_paths.dashboard_html_path.name)
+
     logger.info("Prepared PDF segments: %d", len(segments))
+    logger.info("Run dir: %s", run_paths.run_dir)
+    logger.info("Run status: %s", run_paths.status_path)
+    logger.info("Dashboard HTML: %s", run_paths.dashboard_html_path)
+
+    usage_totals = UsageTotals()
+    pricing_table = PricingTable.empty(currency=cfg.pricing.currency)
+    if cfg.pricing.enabled:
+        if cfg.pricing.pricing_path:
+            try:
+                pricing_table = load_pricing_table(cfg.pricing.pricing_path, currency=cfg.pricing.currency)
+                logger.info("Pricing table loaded: %s", cfg.pricing.pricing_path)
+            except Exception as exc:
+                logger.warning("Failed to load pricing table (%s): %s", cfg.pricing.pricing_path, exc)
+        else:
+            logger.warning("pricing.enabled=true but pricing.pricing_path is empty")
+
+    status_writer = RunStatusWriter(
+        path=run_paths.status_path,
+        run_id=run_paths.run_id,
+        total_segments=len(segments),
+        flush_every_n_updates=cfg.run.status_flush_every_n_segments,
+    )
+
+    def _to_dashboard_link(path: Path) -> str:
+        try:
+            rel = path.resolve().relative_to(run_paths.run_dir.resolve())
+            return rel.as_posix()
+        except Exception:
+            return str(path)
+
+    status_writer.merge_paths(
+        {
+            "run_dir": str(run_paths.run_dir),
+            "output": str(output_path),
+            "qa_report": _to_dashboard_link(run_paths.qa_report_path),
+            "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
+            "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
+            "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
+        }
+    )
+    status_writer.set_phase("prepare")
+    status_writer.set_done(0)
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.write(force=True)
+
     if not segments:
         # Nothing to translate: copy source bytes.
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(source_pdf.read_bytes())
+        write_checker_suggestions(run_paths.checker_suggestions_path, [])
+        status_writer.set_phase("done")
+        status_writer.set_done(0)
+        status_writer.set_usage(usage_totals.snapshot())
+        status_writer.merge_metrics({"issues_total": 0, "checker_suggestions": 0})
+        status_writer.write(force=True)
         logger.info("No text segments found. Source PDF copied unchanged.")
         return
 
@@ -371,13 +442,56 @@ def _translate_and_write_pdf(
         effective_glossary_text = None
     else:
         effective_glossary_text = glossary_text
+    effective_llm_max_output_tokens = cfg.llm.max_output_tokens
+    effective_checker_cfg = cfg.checker
+    if cfg.llm.auto_model_sizing:
+        checker_provider_for_sizing = (cfg.checker.provider or cfg.llm.provider).strip()
+        checker_model_for_sizing = (cfg.checker.model or cfg.llm.model).strip()
+        source_lengths = [len(seg.source_text or "") for seg in segments]
+        prompt_chars = len(custom_system_prompt or "") + len(effective_glossary_text or "")
+        if glossary_prompt_mode == "matched" and glossary_text:
+            prompt_chars += min(1200, len(glossary_text))
+        sizing = recommend_runtime_model_sizing(
+            provider=cfg.llm.provider,
+            model=cfg.llm.model,
+            checker_provider=checker_provider_for_sizing,
+            checker_model=checker_model_for_sizing,
+            source_char_lengths=source_lengths,
+            prompt_chars=prompt_chars,
+            batch_segments=cfg.llm.batch_segments,
+            batch_max_chars=cfg.llm.batch_max_chars,
+            max_output_tokens=cfg.llm.max_output_tokens,
+            context_window_chars=cfg.llm.context_window_chars,
+            checker_pages_per_chunk=cfg.checker.pages_per_chunk,
+            checker_fallback_segments_per_chunk=cfg.checker.fallback_segments_per_chunk,
+            checker_max_output_tokens=cfg.checker.max_output_tokens,
+        )
+        effective_llm_max_output_tokens = sizing.max_output_tokens
+        effective_checker_cfg = cfg.checker.__class__(
+            **{
+                **cfg.checker.__dict__,
+                "pages_per_chunk": sizing.checker_pages_per_chunk,
+                "fallback_segments_per_chunk": sizing.checker_fallback_segments_per_chunk,
+                "max_output_tokens": sizing.checker_max_output_tokens,
+            }
+        )
+        for note in sizing.notes:
+            logger.info("Model auto-sizing: %s", note)
+        logger.info(
+            "Model auto-sizing effective values (PDF): llm_max_output_tokens=%d; "
+            "checker_pages_per_chunk=%d; checker_fallback_segments_per_chunk=%d; checker_max_output_tokens=%d",
+            int(effective_llm_max_output_tokens),
+            int(effective_checker_cfg.pages_per_chunk),
+            int(effective_checker_cfg.fallback_segments_per_chunk),
+            int(effective_checker_cfg.max_output_tokens),
+        )
 
     llm_client = build_llm_client(
         provider=cfg.llm.provider,
         model=cfg.llm.model,
         temperature=cfg.llm.temperature,
         timeout_s=cfg.llm.timeout_s,
-        max_output_tokens=cfg.llm.max_output_tokens,
+        max_output_tokens=effective_llm_max_output_tokens,
         source_lang=cfg.llm.source_lang,
         target_lang=cfg.llm.target_lang,
         base_url=cfg.llm.base_url,
@@ -388,6 +502,9 @@ def _translate_and_write_pdf(
         prompt_cache_key=cfg.llm.prompt_cache_key,
         prompt_cache_retention=cfg.llm.prompt_cache_retention,
         structured_output_mode=cfg.llm.structured_output_mode,
+        on_usage=usage_totals.add,
+        estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
+        pricing_currency=pricing_table.currency,
     )
     glossary_matchers = build_glossary_matchers(glossary_text) if glossary_text else ()
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = ()
@@ -409,7 +526,9 @@ def _translate_and_write_pdf(
             seg.context["next_text"] = next_text
         seg.context["part"] = "pdf"
 
-    for seg in segments:
+    status_writer.set_phase("translate")
+    status_writer.write(force=True)
+    for done_segments, seg in enumerate(segments, start=1):
         _translate_segment_text(
             seg,
             cfg=cfg,
@@ -421,7 +540,14 @@ def _translate_and_write_pdf(
             recent_translations=recent_translations,
             resume=resume,
         )
+        status_writer.set_done(done_segments)
+        status_writer.set_usage(usage_totals.snapshot())
+        status_writer.merge_metrics({"issues_total": sum(len(s.issues) for s in segments)})
+        status_writer.write()
+    status_writer.write(force=True)
 
+    status_writer.set_phase("writeback")
+    status_writer.write(force=True)
     with fitz.open(str(source_pdf)) as doc:
         ocg_xref: int | None = None
         if bilingual_mode:
@@ -498,11 +624,72 @@ def _translate_and_write_pdf(
             doc.save(str(output_path))
 
     qa_segments = [_to_qa_segment(seg) for seg in segments]
-    qa_html = Path(cfg.qa_report_path)
-    qa_jsonl = Path(cfg.qa_jsonl_path)
+    checker_edits: list[dict[str, Any]] = []
+    if effective_checker_cfg.enabled:
+        status_writer.set_phase("checker")
+        status_writer.write(force=True)
+        checker_provider = (effective_checker_cfg.provider or cfg.llm.provider).strip()
+        checker_model = (effective_checker_cfg.model or cfg.llm.model).strip()
+        checker_custom_prompt = _read_optional_text(
+            effective_checker_cfg.system_prompt_path,
+            logger,
+            "checker system prompt",
+        )
+        checker_client = build_llm_client(
+            provider=checker_provider,
+            model=checker_model,
+            temperature=effective_checker_cfg.temperature,
+            timeout_s=effective_checker_cfg.timeout_s,
+            max_output_tokens=effective_checker_cfg.max_output_tokens,
+            source_lang=cfg.llm.source_lang,
+            target_lang=cfg.llm.target_lang,
+            base_url=cfg.llm.base_url,
+            custom_system_prompt=checker_custom_prompt,
+            glossary_text=None,
+            glossary_prompt_text=None,
+            reasoning_effort=cfg.llm.reasoning_effort,
+            prompt_cache_key=cfg.llm.prompt_cache_key,
+            prompt_cache_retention=cfg.llm.prompt_cache_retention,
+            structured_output_mode="strict",
+            base_system_prompt=CHECKER_SYSTEM_PROMPT,
+            on_usage=usage_totals.add,
+            estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
+            pricing_currency=pricing_table.currency,
+        )
+        checker_edits = run_llm_checker(
+            segments=qa_segments,
+            checker_cfg=effective_checker_cfg,
+            checker_client=checker_client,
+            logger=logger,
+        )
+    write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
+    status_writer.set_phase("qa")
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.merge_metrics(
+        {
+            "checker_suggestions": len(checker_edits),
+            "issues_total": sum(len(seg.issues) for seg in qa_segments),
+        }
+    )
+    status_writer.write(force=True)
+
+    qa_html = run_paths.qa_report_path
+    qa_jsonl = run_paths.qa_jsonl_path
     write_qa_report(qa_segments, qa_html)
     write_qa_jsonl(qa_segments, qa_jsonl)
     logger.info("PDF saved: %s", output_path)
     logger.info("QA report: %s", qa_html)
     logger.info("QA jsonl: %s", qa_jsonl)
+
+    status_writer.set_phase("done")
+    status_writer.set_done(len(segments))
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.merge_metrics(
+        {
+            "checker_suggestions": len(checker_edits),
+            "issues_total": sum(len(seg.issues) for seg in qa_segments),
+        }
+    )
+    status_writer.write(force=True)
     tm.close()

@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
+
+from .usage import UsageRecord
 
 
 class LLMClient(Protocol):
@@ -79,6 +84,7 @@ _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNOREC
 
 GlossaryReplacement = tuple[re.Pattern[str], str]
 GlossaryMatcher = tuple[str, str, re.Pattern[str]]
+UsageCallback = Callable[[UsageRecord], None]
 
 
 def _compact_prompt_snippet(value: Any, *, max_chars: int = 180) -> str:
@@ -192,7 +198,7 @@ def _format_tm_references_block(value: Any, *, max_chars: int = 500) -> str:
 
 def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     task = str(context.get("task", "translate")).lower()
-    if task in {"repair", "batch_translate"}:
+    if task in {"repair", "batch_translate", "checker"}:
         return text
 
     # Context is kept short to reduce hallucination risk.
@@ -327,6 +333,137 @@ def _extract_structured_text(raw: str, *, field_name: str) -> str:
     if not isinstance(value, str):
         raise RuntimeError(f"Structured response missing string field: {field_name}")
     return value
+
+
+def _extract_openai_usage(data: dict[str, Any]) -> tuple[int, int, int] | None:
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    in_tokens = int(usage.get("prompt_tokens") or 0)
+    out_tokens = int(usage.get("completion_tokens") or 0)
+    total_tokens = int(usage.get("total_tokens") or (in_tokens + out_tokens))
+    return in_tokens, out_tokens, total_tokens
+
+
+def _coerce_openai_message_content(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                if item:
+                    parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if isinstance(text, str) and text:
+                parts.append(text)
+        return "".join(parts)
+    return ""
+
+
+def _extract_openai_message_refusal(message: Any) -> str | None:
+    if not isinstance(message, dict):
+        return None
+    refusal = message.get("refusal")
+    if isinstance(refusal, str):
+        text = refusal.strip()
+        return text or None
+    if isinstance(refusal, list):
+        parts: list[str] = []
+        for item in refusal:
+            if isinstance(item, str):
+                if item.strip():
+                    parts.append(item.strip())
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+        if parts:
+            return " ".join(parts)
+    return None
+
+
+def _extract_ollama_usage(data: dict[str, Any]) -> tuple[int, int, int] | None:
+    # Ollama responses commonly expose these counters at top-level.
+    if not isinstance(data, dict):
+        return None
+    in_tokens = int(data.get("prompt_eval_count") or 0)
+    out_tokens = int(data.get("eval_count") or 0)
+    total_tokens = in_tokens + out_tokens
+    if total_tokens <= 0:
+        return None
+    return in_tokens, out_tokens, total_tokens
+
+
+def _emit_usage_record(
+    *,
+    on_usage: UsageCallback | None,
+    provider: str,
+    model: str,
+    phase: str,
+    usage: tuple[int, int, int] | None,
+    estimate_cost: Callable[[str, str, int, int], float | None] | None,
+    currency: str,
+) -> None:
+    if on_usage is None or usage is None:
+        return
+    in_tokens, out_tokens, total_tokens = usage
+    cost = estimate_cost(provider, model, in_tokens, out_tokens) if estimate_cost is not None else None
+    on_usage(
+        UsageRecord(
+            provider=provider,
+            model=model,
+            phase=phase,
+            input_tokens=in_tokens,
+            output_tokens=out_tokens,
+            total_tokens=total_tokens,
+            cost=cost,
+            currency=currency or "USD",
+        )
+    )
+
+
+def _build_multipart_form_data(
+    *,
+    fields: dict[str, str],
+    files: list[tuple[str, str, bytes, str]],
+) -> tuple[bytes, str]:
+    boundary = f"----docxru-{uuid.uuid4().hex}"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        chunks.append(str(value).encode("utf-8"))
+        chunks.append(b"\r\n")
+    for field_name, filename, payload, content_type in files:
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(
+            (
+                f'Content-Disposition: form-data; name="{field_name}"; '
+                f'filename="{filename}"\r\n'
+            ).encode("utf-8")
+        )
+        chunks.append(f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"))
+        chunks.append(payload)
+        chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    body = b"".join(chunks)
+    content_type = f"multipart/form-data; boundary={boundary}"
+    return body, content_type
+
+
+@dataclass(frozen=True)
+class OpenAIBatchCheckerResult:
+    content: str | None = None
+    error: str | None = None
 
 
 def _is_gpt5_family(model: str) -> bool:
@@ -812,6 +949,9 @@ class OpenAIChatCompletionsClient:
     prompt_cache_key: str | None = None
     prompt_cache_retention: str | None = None
     structured_output_mode: str = "auto"
+    on_usage: UsageCallback | None = None
+    estimate_cost: Callable[[str, str, int, int], float | None] | None = None
+    pricing_currency: str = "USD"
     supports_repair: bool = True
 
     def translate(self, text: str, context: dict[str, Any]) -> str:
@@ -828,6 +968,10 @@ class OpenAIChatCompletionsClient:
                 system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
         elif task == "batch_translate":
             system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
+        elif task == "checker":
+            system_prompt = self.translation_system_prompt
+            if structured_mode != "off":
+                system_prompt += '\n\nReturn ONLY JSON object with checker findings.'
         else:
             system_prompt = self.translation_system_prompt
             if structured_for_text:
@@ -845,7 +989,7 @@ class OpenAIChatCompletionsClient:
 
         include_cache_key = bool(self.prompt_cache_key)
         include_cache_retention = bool(self.prompt_cache_retention)
-        include_response_format = task == "batch_translate" or structured_for_text
+        include_response_format = task in {"batch_translate", "checker"} or structured_for_text
         data: dict[str, Any] | None = None
 
         for _ in range(3):
@@ -918,9 +1062,31 @@ class OpenAIChatCompletionsClient:
         if data is None:
             raise RuntimeError("OpenAI request failed after retries")
 
+        _emit_usage_record(
+            on_usage=self.on_usage,
+            provider="openai",
+            model=self.model,
+            phase=(task or "translate"),
+            usage=_extract_openai_usage(data),
+            estimate_cost=self.estimate_cost,
+            currency=self.pricing_currency,
+        )
+
         try:
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            message = choice["message"]
+            content = _coerce_openai_message_content(message)
+            if task == "checker" and not content.strip():
+                finish_reason = str(choice.get("finish_reason") or "").strip() or "unknown"
+                refusal = _extract_openai_message_refusal(message)
+                if refusal:
+                    raise RuntimeError(
+                        f"OpenAI checker returned empty content (finish_reason={finish_reason}; refusal={refusal})"
+                    )
+                raise RuntimeError(f"OpenAI checker returned empty content (finish_reason={finish_reason})")
             if task == "batch_translate":
+                return content
+            if task == "checker":
                 return content
             if task == "repair":
                 if structured_for_text or include_response_format:
@@ -940,6 +1106,300 @@ class OpenAIChatCompletionsClient:
             return content
         except (KeyError, IndexError, TypeError) as e:
             raise RuntimeError(f"Unexpected OpenAI response schema: {data}") from e
+
+    def run_checker_batch(
+        self,
+        requests: list[tuple[str, str]],
+        *,
+        completion_window: str = "24h",
+        poll_interval_s: float = 20.0,
+        timeout_s: float = 86400.0,
+        metadata: dict[str, str] | None = None,
+    ) -> dict[str, OpenAIBatchCheckerResult]:
+        if not requests:
+            return {}
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is not set")
+
+        seen_ids: set[str] = set()
+        for custom_id, _ in requests:
+            cid = str(custom_id or "").strip()
+            if not cid:
+                raise RuntimeError("Batch checker request has empty custom_id")
+            if cid in seen_ids:
+                raise RuntimeError(f"Duplicate batch checker custom_id: {cid}")
+            seen_ids.add(cid)
+
+        base = (self.base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")).rstrip("/")
+        model_reasoning_effort = self.reasoning_effort
+        structured_mode = _normalize_structured_output_mode(self.structured_output_mode)
+        system_prompt = self.translation_system_prompt
+        if structured_mode != "off":
+            system_prompt += '\n\nReturn ONLY JSON object with checker findings.'
+        temperature: float | None = None
+        if _supports_temperature(self.model, model_reasoning_effort):
+            temperature = self.temperature
+
+        poll_interval = max(1.0, float(poll_interval_s))
+        timeout_budget = max(30.0, float(timeout_s))
+        include_cache_key = bool(self.prompt_cache_key)
+        include_cache_retention = bool(self.prompt_cache_retention)
+
+        def _request_json(
+            *,
+            method: str,
+            url: str,
+            data: bytes | None = None,
+            content_type: str = "application/json",
+            timeout_override: float | None = None,
+        ) -> dict[str, Any]:
+            req = urllib.request.Request(
+                url=url,
+                data=data,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": content_type,
+                },
+                method=method,
+            )
+            timeout_value = self.timeout_s if timeout_override is None else float(timeout_override)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout_value) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+                raise RuntimeError(f"OpenAI HTTPError {e.code}: {body}") from e
+            except Exception as e:
+                raise RuntimeError(f"OpenAI request failed: {e}") from e
+
+        def _request_bytes(*, method: str, url: str, timeout_override: float | None = None) -> bytes:
+            req = urllib.request.Request(
+                url=url,
+                headers={"Authorization": f"Bearer {api_key}"},
+                method=method,
+            )
+            timeout_value = self.timeout_s if timeout_override is None else float(timeout_override)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout_value) as resp:
+                    return resp.read()
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+                raise RuntimeError(f"OpenAI HTTPError {e.code}: {body}") from e
+            except Exception as e:
+                raise RuntimeError(f"OpenAI request failed: {e}") from e
+
+        def _build_batch_jsonl_bytes(*, with_cache_key: bool, with_cache_retention: bool) -> bytes:
+            rows: list[str] = []
+            for custom_id, prompt in requests:
+                payload: dict[str, Any] = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "response_format": {"type": "json_object"},
+                }
+                if _is_gpt5_family(self.model):
+                    payload["max_completion_tokens"] = self.max_output_tokens
+                else:
+                    payload["max_tokens"] = self.max_output_tokens
+                if temperature is not None:
+                    payload["temperature"] = temperature
+                if model_reasoning_effort:
+                    payload["reasoning_effort"] = model_reasoning_effort
+                if with_cache_key and self.prompt_cache_key:
+                    payload["prompt_cache_key"] = self.prompt_cache_key
+                if with_cache_retention and self.prompt_cache_retention:
+                    payload["prompt_cache_retention"] = self.prompt_cache_retention
+                rows.append(
+                    json.dumps(
+                        {
+                            "custom_id": custom_id,
+                            "method": "POST",
+                            "url": "/v1/chat/completions",
+                            "body": payload,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+            return ("\n".join(rows) + "\n").encode("utf-8")
+
+        batch_data: dict[str, Any] | None = None
+        batch_error: Exception | None = None
+        for _ in range(3):
+            jsonl_payload = _build_batch_jsonl_bytes(
+                with_cache_key=include_cache_key,
+                with_cache_retention=include_cache_retention,
+            )
+            multipart_body, multipart_content_type = _build_multipart_form_data(
+                fields={"purpose": "batch"},
+                files=[("file", "checker_batch.jsonl", jsonl_payload, "application/jsonl")],
+            )
+            upload = _request_json(
+                method="POST",
+                url=f"{base}/v1/files",
+                data=multipart_body,
+                content_type=multipart_content_type,
+            )
+            input_file_id = str(upload.get("id") or "").strip()
+            if not input_file_id:
+                raise RuntimeError(f"OpenAI batch upload returned no file id: {upload}")
+            create_payload: dict[str, Any] = {
+                "input_file_id": input_file_id,
+                "endpoint": "/v1/chat/completions",
+                "completion_window": completion_window,
+            }
+            if metadata:
+                create_payload["metadata"] = {str(k): str(v) for k, v in metadata.items()}
+            try:
+                batch_data = _request_json(
+                    method="POST",
+                    url=f"{base}/v1/batches",
+                    data=json.dumps(create_payload).encode("utf-8"),
+                )
+                break
+            except Exception as e:
+                batch_error = e
+                err_l = str(e).lower()
+                if include_cache_retention and "prompt_cache_retention" in err_l:
+                    include_cache_retention = False
+                    continue
+                if include_cache_key and "prompt_cache_key" in err_l:
+                    include_cache_key = False
+                    continue
+                raise
+
+        if batch_data is None:
+            raise RuntimeError(f"OpenAI batch create failed after retries: {batch_error or 'unknown error'}")
+
+        batch_id = str(batch_data.get("id") or "").strip()
+        if not batch_id:
+            raise RuntimeError(f"OpenAI batch create returned no batch id: {batch_data}")
+
+        deadline = time.monotonic() + timeout_budget
+        while True:
+            status = str(batch_data.get("status") or "").strip().lower()
+            if status == "completed":
+                break
+            if status in {"failed", "cancelled", "expired"}:
+                errors_payload = batch_data.get("errors") or batch_data.get("error") or {}
+                raise RuntimeError(f"OpenAI batch {batch_id} finished with status={status}: {errors_payload}")
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"OpenAI batch {batch_id} timed out after {int(timeout_budget)}s")
+            time.sleep(poll_interval)
+            batch_data = _request_json(method="GET", url=f"{base}/v1/batches/{batch_id}")
+
+        output_file_id = str(batch_data.get("output_file_id") or "").strip()
+        error_file_id = str(batch_data.get("error_file_id") or "").strip()
+        if not output_file_id:
+            details = batch_data.get("errors") or batch_data.get("error") or {}
+            if error_file_id:
+                try:
+                    err_text = _request_bytes(
+                        method="GET",
+                        url=f"{base}/v1/files/{error_file_id}/content",
+                        timeout_override=min(timeout_budget, 120.0),
+                    ).decode("utf-8", errors="replace")
+                    details = {"batch_errors": details, "error_file": err_text[:2000]}
+                except Exception:
+                    details = {"batch_errors": details, "error_file": "unavailable"}
+            raise RuntimeError(f"OpenAI batch {batch_id} produced no output file: {details}")
+
+        output_text = _request_bytes(
+            method="GET",
+            url=f"{base}/v1/files/{output_file_id}/content",
+            timeout_override=min(timeout_budget, 300.0),
+        ).decode("utf-8", errors="replace")
+
+        results: dict[str, OpenAIBatchCheckerResult] = {}
+        for raw_line in output_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except Exception:
+                continue
+            custom_id = str(entry.get("custom_id") or "").strip()
+            if not custom_id:
+                continue
+            response_payload = entry.get("response")
+            if not isinstance(response_payload, dict):
+                error_payload = entry.get("error")
+                results[custom_id] = OpenAIBatchCheckerResult(
+                    error=f"OpenAI batch item missing response: {error_payload!r}"
+                )
+                continue
+            try:
+                status_code = int(response_payload.get("status_code") or 0)
+            except Exception:
+                status_code = 0
+            body_payload = response_payload.get("body")
+            if status_code < 200 or status_code >= 300 or not isinstance(body_payload, dict):
+                results[custom_id] = OpenAIBatchCheckerResult(
+                    error=f"OpenAI batch item failed with status={status_code}: {body_payload!r}"
+                )
+                continue
+
+            _emit_usage_record(
+                on_usage=self.on_usage,
+                provider="openai",
+                model=self.model,
+                phase="checker",
+                usage=_extract_openai_usage(body_payload),
+                estimate_cost=self.estimate_cost,
+                currency=self.pricing_currency,
+            )
+
+            try:
+                choice = body_payload["choices"][0]
+                message = choice["message"]
+                content = _coerce_openai_message_content(message)
+                if not content.strip():
+                    finish_reason = str(choice.get("finish_reason") or "").strip() or "unknown"
+                    refusal = _extract_openai_message_refusal(message)
+                    if refusal:
+                        raise RuntimeError(
+                            f"OpenAI checker returned empty content (finish_reason={finish_reason}; refusal={refusal})"
+                        )
+                    raise RuntimeError(f"OpenAI checker returned empty content (finish_reason={finish_reason})")
+                results[custom_id] = OpenAIBatchCheckerResult(content=content)
+            except Exception as e:
+                results[custom_id] = OpenAIBatchCheckerResult(error=str(e))
+
+        if error_file_id:
+            try:
+                error_text = _request_bytes(
+                    method="GET",
+                    url=f"{base}/v1/files/{error_file_id}/content",
+                    timeout_override=min(timeout_budget, 300.0),
+                ).decode("utf-8", errors="replace")
+                for raw_line in error_text.splitlines():
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except Exception:
+                        continue
+                    custom_id = str(entry.get("custom_id") or "").strip()
+                    if not custom_id:
+                        continue
+                    if custom_id in results and results[custom_id].content:
+                        continue
+                    error_payload = entry.get("error") or entry.get("response") or entry
+                    results[custom_id] = OpenAIBatchCheckerResult(error=f"OpenAI batch error: {error_payload!r}")
+            except Exception:
+                # Keep partial output map; unresolved items will be marked below.
+                pass
+
+        for custom_id, _ in requests:
+            if custom_id not in results:
+                results[custom_id] = OpenAIBatchCheckerResult(error="OpenAI batch item missing in output")
+
+        return results
 
 
 @dataclass(frozen=True)
@@ -1034,6 +1494,9 @@ class OllamaChatClient:
     translation_system_prompt: str = SYSTEM_PROMPT_TEMPLATE
     glossary_replacements: tuple[GlossaryReplacement, ...] = ()
     structured_output_mode: str = "auto"
+    on_usage: UsageCallback | None = None
+    estimate_cost: Callable[[str, str, int, int], float | None] | None = None
+    pricing_currency: str = "USD"
     supports_repair: bool = True
 
     def translate(self, text: str, context: dict[str, Any]) -> str:
@@ -1046,6 +1509,10 @@ class OllamaChatClient:
                 system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
         elif task == "batch_translate":
             system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
+        elif task == "checker":
+            system_prompt = self.translation_system_prompt
+            if structured_mode != "off":
+                system_prompt += '\n\nReturn ONLY JSON object with checker findings.'
         else:
             system_prompt = self.translation_system_prompt
             if structured_for_text:
@@ -1055,7 +1522,7 @@ class OllamaChatClient:
         options: dict[str, Any] = {"num_predict": self.max_output_tokens}
         options["temperature"] = 0.0 if task in {"repair", "batch_translate"} else self.temperature
 
-        include_json_format = task == "batch_translate" or structured_for_text
+        include_json_format = task in {"batch_translate", "checker"} or structured_for_text
         data: dict[str, Any] | None = None
         for _ in range(2):
             payload = {
@@ -1093,9 +1560,21 @@ class OllamaChatClient:
         if data is None:
             raise RuntimeError("Ollama request failed after retries")
 
+        _emit_usage_record(
+            on_usage=self.on_usage,
+            provider="ollama",
+            model=self.model,
+            phase=(task or "translate"),
+            usage=_extract_ollama_usage(data),
+            estimate_cost=self.estimate_cost,
+            currency=self.pricing_currency,
+        )
+
         try:
             content = data["message"]["content"]
             if task == "batch_translate":
+                return content
+            if task == "checker":
                 return content
             if task == "repair":
                 if structured_for_text or include_json_format:
@@ -1134,11 +1613,16 @@ def build_llm_client(
     prompt_cache_key: str | None = None,
     prompt_cache_retention: str | None = None,
     structured_output_mode: str = "auto",
+    base_system_prompt: str | None = None,
+    on_usage: UsageCallback | None = None,
+    estimate_cost: Callable[[str, str, int, int], float | None] | None = None,
+    pricing_currency: str = "USD",
 ) -> LLMClient:
     provider_norm = provider.strip().lower()
     prompt_glossary_text = glossary_text if glossary_prompt_text is None else glossary_prompt_text
+    effective_base_prompt = SYSTEM_PROMPT_TEMPLATE if base_system_prompt is None else base_system_prompt
     translation_prompt = build_translation_system_prompt(
-        SYSTEM_PROMPT_TEMPLATE,
+        effective_base_prompt,
         custom_system_prompt=custom_system_prompt,
         glossary_text=prompt_glossary_text,
     )
@@ -1165,6 +1649,9 @@ def build_llm_client(
             prompt_cache_key=prompt_cache_key,
             prompt_cache_retention=prompt_cache_retention,
             structured_output_mode=structured_output_mode,
+            on_usage=on_usage,
+            estimate_cost=estimate_cost,
+            pricing_currency=pricing_currency,
         )
     if provider_norm == "google":
         return GoogleFreeTranslateClient(
@@ -1184,5 +1671,8 @@ def build_llm_client(
             translation_system_prompt=translation_prompt,
             glossary_replacements=glossary_replacements,
             structured_output_mode=structured_output_mode,
+            on_usage=on_usage,
+            estimate_cost=estimate_cost,
+            pricing_currency=pricing_currency,
         )
     raise ValueError(f"Unknown LLM provider: {provider}")

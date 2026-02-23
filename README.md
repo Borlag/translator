@@ -125,9 +125,13 @@ Notes:
   Scope is adaptive in pipeline (TOC/table/short labels), but for natural prose keep it `false` unless strict locking is required.
 - `llm.reasoning_effort` can tune OpenAI reasoning spend (`none|minimal|low|medium|high|xhigh`).
 - `llm.prompt_cache_key` / `llm.prompt_cache_retention` can reduce cost for repeated prompt prefixes in OpenAI calls.
+- `checker.openai_batch_enabled: true` enables async overnight checker via OpenAI Batch API
+  (keeps normal sync translation path unchanged; checker falls back to sync mode if batch fails).
+  CLI shortcut: `--checker-openai-batch`.
 - Grouped translation mode is available for `openai` and `ollama`:
   - `llm.batch_segments` (default `1`) controls how many nearby segments are translated in one LLM request.
   - `llm.batch_max_chars` (default `12000`) is a soft per-request payload cap.
+  - `llm.auto_model_sizing` (default `false`) auto-tunes grouped batch limits and checker chunk sizes by model context window.
   - CLI overrides: `--batch-segments` and `--batch-max-chars`.
   - If grouped output fails marker validation, the pipeline automatically falls back to single-segment translation for safety.
 - Optional translation memory history:
@@ -147,6 +151,9 @@ Reliability and terminology controls:
   - `llm.batch_skip_on_brline: true`
   - `llm.batch_max_style_tokens: 16`
   - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped batch mode.
+  - With `llm.auto_model_sizing: true`, runtime limits are tuned for selected model:
+    - translation: `batch_segments`, `batch_max_chars`, `llm.max_output_tokens`
+    - checker: `checker.pages_per_chunk`, `checker.fallback_segments_per_chunk`, `checker.max_output_tokens`
 - Fuzzy TM hints in prompt context:
   - `tm.fuzzy_enabled`, `tm.fuzzy_top_k`, `tm.fuzzy_min_similarity`, `tm.fuzzy_prompt_max_chars`
   - CLI switch: `--fuzzy-tm`
@@ -222,3 +229,93 @@ python scripts/render_docx_pages.py path/to/file.docx --output-dir tmp/docs/page
 ```bash
 python scripts/compare_docx_pages.py --left path/to/original.docx --right path/to/translated.docx --output-dir tmp/docs/compare --backend word
 ```
+
+---
+
+## LLM checker + dashboard (MVP)
+
+This version adds a second-pass LLM checker and a lightweight local dashboard.
+
+### What checker does
+
+- Checks translation in chunks of `checker.pages_per_chunk` (default: 3 pages, when page numbers are available).
+- For DOCX where real page numbers are not available from `python-docx`, it falls back to
+  `checker.fallback_segments_per_chunk` (default: 120 segments).
+- Uses glossary terms that were actually used in the chunk (`matched_glossary_terms` / rolling glossary context).
+- Produces machine-readable edits in `checker_suggestions.json`:
+  - `segment_id`
+  - `location`
+  - `suggested_target` (exact replacement text)
+  - `instruction` (what to replace)
+  - confidence/severity metadata
+- Appends checker findings to existing QA outputs (`qa.jsonl`, `qa_report.html`) as `llm_check_*` issue codes.
+
+### Enable checker
+
+```yaml
+checker:
+  enabled: true
+  pages_per_chunk: 3
+  only_on_issue_severities: ["warn", "error"]
+  output_path: checker_suggestions.json
+  openai_batch_enabled: true
+  openai_batch_completion_window: "24h"
+```
+
+### Tokens and cost tracking
+
+Configure pricing and enable accounting:
+
+```yaml
+pricing:
+  enabled: true
+  pricing_path: config/pricing.example.yaml
+  currency: USD
+```
+
+`run_status.json` will include token totals and estimated cost when usage data is available from the provider.
+
+Model/cost reference used for auto-sizing profiles (OpenAI official docs):
+
+- `gpt-4o-mini`: context `128k`, max output `16,384`, price `$0.15 / $0.60` (input/output per 1M tokens)
+- `gpt-5-mini`: context `400k`, max output `128k`, price `$0.25 / $2.00`
+- `gpt-5.2`: context `400k`, max output `128k`, price `$1.75 / $14.00`
+- `gpt-4.1-mini`: context `1,047,576`, max output `32,768`, price `$0.40 / $1.60`
+- `gpt-5-nano`: context `400k`, max output `128k`, price `$0.05 / $0.40` (good checker candidate)
+
+### Dashboard files and server
+
+Each run writes:
+- `run_status.json`
+- `dashboard.html`
+- `qa_report.html`
+- `qa.jsonl`
+- `checker_suggestions.json`
+
+Start local dashboard server:
+
+```bash
+docxru dashboard --dir <run_dir> --open-browser
+```
+
+Security note: the dashboard server binds to `127.0.0.1` only.
+
+### Studio UI (run from browser)
+
+You can start translations directly from a local web UI:
+
+```bash
+docxru studio --base-dir output/studio --open-browser
+```
+
+Studio supports:
+- source file upload (`.docx` / `.pdf`)
+- optional glossary file
+- optional system prompt file
+- translate provider selection
+- translate model dropdown is shown only for `openai` provider
+- checker enable/disable + checker provider selection
+- checker model dropdown is shown only when checker effective provider is `openai`
+- optional OpenAI API key input for the run process
+
+Studio also shows live run status (phase/progress/tokens/cost), log tail, and links to run artifacts.

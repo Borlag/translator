@@ -48,6 +48,8 @@ class LLMConfig:
     # Sliding prompt context for near-neighbor snippets and recent translations.
     # 0 disables sequential recent-translation context mode.
     context_window_chars: int = 600
+    # Auto-tune batch/checker payload sizing based on selected model context limits.
+    auto_model_sizing: bool = False
 
 
 @dataclass(frozen=True)
@@ -75,10 +77,55 @@ class PdfConfig:
 
 
 @dataclass(frozen=True)
+class CheckerConfig:
+    enabled: bool = False
+    provider: str | None = None
+    model: str | None = None
+    temperature: float = 0.0
+    max_output_tokens: int = 2000
+    timeout_s: float = 60.0
+    retries: int = 1
+    system_prompt_path: str | None = None
+    glossary_path: str | None = None
+    pages_per_chunk: int = 3
+    max_segments: int = 0
+    only_on_issue_severities: tuple[str, ...] = ("warn", "error")
+    only_on_issue_codes: tuple[str, ...] = ()
+    output_path: str = "checker_suggestions.json"
+    # DOCX does not expose real page numbers; fallback to fixed-size segment windows.
+    fallback_segments_per_chunk: int = 120
+    # Optional async OpenAI Batch API mode for checker (cost-saving, high-latency path).
+    openai_batch_enabled: bool = False
+    openai_batch_completion_window: str = "24h"
+    openai_batch_poll_interval_s: float = 20.0
+    openai_batch_timeout_s: float = 86400.0
+
+
+@dataclass(frozen=True)
+class PricingConfig:
+    enabled: bool = False
+    pricing_path: str | None = None
+    currency: str = "USD"
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    run_dir: str | None = None
+    run_id: str | None = None
+    status_path: str | None = None
+    dashboard_html_path: str | None = None
+    # How often pipelines should flush run status to disk.
+    status_flush_every_n_segments: int = 10
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     llm: LLMConfig = LLMConfig()
     tm: TMConfig = TMConfig()
     pdf: PdfConfig = PdfConfig()
+    checker: CheckerConfig = CheckerConfig()
+    pricing: PricingConfig = PricingConfig()
+    run: RunConfig = RunConfig()
     include_headers: bool = False
     include_footers: bool = False
     concurrency: int = 4
@@ -124,6 +171,25 @@ def _normalize_choice(value: Any, *, field_name: str, allowed: set[str], default
     return raw
 
 
+def _coerce_str_tuple(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ()
+        return (text,)
+    if isinstance(value, (list, tuple, set)):
+        out: list[str] = []
+        for item in value:
+            text = str(item).strip()
+            if text:
+                out.append(text)
+        return tuple(out)
+    text = str(value).strip()
+    return (text,) if text else ()
+
+
 def load_config(path: str | Path) -> PipelineConfig:
     cfg_path = Path(path)
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
@@ -131,6 +197,9 @@ def load_config(path: str | Path) -> PipelineConfig:
     llm_data = data.get("llm", {}) or {}
     tm_data = data.get("tm", {}) or {}
     pdf_data = data.get("pdf", {}) or {}
+    checker_data = data.get("checker", {}) or {}
+    pricing_data = data.get("pricing", {}) or {}
+    run_data = data.get("run", {}) or {}
     llm_legacy_glossary_in_prompt = bool(llm_data.get("glossary_in_prompt", True))
     llm_has_prompt_mode = "glossary_prompt_mode" in llm_data
     glossary_prompt_mode = _normalize_choice(
@@ -186,6 +255,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         batch_skip_on_brline=bool(llm_data.get("batch_skip_on_brline", True)),
         batch_max_style_tokens=int(llm_data.get("batch_max_style_tokens", 16)),
         context_window_chars=max(0, int(llm_data.get("context_window_chars", 600))),
+        auto_model_sizing=bool(llm_data.get("auto_model_sizing", False)),
     )
     tm = TMConfig(
         path=str(tm_data.get("path", "translation_cache.sqlite")),
@@ -195,10 +265,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         fuzzy_prompt_max_chars=int(tm_data.get("fuzzy_prompt_max_chars", 500)),
     )
     max_pages_raw = pdf_data.get("max_pages")
-    if max_pages_raw is None:
-        max_pages = None
-    else:
-        max_pages = max(0, int(max_pages_raw))
+    max_pages = None if max_pages_raw is None else max(0, int(max_pages_raw))
     pdf = PdfConfig(
         bilingual_mode=bool(pdf_data.get("bilingual_mode", False)),
         ocr_fallback=bool(pdf_data.get("ocr_fallback", False)),
@@ -211,6 +278,56 @@ def load_config(path: str | Path) -> PipelineConfig:
         default_sans_font=str(pdf_data.get("default_sans_font", "NotoSans-Regular.ttf")),
         default_serif_font=str(pdf_data.get("default_serif_font", "NotoSerif-Regular.ttf")),
         default_mono_font=str(pdf_data.get("default_mono_font", "NotoSansMono-Regular.ttf")),
+    )
+    checker = CheckerConfig(
+        enabled=bool(checker_data.get("enabled", False)),
+        provider=(
+            str(checker_data["provider"]).strip()
+            if checker_data.get("provider") is not None and str(checker_data["provider"]).strip()
+            else None
+        ),
+        model=(
+            str(checker_data["model"]).strip()
+            if checker_data.get("model") is not None and str(checker_data["model"]).strip()
+            else None
+        ),
+        temperature=float(checker_data.get("temperature", 0.0)),
+        max_output_tokens=int(checker_data.get("max_output_tokens", 2000)),
+        timeout_s=float(checker_data.get("timeout_s", 60.0)),
+        retries=max(0, int(checker_data.get("retries", 1))),
+        system_prompt_path=_resolve_optional_path(cfg_path.parent, checker_data.get("system_prompt_path")),
+        glossary_path=_resolve_optional_path(cfg_path.parent, checker_data.get("glossary_path")),
+        pages_per_chunk=max(1, int(checker_data.get("pages_per_chunk", 3))),
+        max_segments=max(0, int(checker_data.get("max_segments", 0))),
+        only_on_issue_severities=tuple(
+            item.strip().lower() for item in _coerce_str_tuple(checker_data.get("only_on_issue_severities", ()))
+        )
+        or ("warn", "error"),
+        only_on_issue_codes=_coerce_str_tuple(checker_data.get("only_on_issue_codes")),
+        output_path=str(checker_data.get("output_path", "checker_suggestions.json")),
+        fallback_segments_per_chunk=max(1, int(checker_data.get("fallback_segments_per_chunk", 120))),
+        openai_batch_enabled=bool(checker_data.get("openai_batch_enabled", False)),
+        openai_batch_completion_window=(
+            str(checker_data.get("openai_batch_completion_window", "24h")).strip() or "24h"
+        ),
+        openai_batch_poll_interval_s=max(1.0, float(checker_data.get("openai_batch_poll_interval_s", 20.0))),
+        openai_batch_timeout_s=max(30.0, float(checker_data.get("openai_batch_timeout_s", 86400.0))),
+    )
+    pricing = PricingConfig(
+        enabled=bool(pricing_data.get("enabled", False)),
+        pricing_path=_resolve_optional_path(cfg_path.parent, pricing_data.get("pricing_path")),
+        currency=str(pricing_data.get("currency", "USD")).strip() or "USD",
+    )
+    run_cfg = RunConfig(
+        run_dir=_resolve_optional_path(cfg_path.parent, run_data.get("run_dir")),
+        run_id=(
+            str(run_data["run_id"]).strip()
+            if run_data.get("run_id") is not None and str(run_data["run_id"]).strip()
+            else None
+        ),
+        status_path=_resolve_optional_path(cfg_path.parent, run_data.get("status_path")),
+        dashboard_html_path=_resolve_optional_path(cfg_path.parent, run_data.get("dashboard_html_path")),
+        status_flush_every_n_segments=max(1, int(run_data.get("status_flush_every_n_segments", 10))),
     )
 
     include_headers = bool(data.get("include_headers", False))
@@ -274,6 +391,9 @@ def load_config(path: str | Path) -> PipelineConfig:
         llm=llm,
         tm=tm,
         pdf=pdf,
+        checker=checker,
+        pricing=pricing,
+        run=run_cfg,
         include_headers=include_headers,
         include_footers=include_footers,
         concurrency=concurrency,

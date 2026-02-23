@@ -25,6 +25,7 @@ llm:
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
   context_window_chars: 600 # >0 disables grouped/parallel translate and injects recent EN=>RU context
+  auto_model_sizing: false # true = auto-tune batch/checker request sizes by model context limits
 
 tm:
   path: translation_cache.sqlite
@@ -45,6 +46,39 @@ pdf:
   default_sans_font: NotoSans-Regular.ttf
   default_serif_font: NotoSerif-Regular.ttf
   default_mono_font: NotoSansMono-Regular.ttf
+
+checker:
+  enabled: false
+  provider: null           # null = reuse llm.provider
+  model: null              # null = reuse llm.model
+  temperature: 0.0
+  max_output_tokens: 2000
+  timeout_s: 60.0
+  retries: 1
+  system_prompt_path: null # optional checker-specific instructions
+  glossary_path: null      # optional checker-specific glossary file (not required for chunk mode)
+  pages_per_chunk: 3       # check translation by 3-page windows when page numbers are available
+  fallback_segments_per_chunk: 120 # used when true page numbers are unavailable (DOCX)
+  max_segments: 0          # 0 = no limit
+  only_on_issue_severities: ["warn", "error"] # if empty, checker audits all translated segments
+  only_on_issue_codes: []  # optional deterministic issue-code filter
+  output_path: checker_suggestions.json
+  openai_batch_enabled: false # async overnight checker via OpenAI Batch API (requires openai checker provider)
+  openai_batch_completion_window: "24h"
+  openai_batch_poll_interval_s: 20.0
+  openai_batch_timeout_s: 86400.0
+
+pricing:
+  enabled: false
+  pricing_path: null       # YAML/JSON map: provider -> model -> input/output_per_million
+  currency: USD
+
+run:
+  run_dir: null            # null = output folder; else a base dir where run_id subfolders are created
+  run_id: null             # null = auto UTC timestamp
+  status_path: null        # null = <run_dir>/run_status.json
+  dashboard_html_path: null # null = <run_dir>/dashboard.html
+  status_flush_every_n_segments: 10
 
 include_headers: false
 include_footers: false

@@ -93,14 +93,22 @@ def test_validate_glossary_lemmas_accepts_inflected_forms(monkeypatch):
     assert issues == []
 
 
-def test_validate_glossary_lemmas_skips_without_morphology(monkeypatch):
+def test_validate_glossary_lemmas_uses_exact_fallback_without_morphology(monkeypatch):
     monkeypatch.setattr(validator, "_get_morph_analyzer", lambda: None)
-    issues = validator.validate_glossary_lemmas(
+    missing_issues = validator.validate_glossary_lemmas(
         "Установите узел.",
         [{"source": "Main Fitting", "target": "корпус стойки"}],
         mode="warn",
     )
-    assert issues == []
+    assert len(missing_issues) == 1
+    assert missing_issues[0].code == "glossary_lemma_mismatch"
+
+    ok_issues = validator.validate_glossary_lemmas(
+        "Установите корпус стойки.",
+        [{"source": "Main Fitting", "target": "корпус стойки"}],
+        mode="warn",
+    )
+    assert ok_issues == []
 
 
 def test_translate_one_glossary_retry_applies_improved_output(monkeypatch):

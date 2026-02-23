@@ -194,6 +194,15 @@ def test_apply_glossary_replacements_fixes_common_google_artifacts():
     assert "Обновлено значение пересчета" in out
 
 
+def test_apply_glossary_replacements_translates_common_application_phrase():
+    out = apply_glossary_replacements(
+        "Application of Ardrox AV100D to the Upper Diaphragm Tube (15-390) (Sheet 1 of 3)",
+        (),
+    )
+    assert "Нанесение Ardrox AV100D на Upper Diaphragm Tube" in out
+    assert "(Лист 1 из 3)" in out
+
+
 def test_glossary_replacements_match_wrapped_phrases_and_hyphens():
     replacements = build_glossary_replacements(
         "Introduction of new — Введение новых\nfig-item — элемент рисунка"
@@ -223,6 +232,17 @@ def test_apply_glossary_replacements_normalizes_with_and_pn_and():
     out = apply_glossary_replacements("WITH\n⟦PN_1⟧ AND ⟦PN_2⟧", ())
     assert "С" in out
     assert "⟦PN_1⟧ И ⟦PN_2⟧" in out
+
+
+def test_apply_glossary_replacements_removes_model_choice_artifacts():
+    out = apply_glossary_replacements(
+        "Применение из Ardrox AV100D в эта/этот/то (в зависимости от контекста) Верхний Диаграмма Труба",
+        (),
+    )
+    assert "эта/этот/то" not in out
+    assert "в зависимости от контекста" not in out
+    assert "Применение из" not in out
+    assert "Нанесение Ardrox AV100D" in out
 
 
 def test_apply_glossary_replacements_fixes_repair_procedure_conditions():
@@ -338,6 +358,8 @@ def test_build_llm_client_prompt_providers_do_not_postreplace_user_glossary():
     )
     assert "корпус стойки" not in {repl for _, repl in openai_client.glossary_replacements}
     assert "корпус стойки" not in {repl for _, repl in ollama_client.glossary_replacements}
+    assert openai_client.glossary_replacements == ()
+    assert ollama_client.glossary_replacements == ()
 
     google_client = build_llm_client(
         provider="google",
@@ -448,6 +470,26 @@ def test_openai_client_repair_extracts_output_payload():
         out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
 
     assert out == "restored"
+
+
+def test_openai_client_repair_skips_temperature_for_gpt5():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse(
+            '{"choices":[{"message":{"content":"TASK: REPAIR_MARKERS\\n\\nSOURCE:\\nX\\n\\nOUTPUT:\\nrestored"}}]}'
+        )
+
+    client = OpenAIChatCompletionsClient(model="gpt-5-mini", reasoning_effort="minimal")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
+
+    assert out == "restored"
+    assert payloads and "temperature" not in payloads[0]
 
 
 def test_openai_client_retries_without_prompt_cache_retention_when_unsupported():

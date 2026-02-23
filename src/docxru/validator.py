@@ -222,14 +222,19 @@ def validate_glossary_lemmas(
         return []
 
     analyzer = _get_morph_analyzer()
-    if analyzer is None:
-        return []
-
     missing: list[dict[str, str]] = []
-    for source_term, target_term in pairs:
-        if _contains_target_term_by_lemma(target_plain, target_term, analyzer):
-            continue
-        missing.append({"source": source_term, "target": target_term})
+    target_lower = (target_plain or "").lower()
+    if analyzer is None:
+        # Fallback when pymorphy3 is unavailable: exact case-insensitive inclusion.
+        for source_term, target_term in pairs:
+            if target_term.lower() in target_lower:
+                continue
+            missing.append({"source": source_term, "target": target_term})
+    else:
+        for source_term, target_term in pairs:
+            if _contains_target_term_by_lemma(target_plain, target_term, analyzer):
+                continue
+            missing.append({"source": source_term, "target": target_term})
 
     if not missing:
         return []

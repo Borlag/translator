@@ -19,6 +19,7 @@ from .docx_reader import collect_segments
 from .layout_check import validate_layout
 from .layout_fix import fix_expansion_issues
 from .llm import (
+    apply_glossary_replacements,
     build_glossary_matchers,
     build_hard_glossary_replacements,
     build_llm_client,
@@ -229,6 +230,21 @@ def _translate_plain_chunk(
         token_map = {**pattern_map, **token_map}
     translated_shielded, issues = _translate_shielded_fragment(shielded, llm_client, context)
     translated = unshield(translated_shielded, token_map)
+    # Run deterministic cleanup rules for Latin-bearing chunks to reduce EN leftovers
+    # in TOC/label fragments (including fallback-to-source cases).
+    if _LATIN_RE.search(translated):
+        cleaned = apply_glossary_replacements(translated, ())
+        if cleaned != translated:
+            translated = cleaned
+            issues = [
+                *issues,
+                Issue(
+                    code="plain_chunk_cleanup_applied",
+                    severity=Severity.INFO,
+                    message="Applied deterministic cleanup for Latin chunk.",
+                    details={},
+                ),
+            ]
 
     number_issues = validate_numbers(chunk, translated)
     all_issues = issues + number_issues
@@ -1373,7 +1389,7 @@ def translate_docx(
     glossary_text = _read_optional_text(cfg.llm.glossary_path, logger, "glossary")
     if cfg.glossary_lemma_check != "off" and not is_glossary_lemma_check_available():
         logger.info(
-            "glossary_lemma_check=%s requested, but pymorphy3 is unavailable; check is skipped.",
+            "glossary_lemma_check=%s requested, but pymorphy3 is unavailable; fallback exact-term check is used.",
             cfg.glossary_lemma_check,
         )
     if cfg.llm.provider.strip().lower() == "google" and custom_system_prompt:

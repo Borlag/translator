@@ -9,7 +9,7 @@ llm:
   system_prompt_path: ../general_prompt.md
   glossary_path: ../glossary.md
   glossary_in_prompt: true
-  hard_glossary: false  # adaptive hard glossary now exists; keep false unless strict locking is required
+  hard_glossary: true  # strict term lock for TOC/table/labels to prevent glossary drift
   reasoning_effort: minimal
   prompt_cache_key: docxru-en-ru-v1
   prompt_cache_retention: 24h
@@ -20,11 +20,11 @@ llm:
   timeout_s: 90.0
   glossary_prompt_mode: "matched"
   glossary_match_limit: 24
-  batch_segments: 6
+  batch_segments: 1
   batch_max_chars: 14000
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
-  context_window_chars: 0 # keep grouped batch mode enabled for this profile
+  context_window_chars: 600
 
 tm:
   path: ../translation_cache.sqlite
@@ -52,7 +52,7 @@ include_footers: false
 concurrency: 4
 mode: reflow
 abbyy_profile: "off" # set to "safe" for ABBYY-converted files
-glossary_lemma_check: "off"
+glossary_lemma_check: "retry"
 
 qa_report_path: ../qa_report.html
 qa_jsonl_path: ../qa.jsonl

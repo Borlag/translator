@@ -658,6 +658,20 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = re.sub(r"\bService Bulletin List\b", "Список сервисных бюллетеней", out, flags=re.IGNORECASE)
     out = re.sub(r"\bMain Fitting Subassembly\b", "Подсборка корпуса стойки", out, flags=re.IGNORECASE)
     out = re.sub(r"\bSubassembly\b", "подсборка", out, flags=re.IGNORECASE)
+    # High-frequency TOC phrase patterns.
+    out = re.sub(
+        r"\bApplication of\s+(.+?)\s+to\s+(?:the\s+)?(.+?)(?=\s*(?:\t|\(|\.\s|$))",
+        r"Нанесение \1 на \2",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"\bCrimping of\s+(?:the\s+)?(.+?)(?=\s*(?:\t|\(|\.\s|$))",
+        r"Обжимка \1",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(r"\bSheet\s+(\d+)\s+of\s+(\d+)\b", r"Лист \1 из \2", out, flags=re.IGNORECASE)
     out = re.sub(r"\bIPL\s+FIGURE\b", "IPL РИСУНОК", out, flags=re.IGNORECASE)
     out = re.sub(r"\bIPL\s+fig\b", "IPL рис.", out, flags=re.IGNORECASE)
     out = re.sub(r"\b(?:fig\.?|figure)\b", "рис.", out, flags=re.IGNORECASE)
@@ -702,6 +716,21 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     # Keep heading joiners consistent in OCR/PDF-converted manuals.
     out = re.sub(r"(?m)^\s*WITH\s*$", "С", out, flags=re.IGNORECASE)
     out = re.sub(r"(⟦PN_\d+⟧)\s+AND\s+(⟦PN_\d+⟧)", r"\1 И \2", out, flags=re.IGNORECASE)
+    # Remove occasional model meta-choice artifacts and normalize leaked preposition hints.
+    out = re.sub(
+        r"эта/этот/то\s*\(в\s+зависимости\s+от\s+контекста\)\s*",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"Применение\s+из\s+([A-Za-z0-9][A-Za-z0-9./ _-]*)\s+(?:в|к)\s+the\s+",
+        r"Нанесение \1 на ",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(r"Применение\s+из\s+", "Нанесение ", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bк\s+the\s+", "на ", out, flags=re.IGNORECASE)
 
     # TOC artifact cleanup: merged "Repair No. X-Y601" -> "Ремонт № X-Y 601"
     out = re.sub(r"Ремонт\s*№\s*(\d+-\d+)(\d{3,4})\b", r"Ремонт № \1 \2", out)
@@ -796,9 +825,7 @@ class OpenAIChatCompletionsClient:
 
         model_reasoning_effort = self.reasoning_effort
         temperature: float | None = None
-        if task == "repair":
-            temperature = 0.0
-        elif task == "batch_translate":
+        if task in {"repair", "batch_translate"}:
             temperature = 0.0 if _supports_temperature(self.model, model_reasoning_effort) else None
         elif _supports_temperature(self.model, model_reasoning_effort):
             temperature = self.temperature
@@ -1103,13 +1130,13 @@ def build_llm_client(
         glossary_text=prompt_glossary_text,
     )
     domain_replacements = build_domain_replacements()
-    # Post-replacement of user glossary terms can force nominative forms in RU sentences.
-    # Keep strict post-glossary replacements for google-free mode (no prompt control),
-    # and prefer prompt-driven morphology for OpenAI/Ollama providers.
+    # Post replacements are required for the free Google provider (limited prompt control)
+    # to recover frequent EN leftovers. For prompt-driven providers (OpenAI/Ollama),
+    # skip static post replacements to avoid overriding glossary decisions.
     if provider_norm == "google":
         glossary_replacements = domain_replacements + build_glossary_replacements(glossary_text)
     else:
-        glossary_replacements = domain_replacements
+        glossary_replacements = ()
     if provider_norm == "mock":
         return MockLLMClient()
     if provider_norm == "openai":

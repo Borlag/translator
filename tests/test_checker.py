@@ -68,6 +68,17 @@ def _seg(seg_id: str, page: int) -> Segment:
     )
 
 
+def _docx_seg(seg_id: str, paragraph_idx: int) -> Segment:
+    return Segment(
+        segment_id=seg_id,
+        location=f"body/p{paragraph_idx}",
+        context={"part": "body"},
+        source_plain=f"SOURCE {seg_id}",
+        paragraph_ref=None,
+        target_tagged=f"TARGET {seg_id}",
+    )
+
+
 def test_run_llm_checker_adds_machine_edit_issues_in_page_chunks():
     segments = [_seg("s1", 1), _seg("s2", 2), _seg("s3", 3), _seg("s4", 4)]
     segments[0].issues.append(
@@ -128,6 +139,38 @@ def test_run_llm_checker_adds_machine_edit_issues_in_page_chunks():
     codes = [issue.code for seg in segments for issue in seg.issues if issue.code.startswith("llm_check_")]
     assert "llm_check_meaning" in codes
     assert "llm_check_terminology" in codes
+
+
+def test_run_llm_checker_docx_locations_fallback_to_segment_windows(tmp_path):
+    segments = [_docx_seg("s1", 10), _docx_seg("s2", 11), _docx_seg("s3", 12), _docx_seg("s4", 13), _docx_seg("s5", 14)]
+    client = _FakeCheckerClient(
+        [
+            {"chunk_id": "segments_1_2", "edits": []},
+            {"chunk_id": "segments_3_4", "edits": []},
+            {"chunk_id": "segments_5_5", "edits": []},
+        ]
+    )
+    trace_path = tmp_path / "checker_trace.jsonl"
+    cfg = CheckerConfig(
+        enabled=True,
+        pages_per_chunk=3,
+        fallback_segments_per_chunk=2,
+        only_on_issue_severities=(),
+        only_on_issue_codes=(),
+    )
+    edits = run_llm_checker(
+        segments=segments,
+        checker_cfg=cfg,
+        checker_client=client,
+        logger=logging.getLogger("test_checker"),
+        trace_path=trace_path,
+    )
+
+    assert edits == []
+    assert client.calls == 3
+    events = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line]
+    request_chunk_ids = [str(item.get("chunk_id") or "") for item in events if item.get("event") == "request"]
+    assert request_chunk_ids == ["segments_1_2", "segments_3_4", "segments_5_5"]
 
 
 def test_run_llm_checker_ignores_unknown_segment_ids():

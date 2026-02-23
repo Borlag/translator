@@ -14,7 +14,7 @@ from .tagging import paragraph_to_tagged, tagged_to_runs
 from .validator import validate_placeholders, validate_style_tokens
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
-_PDF_PAGE_RE = re.compile(r"/p(\d+)(?:/|$)", flags=re.IGNORECASE)
+_PDF_PAGE_RE = re.compile(r"^pdf/p(\d+)(?:/|$)", flags=re.IGNORECASE)
 _SPACE_RE = re.compile(r"\s+")
 _NOCHANGE_INSTRUCTION_RE = re.compile(r"\bno\s+change\s+needed\b|без\s+изменени", flags=re.IGNORECASE)
 
@@ -72,7 +72,9 @@ def _segment_page_number(seg: Segment) -> int | None:
         return raw_page
     if isinstance(raw_page, str) and raw_page.strip().isdigit():
         return int(raw_page.strip())
-    m = _PDF_PAGE_RE.search(seg.location or "")
+    # DOCX segment locations (e.g. body/p123) encode paragraph indexes, not real pages.
+    # Fallback regex parsing is safe only for explicit PDF locations (pdf/pN/...).
+    m = _PDF_PAGE_RE.search((seg.location or "").strip())
     if m:
         return int(m.group(1))
     return None

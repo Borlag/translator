@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 from docxru.llm import (
+    BATCH_JSON_INSTRUCTIONS,
+    BATCH_SYSTEM_PROMPT_TEMPLATE,
     GoogleFreeTranslateClient,
     MockLLMClient,
     OllamaChatClient,
@@ -194,6 +196,15 @@ def test_apply_glossary_replacements_fixes_common_google_artifacts():
     assert "Обновлено значение пересчета" in out
 
 
+def test_apply_glossary_replacements_translates_common_application_phrase():
+    out = apply_glossary_replacements(
+        "Application of Ardrox AV100D to the Upper Diaphragm Tube (15-390) (Sheet 1 of 3)",
+        (),
+    )
+    assert "Нанесение Ardrox AV100D на Upper Diaphragm Tube" in out
+    assert "(Лист 1 из 3)" in out
+
+
 def test_glossary_replacements_match_wrapped_phrases_and_hyphens():
     replacements = build_glossary_replacements(
         "Introduction of new — Введение новых\nfig-item — элемент рисунка"
@@ -210,6 +221,42 @@ def test_hard_glossary_matches_across_brline_tokens():
     assert "нижний узел подшипника" in token_map.values()
 
 
+def test_hard_glossary_skips_single_word_entries():
+    terms = build_hard_glossary_replacements(
+        "Repair — Ремонт\nMain Landing Gear Leg — Стойка основного шасси"
+    )
+    _, token_map = shield_terms("Repair Main Landing Gear Leg", terms, token_prefix="GLS")
+    assert "Стойка основного шасси" in token_map.values()
+    assert "Ремонт" not in token_map.values()
+
+
+def test_apply_glossary_replacements_normalizes_with_and_pn_and():
+    out = apply_glossary_replacements("WITH\n⟦PN_1⟧ AND ⟦PN_2⟧", ())
+    assert "С" in out
+    assert "⟦PN_1⟧ И ⟦PN_2⟧" in out
+
+
+def test_apply_glossary_replacements_removes_model_choice_artifacts():
+    out = apply_glossary_replacements(
+        "Применение из Ardrox AV100D в эта/этот/то (в зависимости от контекста) Верхний Диаграмма Труба",
+        (),
+    )
+    assert "эта/этот/то" not in out
+    assert "в зависимости от контекста" not in out
+    assert "Применение из" not in out
+    assert "Нанесение Ardrox AV100D" in out
+
+
+def test_apply_glossary_replacements_fixes_repair_procedure_conditions():
+    out = apply_glossary_replacements("Repair Procedure Conditions 602", ())
+    assert out == "Условия выполнения процедуры ремонта 602"
+
+
+def test_apply_glossary_replacements_fixes_repair_no_merges():
+    out = apply_glossary_replacements("Ремонт № 1-1 Ремонт узла нижнего подшипника №1-1601", ())
+    assert out == "Ремонт № 1-1 узла нижнего подшипника № 1-1 601"
+
+
 def test_ollama_client_translate_with_mocked_http():
     payloads: list[dict] = []
 
@@ -224,6 +271,31 @@ def test_ollama_client_translate_with_mocked_http():
     assert out == "Привет"
     assert payloads and payloads[0]["model"] == "qwen2.5:7b"
     assert payloads[0]["stream"] is False
+
+
+def test_ollama_client_translate_reads_structured_json_when_available():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"message":{"content":"{\\"translated_text\\":\\"Привет\\"}"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b", structured_output_mode="auto")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("Hello", {"task": "translate"})
+
+    assert out == "Привет"
+
+
+def test_ollama_client_strict_translate_rejects_invalid_json():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"message":{"content":"plain text"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b", structured_output_mode="strict")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        try:
+            client.translate("Hello", {"task": "translate"})
+        except RuntimeError as err:
+            assert "Strict structured translate parse failed" in str(err)
+        else:
+            raise AssertionError("Expected RuntimeError for strict structured mode")
 
 
 def test_ollama_client_repair_extracts_output_payload():
@@ -243,6 +315,65 @@ def test_build_user_prompt_passthrough_for_batch_task():
     text = '{"translations":[{"id":"1","text":"T1"}]}'
     out = build_user_prompt(text, {"task": "batch_translate", "part": "body"})
     assert out == text
+
+
+def test_build_user_prompt_does_not_emit_part_body_marker():
+    prompt = build_user_prompt("Install Main Fitting.", {"task": "translate", "part": "body"})
+    assert "PART:" not in prompt
+    assert "DOC_SECTION=body" not in prompt
+
+    header_prompt = build_user_prompt(
+        "Install Main Fitting.",
+        {"task": "translate", "part": "header", "is_toc_entry": True},
+    )
+    assert "DOC_SECTION=header" in header_prompt
+    assert "TOC_ENTRY" in header_prompt
+
+
+def test_apply_glossary_replacements_removes_part_context_leak():
+    out = apply_glossary_replacements("Описание (См. [PART: body]) к .", ())
+    assert "[PART:" not in out
+    assert "PART:" not in out
+
+
+def test_apply_glossary_replacements_normalizes_cover_illustrated_parts_phrase():
+    out = apply_glossary_replacements("Руководство по ... С Иллюстрированный перечень деталей", ())
+    assert "С иллюстрированным перечнем деталей" in out
+
+
+def test_build_llm_client_prompt_providers_do_not_postreplace_user_glossary():
+    openai_client = build_llm_client(
+        provider="openai",
+        model="gpt-4o-mini",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    ollama_client = build_llm_client(
+        provider="ollama",
+        model="qwen2.5:7b",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    assert "корпус стойки" not in {repl for _, repl in openai_client.glossary_replacements}
+    assert "корпус стойки" not in {repl for _, repl in ollama_client.glossary_replacements}
+    assert openai_client.glossary_replacements == ()
+    assert ollama_client.glossary_replacements == ()
+
+    google_client = build_llm_client(
+        provider="google",
+        model="ignored",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=200,
+        source_lang="en",
+        target_lang="ru",
+        glossary_text="Main Fitting — корпус стойки",
+    )
+    assert "корпус стойки" in {repl for _, repl in google_client.glossary_replacements}
 
 
 def test_openai_client_batch_uses_json_mode_and_skips_temperature_for_gpt5():
@@ -271,6 +402,49 @@ def test_openai_client_batch_uses_json_mode_and_skips_temperature_for_gpt5():
     assert "max_tokens" not in payloads[0]
     assert payloads[0]["prompt_cache_key"] == "docxru-test"
     assert payloads[0]["prompt_cache_retention"] == "24h"
+    system_prompt = payloads[0]["messages"][0]["content"]
+    assert BATCH_JSON_INSTRUCTIONS.strip() in system_prompt
+    assert system_prompt != BATCH_SYSTEM_PROMPT_TEMPLATE
+
+
+def test_openai_client_batch_uses_fallback_template_when_translation_prompt_is_empty():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"{\\"translations\\":[{\\"id\\":\\"s1\\",\\"text\\":\\"T1\\"}]}"}}]}')
+
+    client = OpenAIChatCompletionsClient(
+        model="gpt-4o-mini",
+        translation_system_prompt="  ",
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        client.translate("{}", {"task": "batch_translate"})
+
+    assert payloads
+    assert payloads[0]["messages"][0]["content"] == BATCH_SYSTEM_PROMPT_TEMPLATE
+
+
+def test_ollama_client_batch_uses_translation_prompt_plus_batch_json_contract():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"message":{"content":"{\\"translations\\":[{\\"id\\":\\"s1\\",\\"text\\":\\"T1\\"}]}"}}')
+
+    client = OllamaChatClient(model="qwen2.5:7b")
+    with patch("docxru.llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        out = client.translate("{}", {"task": "batch_translate"})
+
+    assert '"translations"' in out
+    assert payloads
+    system_prompt = payloads[0]["messages"][0]["content"]
+    assert BATCH_JSON_INSTRUCTIONS.strip() in system_prompt
+    assert system_prompt != BATCH_SYSTEM_PROMPT_TEMPLATE
+    assert payloads[0]["format"] == "json"
 
 
 def test_openai_client_non_gpt5_uses_max_tokens():
@@ -292,6 +466,41 @@ def test_openai_client_non_gpt5_uses_max_tokens():
     assert "max_completion_tokens" not in payloads[0]
 
 
+def test_openai_client_translate_reads_structured_json_when_available():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse('{"choices":[{"message":{"content":"{\\"translated_text\\":\\"Привет\\"}"}}]}')
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", structured_output_mode="auto")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("hello", {"task": "translate"})
+
+    assert out == "Привет"
+    assert payloads and payloads[0]["response_format"] == {"type": "json_object"}
+
+
+def test_openai_client_strict_translate_rejects_invalid_json():
+    def fake_urlopen(req, timeout=0):
+        return _FakeResponse('{"choices":[{"message":{"content":"plain text"}}]}')
+
+    client = OpenAIChatCompletionsClient(model="gpt-4o-mini", structured_output_mode="strict")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        try:
+            client.translate("hello", {"task": "translate"})
+        except RuntimeError as err:
+            assert "Strict structured translate parse failed" in str(err)
+        else:
+            raise AssertionError("Expected RuntimeError for strict structured mode")
+
+
 def test_openai_client_repair_extracts_output_payload():
     def fake_urlopen(req, timeout=0):
         return _FakeResponse(
@@ -306,6 +515,26 @@ def test_openai_client_repair_extracts_output_payload():
         out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
 
     assert out == "restored"
+
+
+def test_openai_client_repair_skips_temperature_for_gpt5():
+    payloads: list[dict] = []
+
+    def fake_urlopen(req, timeout=0):
+        payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResponse(
+            '{"choices":[{"message":{"content":"TASK: REPAIR_MARKERS\\n\\nSOURCE:\\nX\\n\\nOUTPUT:\\nrestored"}}]}'
+        )
+
+    client = OpenAIChatCompletionsClient(model="gpt-5-mini", reasoning_effort="minimal")
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}), patch(
+        "docxru.llm.urllib.request.urlopen",
+        side_effect=fake_urlopen,
+    ):
+        out = client.translate("TASK: REPAIR_MARKERS\n\nSOURCE:\nX\n\nOUTPUT:\nbad", {"task": "repair"})
+
+    assert out == "restored"
+    assert payloads and "temperature" not in payloads[0]
 
 
 def test_openai_client_retries_without_prompt_cache_retention_when_unsupported():

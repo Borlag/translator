@@ -216,6 +216,7 @@
 | Component Maintenance Manual | Руководство по техническому обслуживанию компонентов |
 | Illustrated Parts List | Иллюстрированный перечень деталей |
 | With Illustrated Parts List | С иллюстрированным перечнем деталей |
+| Repair Procedure Conditions | Условия выполнения процедуры ремонта |
 | List of Effective Pages | Перечень действующих страниц |
 | Revision Record | Запись изменений |
 | Date Incorporated Into Manual | Дата включения в руководство |

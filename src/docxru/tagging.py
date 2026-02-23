@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple
-
-from docx.text.paragraph import Paragraph
-from docx.text.run import Run
+from typing import Any
 
 from docx.enum.text import WD_BREAK
 from docx.oxml import parse_xml
 from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 
 from .models import RunStyleSnapshot, Span
 
 _STYLE_START_RE = re.compile(r"⟦S_(\d+)(?:\|[^⟧]*)?⟧")
 _STYLE_END_RE = re.compile(r"⟦/S_(\d+)⟧")
+_HYPERLINK_FLAG_RE = re.compile(r"^HREF_(\d+)$")
+_HYPERLINK_META_PREFIX = "__DOCXRU_HREF_"
 
 # Inline special tokens that we inject into tagged text.
 _BRACKET_TOKEN_RE = re.compile(r"⟦[^⟧]*⟧")
@@ -34,9 +35,7 @@ _ALLOWED_RUN_CHILDREN = {
 def is_supported_paragraph(paragraph: Paragraph) -> bool:
     """Return True if paragraph can be safely rebuilt by docxru.
 
-    Current constraint (safe default): the paragraph must contain only <w:pPr> and <w:r>
-    as direct children. Paragraphs with hyperlinks, content controls, bookmarks, etc. are skipped
-    to avoid reordering and structure corruption.
+    Supported direct children: <w:pPr>, <w:r>, <w:hyperlink> and non-visual markers.
     """
 
     # Some "noise" markers (proofing/bookmarks) are safe to keep; they don't affect visible text and
@@ -44,7 +43,7 @@ def is_supported_paragraph(paragraph: Paragraph) -> bool:
     allowed_extra = {"bookmarkstart", "bookmarkend", "prooferr"}
     for child in paragraph._p.iterchildren():
         tag = child.tag.lower()
-        if tag.endswith("}ppr") or tag.endswith("}r"):
+        if tag.endswith("}ppr") or tag.endswith("}r") or tag.endswith("}hyperlink"):
             continue
         local = tag.split("}")[-1]
         if local in allowed_extra:
@@ -175,6 +174,34 @@ def _flags_from_run(run: Run) -> tuple[str, ...]:
     return tuple(flags)
 
 
+def _hyperlink_meta_key(index: int) -> str:
+    return f"{_HYPERLINK_META_PREFIX}{index}__"
+
+
+def _iter_runs_with_hyperlink_context(
+    paragraph: Paragraph,
+    inline_run_map: dict[str, str],
+) -> list[tuple[Run, str | None]]:
+    runs: list[tuple[Run, str | None]] = []
+    href_index = 0
+    for child in paragraph._p.iterchildren():
+        local = child.tag.split("}")[-1].lower()
+        if local == "r":
+            runs.append((Run(child, paragraph), None))
+            continue
+        if local != "hyperlink":
+            continue
+
+        href_index += 1
+        href_flag = f"HREF_{href_index}"
+        inline_run_map[_hyperlink_meta_key(href_index)] = child.xml
+        for sub in child.iterchildren():
+            if sub.tag.split("}")[-1].lower() != "r":
+                continue
+            runs.append((Run(sub, paragraph), href_flag))
+    return runs
+
+
 def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str, str]]:
     """Convert paragraph runs into a single tagged string + span metadata.
 
@@ -184,7 +211,7 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
       ⟦S_1|B|I⟧text⟦/S_1⟧⟦S_2⟧plain⟦/S_2⟧...
     """
     # Guard against collisions with our marker alphabet.
-    full_text = "".join(r.text for r in paragraph.runs)
+    full_text = paragraph.text or ""
     if "⟦" in full_text or "⟧" in full_text:
         raise ValueError(
             "Source paragraph contains reserved marker characters '⟦' or '⟧'. "
@@ -197,8 +224,11 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
     obj_counter = 0
     br_counters: dict[str, int] = {}
 
-    for run in paragraph.runs:
-        flags = _flags_from_run(run)
+    for run, href_flag in _iter_runs_with_hyperlink_context(paragraph, inline_run_map):
+        flags = list(_flags_from_run(run))
+        if href_flag:
+            flags.append(href_flag)
+        flags_tuple = tuple(flags)
         snap = _snapshot_from_run(run)
         rpr_xml = _rpr_xml_from_run(run)
 
@@ -220,10 +250,10 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
         # non-visual rPr details (proofing/language metadata). If we require exact rPr XML
         # equality for merge, translation degrades into near word-by-word mode and quality
         # drops sharply. Keep the first run's rPr XML for restoration and merge by style.
-        if merged and merged[-1][0] == flags and merged[-1][1] == snap:
+        if merged and merged[-1][0] == flags_tuple and merged[-1][1] == snap:
             merged[-1] = (merged[-1][0], merged[-1][1], merged[-1][2], merged[-1][3] + text)
         else:
-            merged.append((flags, snap, rpr_xml, text))
+            merged.append((flags_tuple, snap, rpr_xml, text))
 
     if not merged:
         return ("", [], inline_run_map)
@@ -245,13 +275,49 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
 
 
 def _clear_paragraph_runs(paragraph: Paragraph) -> None:
-    # Remove runs safely by removing underlying XML elements.
-    for run in list(paragraph.runs):
+    # Remove direct run/hyperlink children but keep paragraph properties and non-visual markers.
+    for child in list(paragraph._p.iterchildren()):
+        local = child.tag.split("}")[-1].lower()
+        if local not in {"r", "hyperlink"}:
+            continue
         try:
-            run._element.getparent().remove(run._element)  # type: ignore[attr-defined]
+            paragraph._p.remove(child)
         except Exception:
-            # Fallback: set to empty
-            run.text = ""
+            continue
+
+
+def _span_hyperlink_index(span: Span | None) -> int | None:
+    if span is None:
+        return None
+    for flag in span.flags:
+        m = _HYPERLINK_FLAG_RE.fullmatch(flag)
+        if not m:
+            continue
+        try:
+            return int(m.group(1))
+        except Exception:
+            return None
+    return None
+
+
+def _build_hyperlink_container(
+    paragraph: Paragraph,
+    href_index: int,
+    inline_run_map: dict[str, str] | None,
+) -> Any:
+    key = _hyperlink_meta_key(href_index)
+    if inline_run_map and key in inline_run_map:
+        try:
+            container = parse_xml(inline_run_map[key])
+            for child in list(container):
+                if child.tag.split("}")[-1].lower() == "r":
+                    container.remove(child)
+            return container
+        except Exception:
+            pass
+    from docx.oxml import OxmlElement
+
+    return OxmlElement("w:hyperlink")
 
 
 def _apply_rpr_xml(run: Run, rpr_xml: str) -> bool:
@@ -351,14 +417,26 @@ def tagged_to_runs(
         pos = m_end.end()
 
     _clear_paragraph_runs(paragraph)
+    hyperlink_nodes: dict[int, Any] = {}
+
+    def _bind_run_to_hyperlink(run: Run, href_index: int | None) -> None:
+        if href_index is None:
+            return
+        node = hyperlink_nodes.get(href_index)
+        if node is None:
+            node = _build_hyperlink_container(paragraph, href_index, inline_run_map)
+            paragraph._p.append(node)
+            hyperlink_nodes[href_index] = node
+        run_node = run._r
+        paragraph._p.remove(run_node)
+        node.append(run_node)
 
     def _emit_text(txt: str, span_id: int | None) -> None:
         if txt == "":
             return
         run = paragraph.add_run(txt)
-        if span_id is None:
-            return
-        span = spans_by_id.get(span_id)
+        span = spans_by_id.get(span_id) if span_id is not None else None
+        _bind_run_to_hyperlink(run, _span_hyperlink_index(span))
         if span is None:
             return
         _apply_style(run, span)
@@ -373,10 +451,10 @@ def tagged_to_runs(
         if name not in {"BRLINE", "BRCOL", "BRPAGE"}:
             return False
         run = paragraph.add_run("")
-        if span_id is not None:
-            span = spans_by_id.get(span_id)
-            if span is not None:
-                _apply_style(run, span)
+        span = spans_by_id.get(span_id) if span_id is not None else None
+        _bind_run_to_hyperlink(run, _span_hyperlink_index(span))
+        if span is not None:
+            _apply_style(run, span)
         if name == "BRCOL":
             run.add_break(WD_BREAK.COLUMN)
         elif name == "BRPAGE":

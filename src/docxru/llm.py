@@ -69,7 +69,16 @@ Preserve all marker tokens exactly (for example: ⟦...⟧ / 🦦...🧧).
 Preserve numbers, units, and punctuation.
 """
 
+BATCH_JSON_INSTRUCTIONS = """BATCH MODE: Return ONLY valid JSON in the requested schema.
+Do not add commentary outside JSON.
+Preserve all marker tokens exactly (including placeholder and style tags).
+Preserve numbers, units, and punctuation.
+"""
+
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
+
 GlossaryReplacement = tuple[re.Pattern[str], str]
+GlossaryMatcher = tuple[str, str, re.Pattern[str]]
 
 
 def _compact_prompt_snippet(value: Any, *, max_chars: int = 180) -> str:
@@ -79,6 +88,106 @@ def _compact_prompt_snippet(value: Any, *, max_chars: int = 180) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 3].rstrip() + "..."
+
+
+def _coerce_glossary_pairs(value: Any) -> list[tuple[str, str]]:
+    if value is None:
+        return []
+
+    if isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        items = [value]
+
+    pairs: list[tuple[str, str]] = []
+    for item in items:
+        source: Any = None
+        target: Any = None
+        if isinstance(item, dict):
+            source = item.get("source")
+            target = item.get("target")
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            source, target = item[0], item[1]
+
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        source_text = source.strip()
+        target_text = target.strip()
+        if not source_text or not target_text:
+            continue
+        pairs.append((source_text, target_text))
+    return pairs
+
+
+def _format_matched_glossary_block(value: Any) -> str:
+    pairs = _coerce_glossary_pairs(value)
+    if not pairs:
+        return ""
+    lines = [f"- {source} -> {target}" for source, target in pairs]
+    return "\n".join(lines)
+
+
+def _format_recent_translations_block(value: Any, *, max_chars: int = 500) -> str:
+    pairs = _coerce_glossary_pairs(value)
+    if not pairs:
+        return ""
+
+    lines: list[str] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for source, target in pairs:
+        src = _compact_prompt_snippet(source, max_chars=120)
+        tgt = _compact_prompt_snippet(target, max_chars=120)
+        if not src or not tgt:
+            continue
+        line = f"- {src} => {tgt}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        lines.append(line)
+        consumed += line_cost
+    return "\n".join(lines)
+
+
+def _format_tm_references_block(value: Any, *, max_chars: int = 500) -> str:
+    if value is None:
+        return ""
+
+    if isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        items = [value]
+
+    lines: list[str] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for item in items:
+        source: Any = None
+        target: Any = None
+        similarity: Any = None
+        if isinstance(item, dict):
+            source = item.get("source")
+            target = item.get("target")
+            similarity = item.get("similarity")
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            source, target = item[0], item[1]
+            similarity = item[2] if len(item) > 2 else None
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        src = _compact_prompt_snippet(source, max_chars=120)
+        tgt = _compact_prompt_snippet(target, max_chars=120)
+        if not src or not tgt:
+            continue
+        sim_txt = ""
+        if isinstance(similarity, (int, float)):
+            sim_txt = f" ({float(similarity):.2f})"
+        line = f"-{sim_txt} {src} => {tgt}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        lines.append(line)
+        consumed += line_cost
+    return "\n".join(lines)
 
 
 def build_user_prompt(text: str, context: dict[str, Any]) -> str:
@@ -92,8 +201,12 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         ctx_parts.append(f"SECTION: {context['section_header']}")
     if context.get("in_table"):
         ctx_parts.append("TABLE_CELL")
-    if context.get("part"):
-        ctx_parts.append(f"PART: {context.get('part')}")
+    part = str(context.get("part") or "").strip().lower()
+    if part and part != "body":
+        # Keep this short but avoid "PART: body" leakage into translated text.
+        ctx_parts.append(f"DOC_SECTION={part}")
+    if context.get("is_toc_entry"):
+        ctx_parts.append("TOC_ENTRY")
     if not context.get("in_table"):
         prev_text = _compact_prompt_snippet(context.get("prev_text"))
         next_text = _compact_prompt_snippet(context.get("next_text"))
@@ -102,9 +215,43 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         if next_text:
             ctx_parts.append(f"NEXT: {next_text}")
     ctx = " | ".join(ctx_parts) if ctx_parts else "(no context)"
+
+    extra_blocks: list[str] = []
+    matched_glossary = _format_matched_glossary_block(context.get("matched_glossary_terms"))
+    if matched_glossary:
+        extra_blocks.append(f"MATCHED_GLOSSARY (EN -> RU):\n{matched_glossary}")
+
+    document_glossary = _format_matched_glossary_block(context.get("document_glossary"))
+    if document_glossary:
+        extra_blocks.append(f"DOCUMENT_GLOSSARY (EN -> RU):\n{document_glossary}")
+
+    raw_tm_max_chars = context.get("tm_references_max_chars", 500)
+    try:
+        tm_max_chars = int(raw_tm_max_chars)
+    except (TypeError, ValueError):
+        tm_max_chars = 500
+    tm_references = _format_tm_references_block(context.get("tm_references"), max_chars=tm_max_chars)
+    if tm_references:
+        extra_blocks.append(f"TM_REFERENCES:\n{tm_references}")
+
+    raw_recent_max_chars = context.get("recent_translations_max_chars", 500)
+    try:
+        recent_max_chars = int(raw_recent_max_chars)
+    except (TypeError, ValueError):
+        recent_max_chars = 500
+    recent_translations = _format_recent_translations_block(
+        context.get("recent_translations"),
+        max_chars=recent_max_chars,
+    )
+    if recent_translations:
+        extra_blocks.append(f"RECENT_TRANSLATIONS (EN => RU):\n{recent_translations}")
+
+    extra_section = ""
+    if extra_blocks:
+        extra_section = "\n\n" + "\n\n".join(extra_blocks)
     return (
         "Use context only for disambiguation. Do not translate or repeat context in output.\n"
-        f"Context: {ctx}\n\n"
+        f"Context: {ctx}{extra_section}\n\n"
         "Translate ONLY the text below:\n"
         f"{text}"
     )
@@ -132,6 +279,54 @@ def _extract_repair_output(text: str) -> str:
         return inner.strip()
 
     return raw
+
+
+def _normalize_structured_output_mode(mode: str | None) -> str:
+    value = (mode or "auto").strip().lower()
+    if value not in {"off", "auto", "strict"}:
+        raise ValueError(f"Unsupported structured_output_mode: {mode!r}")
+    return value
+
+
+def _build_batch_system_prompt(translation_system_prompt: str | None) -> str:
+    base_prompt = (translation_system_prompt or "").strip()
+    if not base_prompt:
+        return BATCH_SYSTEM_PROMPT_TEMPLATE
+    return f"{base_prompt}\n\n{BATCH_JSON_INSTRUCTIONS}"
+
+
+def _extract_json_payload(raw: str) -> Any:
+    text = (raw or "").strip()
+    if not text:
+        raise RuntimeError("Empty JSON response")
+
+    candidates: list[str] = [text]
+    for m in _JSON_FENCE_RE.finditer(text):
+        fenced = (m.group(1) or "").strip()
+        if fenced:
+            candidates.append(fenced)
+
+    obj_start = text.find("{")
+    obj_end = text.rfind("}")
+    if obj_start >= 0 and obj_end > obj_start:
+        candidates.append(text[obj_start : obj_end + 1].strip())
+
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+    raise RuntimeError("Response is not valid JSON")
+
+
+def _extract_structured_text(raw: str, *, field_name: str) -> str:
+    payload = _extract_json_payload(raw)
+    if not isinstance(payload, dict):
+        raise RuntimeError("Structured response must be a JSON object")
+    value = payload.get(field_name)
+    if not isinstance(value, str):
+        raise RuntimeError(f"Structured response missing string field: {field_name}")
+    return value
 
 
 def _is_gpt5_family(model: str) -> bool:
@@ -225,6 +420,41 @@ def _compile_term_pattern(source_term: str) -> re.Pattern[str]:
         # Restrict replacements to standalone ASCII terms to avoid accidental partial matches.
         return re.compile(rf"(?<![A-Za-z0-9]){escaped}(?![A-Za-z0-9])", flags=re.IGNORECASE)
     return re.compile(escaped, flags=re.IGNORECASE)
+
+
+def build_glossary_matchers(glossary_text: str | None) -> tuple[GlossaryMatcher, ...]:
+    matchers: list[GlossaryMatcher] = []
+    for source_term, target_term in parse_glossary_pairs(glossary_text):
+        matchers.append((source_term, target_term, _compile_term_pattern(source_term)))
+    return tuple(matchers)
+
+
+def select_matched_glossary_terms(
+    text: str,
+    matchers: tuple[GlossaryMatcher, ...],
+    *,
+    limit: int = 24,
+) -> list[tuple[str, str]]:
+    if not text or not matchers:
+        return []
+
+    max_terms = max(0, int(limit))
+    if max_terms == 0:
+        return []
+
+    seen_sources: set[str] = set()
+    matched: list[tuple[str, str]] = []
+    for source_term, target_term, pattern in matchers:
+        source_key = source_term.strip().lower()
+        if not source_key or source_key in seen_sources:
+            continue
+        if not pattern.search(text):
+            continue
+        seen_sources.add(source_key)
+        matched.append((source_term, target_term))
+        if len(matched) >= max_terms:
+            break
+    return matched
 
 
 DOMAIN_TERM_PAIRS: tuple[tuple[str, str], ...] = (
@@ -397,7 +627,7 @@ def build_hard_glossary_replacements(glossary_text: str | None) -> tuple[Glossar
     User glossary entries override domain defaults for the same source term.
     """
     domain_pairs = [item for item in DOMAIN_TERM_PAIRS if re.search(r"\s", item[0])]
-    glossary_pairs = parse_glossary_pairs(glossary_text)
+    glossary_pairs = [item for item in parse_glossary_pairs(glossary_text) if re.search(r"\s", item[0])]
 
     # Deduplicate source terms case-insensitively; user glossary overrides domain defaults.
     merged: dict[str, tuple[str, str]] = {}
@@ -417,8 +647,8 @@ def build_hard_glossary_replacements(glossary_text: str | None) -> tuple[Glossar
 
 def build_glossary_replacements(glossary_text: str | None) -> tuple[GlossaryReplacement, ...]:
     replacements: list[GlossaryReplacement] = []
-    for source_term, target_term in parse_glossary_pairs(glossary_text):
-        replacements.append((_compile_term_pattern(source_term), target_term))
+    for source_term, target_term, pattern in build_glossary_matchers(glossary_text):
+        replacements.append((pattern, target_term))
     return tuple(replacements)
 
 
@@ -429,6 +659,7 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
 
     # Canonical EN heading fallback (for partially untranslated outputs).
     out = re.sub(r"\bMain Landing Gear Leg\b", "Стойка основного шасси", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bRepair Procedure Conditions\b", "Условия выполнения процедуры ремонта", out, flags=re.IGNORECASE)
     out = re.sub(r"\bMLG\s+Leg\b", "Стойка MLG", out, flags=re.IGNORECASE)
     out = re.sub(r"\bList of Effective Pages\b", "Перечень действующих страниц", out, flags=re.IGNORECASE)
     out = re.sub(r"\bRevision Record\b", "Запись изменений", out, flags=re.IGNORECASE)
@@ -440,6 +671,20 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
     out = re.sub(r"\bService Bulletin List\b", "Список сервисных бюллетеней", out, flags=re.IGNORECASE)
     out = re.sub(r"\bMain Fitting Subassembly\b", "Подсборка корпуса стойки", out, flags=re.IGNORECASE)
     out = re.sub(r"\bSubassembly\b", "подсборка", out, flags=re.IGNORECASE)
+    # High-frequency TOC phrase patterns.
+    out = re.sub(
+        r"\bApplication of\s+(.+?)\s+to\s+(?:the\s+)?(.+?)(?=\s*(?:\t|\(|\.\s|$))",
+        r"Нанесение \1 на \2",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"\bCrimping of\s+(?:the\s+)?(.+?)(?=\s*(?:\t|\(|\.\s|$))",
+        r"Обжимка \1",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(r"\bSheet\s+(\d+)\s+of\s+(\d+)\b", r"Лист \1 из \2", out, flags=re.IGNORECASE)
     out = re.sub(r"\bIPL\s+FIGURE\b", "IPL РИСУНОК", out, flags=re.IGNORECASE)
     out = re.sub(r"\bIPL\s+fig\b", "IPL рис.", out, flags=re.IGNORECASE)
     out = re.sub(r"\b(?:fig\.?|figure)\b", "рис.", out, flags=re.IGNORECASE)
@@ -481,9 +726,49 @@ def apply_glossary_replacements(text: str, replacements: tuple[GlossaryReplaceme
         out,
         flags=re.IGNORECASE,
     )
+    # Keep heading joiners consistent in OCR/PDF-converted manuals.
+    out = re.sub(r"(?m)^\s*WITH\s*$", "С", out, flags=re.IGNORECASE)
+    out = re.sub(r"(⟦PN_\d+⟧)\s+AND\s+(⟦PN_\d+⟧)", r"\1 И \2", out, flags=re.IGNORECASE)
+    # Remove occasional model meta-choice artifacts and normalize leaked preposition hints.
+    out = re.sub(
+        r"эта/этот/то\s*\(в\s+зависимости\s+от\s+контекста\)\s*",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"Применение\s+из\s+([A-Za-z0-9][A-Za-z0-9./ _-]*)\s+(?:в|к)\s+the\s+",
+        r"Нанесение \1 на ",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(r"Применение\s+из\s+", "Нанесение ", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bк\s+the\s+", "на ", out, flags=re.IGNORECASE)
 
     # TOC artifact cleanup: merged "Repair No. X-Y601" -> "Ремонт № X-Y 601"
     out = re.sub(r"Ремонт\s*№\s*(\d+-\d+)(\d{3,4})\b", r"Ремонт № \1 \2", out)
+    out = re.sub(r"(Ремонт\s*№\s*\d+-\d+)\s+Ремонт\s+", r"\1 ", out, flags=re.IGNORECASE)
+    out = re.sub(r"№\s*(\d+-\d+)(\d{3,4})\b", r"№ \1 \2", out)
+    # Cover-page phrase normalization for correct case agreement.
+    out = re.sub(
+        r"\bС\s+Иллюстрирован(?:ный|ные|ная)\s+(?:перечень|список)\s+детал(?:ей|и)\b",
+        "С иллюстрированным перечнем деталей",
+        out,
+        flags=re.IGNORECASE,
+    )
+    # Remove occasional prompt-context leakage fragments such as "(См. [PART: body])".
+    out = re.sub(
+        r"\(\s*См\.\s*[\[\(]?\s*PART\s*:\s*(?:body|header|footer)\s*[\]\)]?\s*\)\s*[кК]?\s*",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"[\[\(]?\s*PART\s*:\s*(?:body|header|footer)\s*[\]\)]?",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    )
     # Normalize occasional machine-translated abbreviation variants.
     out = out.replace("Ремонт Ном.", "Ремонт №")
     out = out.replace("Ремонт Нет.", "Ремонт №")
@@ -526,6 +811,7 @@ class OpenAIChatCompletionsClient:
     reasoning_effort: str | None = None
     prompt_cache_key: str | None = None
     prompt_cache_retention: str | None = None
+    structured_output_mode: str = "auto"
     supports_repair: bool = True
 
     def translate(self, text: str, context: dict[str, Any]) -> str:
@@ -534,27 +820,32 @@ class OpenAIChatCompletionsClient:
             raise RuntimeError("OPENAI_API_KEY is not set")
 
         task = str(context.get("task", "translate")).lower()
+        structured_mode = _normalize_structured_output_mode(self.structured_output_mode)
+        structured_for_text = task in {"translate", "repair"} and structured_mode != "off"
         if task == "repair":
             system_prompt = REPAIR_SYSTEM_PROMPT_TEMPLATE
+            if structured_for_text:
+                system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
         elif task == "batch_translate":
-            system_prompt = BATCH_SYSTEM_PROMPT_TEMPLATE
+            system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
         else:
             system_prompt = self.translation_system_prompt
+            if structured_for_text:
+                system_prompt += '\n\nReturn ONLY JSON object: {"translated_text":"..."}'
 
         base = (self.base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")).rstrip("/")
         url = f"{base}/v1/chat/completions"
 
         model_reasoning_effort = self.reasoning_effort
         temperature: float | None = None
-        if task == "repair":
-            temperature = 0.0
-        elif task == "batch_translate":
+        if task in {"repair", "batch_translate"}:
             temperature = 0.0 if _supports_temperature(self.model, model_reasoning_effort) else None
         elif _supports_temperature(self.model, model_reasoning_effort):
             temperature = self.temperature
 
         include_cache_key = bool(self.prompt_cache_key)
         include_cache_retention = bool(self.prompt_cache_retention)
+        include_response_format = task == "batch_translate" or structured_for_text
         data: dict[str, Any] | None = None
 
         for _ in range(3):
@@ -573,7 +864,7 @@ class OpenAIChatCompletionsClient:
                 payload["temperature"] = temperature
             if model_reasoning_effort:
                 payload["reasoning_effort"] = model_reasoning_effort
-            if task == "batch_translate":
+            if include_response_format:
                 payload["response_format"] = {"type": "json_object"}
             if include_cache_key and self.prompt_cache_key:
                 payload["prompt_cache_key"] = self.prompt_cache_key
@@ -613,6 +904,13 @@ class OpenAIChatCompletionsClient:
                 if include_cache_key and (param == "prompt_cache_key" or "prompt_cache_key" in body_l):
                     include_cache_key = False
                     continue
+                if (
+                    include_response_format
+                    and structured_mode == "auto"
+                    and (param == "response_format" or "response_format" in body_l)
+                ):
+                    include_response_format = False
+                    continue
                 raise RuntimeError(f"OpenAI HTTPError {e.code}: {body}") from e
             except Exception as e:
                 raise RuntimeError(f"OpenAI request failed: {e}") from e
@@ -622,11 +920,25 @@ class OpenAIChatCompletionsClient:
 
         try:
             content = data["choices"][0]["message"]["content"]
+            if task == "batch_translate":
+                return content
             if task == "repair":
+                if structured_for_text or include_response_format:
+                    try:
+                        return _extract_structured_text(content, field_name="repaired_text")
+                    except Exception as e:
+                        if structured_mode == "strict":
+                            raise RuntimeError(f"Strict structured repair parse failed: {e}") from e
                 return _extract_repair_output(content)
+            if structured_for_text or include_response_format:
+                try:
+                    content = _extract_structured_text(content, field_name="translated_text")
+                except Exception as e:
+                    if structured_mode == "strict":
+                        raise RuntimeError(f"Strict structured translate parse failed: {e}") from e
             content = apply_glossary_replacements(content, self.glossary_replacements)
             return content
-        except Exception as e:
+        except (KeyError, IndexError, TypeError) as e:
             raise RuntimeError(f"Unexpected OpenAI response schema: {data}") from e
 
 
@@ -721,48 +1033,87 @@ class OllamaChatClient:
     base_url: str = "http://localhost:11434"
     translation_system_prompt: str = SYSTEM_PROMPT_TEMPLATE
     glossary_replacements: tuple[GlossaryReplacement, ...] = ()
+    structured_output_mode: str = "auto"
     supports_repair: bool = True
 
     def translate(self, text: str, context: dict[str, Any]) -> str:
         task = str(context.get("task", "translate")).lower()
-        system_prompt = REPAIR_SYSTEM_PROMPT_TEMPLATE if task == "repair" else self.translation_system_prompt
+        structured_mode = _normalize_structured_output_mode(self.structured_output_mode)
+        structured_for_text = task in {"translate", "repair"} and structured_mode != "off"
+        if task == "repair":
+            system_prompt = REPAIR_SYSTEM_PROMPT_TEMPLATE
+            if structured_for_text:
+                system_prompt += '\n\nReturn ONLY JSON object: {"repaired_text":"..."}'
+        elif task == "batch_translate":
+            system_prompt = _build_batch_system_prompt(self.translation_system_prompt)
+        else:
+            system_prompt = self.translation_system_prompt
+            if structured_for_text:
+                system_prompt += '\n\nReturn ONLY JSON object: {"translated_text":"..."}'
         url = f"{self.base_url.rstrip('/')}/api/chat"
 
         options: dict[str, Any] = {"num_predict": self.max_output_tokens}
-        options["temperature"] = 0.0 if task == "repair" else self.temperature
+        options["temperature"] = 0.0 if task in {"repair", "batch_translate"} else self.temperature
 
-        payload = {
-            "model": self.model,
-            "stream": False,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": build_user_prompt(text, context)},
-            ],
-            "options": options,
-        }
-        req = urllib.request.Request(
-            url=url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        include_json_format = task == "batch_translate" or structured_for_text
+        data: dict[str, Any] | None = None
+        for _ in range(2):
+            payload = {
+                "model": self.model,
+                "stream": False,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": build_user_prompt(text, context)},
+                ],
+                "options": options,
+            }
+            if include_json_format:
+                payload["format"] = "json"
+            req = urllib.request.Request(
+                url=url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
-            raise RuntimeError(f"Ollama HTTPError {e.code}: {body}") from e
-        except Exception as e:
-            raise RuntimeError(f"Ollama request failed: {e}") from e
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+                body_l = body.lower()
+                if include_json_format and structured_mode == "auto" and "format" in body_l:
+                    include_json_format = False
+                    continue
+                raise RuntimeError(f"Ollama HTTPError {e.code}: {body}") from e
+            except Exception as e:
+                raise RuntimeError(f"Ollama request failed: {e}") from e
+
+        if data is None:
+            raise RuntimeError("Ollama request failed after retries")
 
         try:
             content = data["message"]["content"]
+            if task == "batch_translate":
+                return content
             if task == "repair":
+                if structured_for_text or include_json_format:
+                    try:
+                        return _extract_structured_text(content, field_name="repaired_text")
+                    except Exception as e:
+                        if structured_mode == "strict":
+                            raise RuntimeError(f"Strict structured repair parse failed: {e}") from e
                 return _extract_repair_output(content)
+            if structured_for_text or include_json_format:
+                try:
+                    content = _extract_structured_text(content, field_name="translated_text")
+                except Exception as e:
+                    if structured_mode == "strict":
+                        raise RuntimeError(f"Strict structured translate parse failed: {e}") from e
             content = apply_glossary_replacements(content, self.glossary_replacements)
             return content
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected Ollama response schema: {data}") from e
 
 
@@ -778,17 +1129,27 @@ def build_llm_client(
     base_url: str | None = None,
     custom_system_prompt: str | None = None,
     glossary_text: str | None = None,
+    glossary_prompt_text: str | None = None,
     reasoning_effort: str | None = None,
     prompt_cache_key: str | None = None,
     prompt_cache_retention: str | None = None,
+    structured_output_mode: str = "auto",
 ) -> LLMClient:
     provider_norm = provider.strip().lower()
+    prompt_glossary_text = glossary_text if glossary_prompt_text is None else glossary_prompt_text
     translation_prompt = build_translation_system_prompt(
         SYSTEM_PROMPT_TEMPLATE,
         custom_system_prompt=custom_system_prompt,
-        glossary_text=glossary_text,
+        glossary_text=prompt_glossary_text,
     )
-    glossary_replacements = build_domain_replacements() + build_glossary_replacements(glossary_text)
+    domain_replacements = build_domain_replacements()
+    # Post replacements are required for the free Google provider (limited prompt control)
+    # to recover frequent EN leftovers. For prompt-driven providers (OpenAI/Ollama),
+    # skip static post replacements to avoid overriding glossary decisions.
+    if provider_norm == "google":
+        glossary_replacements = domain_replacements + build_glossary_replacements(glossary_text)
+    else:
+        glossary_replacements = ()
     if provider_norm == "mock":
         return MockLLMClient()
     if provider_norm == "openai":
@@ -803,6 +1164,7 @@ def build_llm_client(
             reasoning_effort=reasoning_effort,
             prompt_cache_key=prompt_cache_key,
             prompt_cache_retention=prompt_cache_retention,
+            structured_output_mode=structured_output_mode,
         )
     if provider_norm == "google":
         return GoogleFreeTranslateClient(
@@ -821,5 +1183,6 @@ def build_llm_client(
             base_url=base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
             translation_system_prompt=translation_prompt,
             glossary_replacements=glossary_replacements,
+            structured_output_mode=structured_output_mode,
         )
     raise ValueError(f"Unknown LLM provider: {provider}")

@@ -1,0 +1,56 @@
+# docxru profile: local Ollama evaluation (EN -> RU)
+#
+# This profile is intended for: python -m docxru eval ...
+# It uses only local model inference via Ollama.
+
+llm:
+  provider: ollama
+  model: sun_leaf/HY-MT:7b
+  source_lang: en
+  target_lang: ru
+  base_url: http://127.0.0.1:11434
+  system_prompt_path: ../general_prompt.md
+  glossary_path: ../glossary.md
+  glossary_in_prompt: true
+  hard_glossary: true
+  reasoning_effort: null
+  prompt_cache_key: null
+  prompt_cache_retention: null
+  structured_output_mode: "strict"
+  temperature: 0.0
+  max_output_tokens: 2400
+  retries: 3
+  timeout_s: 180.0
+  glossary_prompt_mode: "matched"
+  glossary_match_limit: 24
+  batch_segments: 1
+  batch_max_chars: 12000
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
+  # >0 enables sequential recent-translation context mode.
+  context_window_chars: 600
+
+tm:
+  # For eval this path is overridden per-run into output_dir/_eval/<file>/tm.sqlite.
+  path: ../translation_cache_hy_mt_eval.sqlite
+  fuzzy_enabled: false
+  fuzzy_top_k: 3
+  fuzzy_min_similarity: 0.75
+  fuzzy_prompt_max_chars: 500
+
+include_headers: false
+include_footers: false
+
+concurrency: 1
+mode: reflow
+abbyy_profile: "safe"
+glossary_lemma_check: "off"
+
+qa_report_path: ../qa_report.html
+qa_jsonl_path: ../qa.jsonl
+translation_history_path: null
+log_path: ../run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

@@ -10,19 +10,30 @@ llm:
   system_prompt_path: null   # google ignores prompts
   glossary_path: ../glossary.md
   hard_glossary: false       # true = stricter term lock; false = usually more natural RU phrasing
+  structured_output_mode: "off"
   temperature: 0.1
   max_output_tokens: 2000
   retries: 1
   timeout_s: 60.0
+  glossary_prompt_mode: "off"
+  glossary_match_limit: 24
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
 
 tm:
   path: translation_cache.sqlite
+  fuzzy_enabled: false
+  fuzzy_top_k: 3
+  fuzzy_min_similarity: 0.75
+  fuzzy_prompt_max_chars: 500
 
 include_headers: false
 include_footers: false
 
 concurrency: 4
 mode: reflow
+abbyy_profile: "off"
+glossary_lemma_check: "off"
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl

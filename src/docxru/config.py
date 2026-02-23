@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -37,17 +37,48 @@ class LLMConfig:
     batch_segments: int = 1
     # Soft payload limiter for batch mode; very long segments are still translated individually.
     batch_max_chars: int = 12000
+    # Structured response contract handling for prompt-based LLMs.
+    structured_output_mode: str = "auto"  # 'off' | 'auto' | 'strict'
+    # Glossary prompt injection mode.
+    glossary_prompt_mode: str = "full"  # 'off' | 'full' | 'matched'
+    glossary_match_limit: int = 24
+    # Batch eligibility guardrails.
+    batch_skip_on_brline: bool = True
+    batch_max_style_tokens: int = 16
+    # Sliding prompt context for near-neighbor snippets and recent translations.
+    # 0 disables sequential recent-translation context mode.
+    context_window_chars: int = 600
 
 
 @dataclass(frozen=True)
 class TMConfig:
     path: str = "translation_cache.sqlite"
+    fuzzy_enabled: bool = False
+    fuzzy_top_k: int = 3
+    fuzzy_min_similarity: float = 0.75
+    fuzzy_prompt_max_chars: int = 500
+
+
+@dataclass(frozen=True)
+class PdfConfig:
+    bilingual_mode: bool = False
+    ocr_fallback: bool = False
+    max_pages: int | None = None
+    max_font_shrink_ratio: float = 0.6
+    block_merge_threshold_pt: float = 12.0
+    skip_headers_footers: bool = False
+    table_detection: bool = True
+    font_map: dict[str, str] = field(default_factory=dict)
+    default_sans_font: str = "NotoSans-Regular.ttf"
+    default_serif_font: str = "NotoSerif-Regular.ttf"
+    default_mono_font: str = "NotoSansMono-Regular.ttf"
 
 
 @dataclass(frozen=True)
 class PipelineConfig:
     llm: LLMConfig = LLMConfig()
     tm: TMConfig = TMConfig()
+    pdf: PdfConfig = PdfConfig()
     include_headers: bool = False
     include_footers: bool = False
     concurrency: int = 4
@@ -57,6 +88,18 @@ class PipelineConfig:
     # Optional append-only translation history for human review and term/context lookup.
     translation_history_path: str | None = None
     log_path: str = "run.log"
+    abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive'
+    glossary_lemma_check: str = "off"  # 'off' | 'warn' | 'retry'
+    # Optional post-translation layout validation/autofix heuristics.
+    layout_check: bool = False
+    layout_expansion_warn_ratio: float = 1.5
+    layout_auto_fix: bool = False
+    layout_font_reduction_pt: float = 0.5
+    layout_spacing_factor: float = 0.8
+    # Optional unconditional post-writeback font shrink.
+    # 0.0 disables shrinking for the corresponding scope.
+    font_shrink_body_pt: float = 0.0
+    font_shrink_table_pt: float = 0.0
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
 
@@ -73,12 +116,32 @@ def _resolve_optional_path(base_dir: Path, value: Any) -> str | None:
     return str(path)
 
 
+def _normalize_choice(value: Any, *, field_name: str, allowed: set[str], default: str) -> str:
+    raw = str(default if value is None else value).strip().lower()
+    if raw not in allowed:
+        allowed_list = ", ".join(sorted(allowed))
+        raise ValueError(f"Invalid value for {field_name}: {raw!r}. Allowed: {allowed_list}")
+    return raw
+
+
 def load_config(path: str | Path) -> PipelineConfig:
     cfg_path = Path(path)
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
 
     llm_data = data.get("llm", {}) or {}
     tm_data = data.get("tm", {}) or {}
+    pdf_data = data.get("pdf", {}) or {}
+    llm_legacy_glossary_in_prompt = bool(llm_data.get("glossary_in_prompt", True))
+    llm_has_prompt_mode = "glossary_prompt_mode" in llm_data
+    glossary_prompt_mode = _normalize_choice(
+        llm_data.get("glossary_prompt_mode", "full" if llm_legacy_glossary_in_prompt else "off"),
+        field_name="llm.glossary_prompt_mode",
+        allowed={"off", "full", "matched"},
+        default="full",
+    )
+    glossary_in_prompt = (
+        llm_legacy_glossary_in_prompt if not llm_has_prompt_mode else (glossary_prompt_mode != "off")
+    )
 
     llm = LLMConfig(
         provider=str(llm_data.get("provider", "mock")),
@@ -92,7 +155,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         timeout_s=float(llm_data.get("timeout_s", 60.0)),
         system_prompt_path=_resolve_optional_path(cfg_path.parent, llm_data.get("system_prompt_path")),
         glossary_path=_resolve_optional_path(cfg_path.parent, llm_data.get("glossary_path")),
-        glossary_in_prompt=bool(llm_data.get("glossary_in_prompt", True)),
+        glossary_in_prompt=glossary_in_prompt,
         hard_glossary=bool(llm_data.get("hard_glossary", False)),
         reasoning_effort=(
             str(llm_data["reasoning_effort"]).strip()
@@ -112,8 +175,43 @@ def load_config(path: str | Path) -> PipelineConfig:
         ),
         batch_segments=int(llm_data.get("batch_segments", 1)),
         batch_max_chars=int(llm_data.get("batch_max_chars", 12000)),
+        structured_output_mode=_normalize_choice(
+            llm_data.get("structured_output_mode", "auto"),
+            field_name="llm.structured_output_mode",
+            allowed={"off", "auto", "strict"},
+            default="auto",
+        ),
+        glossary_prompt_mode=glossary_prompt_mode,
+        glossary_match_limit=int(llm_data.get("glossary_match_limit", 24)),
+        batch_skip_on_brline=bool(llm_data.get("batch_skip_on_brline", True)),
+        batch_max_style_tokens=int(llm_data.get("batch_max_style_tokens", 16)),
+        context_window_chars=max(0, int(llm_data.get("context_window_chars", 600))),
     )
-    tm = TMConfig(path=str(tm_data.get("path", "translation_cache.sqlite")))
+    tm = TMConfig(
+        path=str(tm_data.get("path", "translation_cache.sqlite")),
+        fuzzy_enabled=bool(tm_data.get("fuzzy_enabled", False)),
+        fuzzy_top_k=int(tm_data.get("fuzzy_top_k", 3)),
+        fuzzy_min_similarity=float(tm_data.get("fuzzy_min_similarity", 0.75)),
+        fuzzy_prompt_max_chars=int(tm_data.get("fuzzy_prompt_max_chars", 500)),
+    )
+    max_pages_raw = pdf_data.get("max_pages")
+    if max_pages_raw is None:
+        max_pages = None
+    else:
+        max_pages = max(0, int(max_pages_raw))
+    pdf = PdfConfig(
+        bilingual_mode=bool(pdf_data.get("bilingual_mode", False)),
+        ocr_fallback=bool(pdf_data.get("ocr_fallback", False)),
+        max_pages=max_pages,
+        max_font_shrink_ratio=float(pdf_data.get("max_font_shrink_ratio", 0.6)),
+        block_merge_threshold_pt=float(pdf_data.get("block_merge_threshold_pt", 12.0)),
+        skip_headers_footers=bool(pdf_data.get("skip_headers_footers", False)),
+        table_detection=bool(pdf_data.get("table_detection", True)),
+        font_map={str(k): str(v) for k, v in (pdf_data.get("font_map", {}) or {}).items()},
+        default_sans_font=str(pdf_data.get("default_sans_font", "NotoSans-Regular.ttf")),
+        default_serif_font=str(pdf_data.get("default_serif_font", "NotoSerif-Regular.ttf")),
+        default_mono_font=str(pdf_data.get("default_mono_font", "NotoSansMono-Regular.ttf")),
+    )
 
     include_headers = bool(data.get("include_headers", False))
     include_footers = bool(data.get("include_footers", False))
@@ -123,6 +221,25 @@ def load_config(path: str | Path) -> PipelineConfig:
     qa_jsonl_path = str(data.get("qa_jsonl_path", "qa.jsonl"))
     translation_history_path = _resolve_optional_path(cfg_path.parent, data.get("translation_history_path"))
     log_path = str(data.get("log_path", "run.log"))
+    abbyy_profile = _normalize_choice(
+        data.get("abbyy_profile", "off"),
+        field_name="abbyy_profile",
+        allowed={"off", "safe", "aggressive"},
+        default="off",
+    )
+    glossary_lemma_check = _normalize_choice(
+        data.get("glossary_lemma_check", "off"),
+        field_name="glossary_lemma_check",
+        allowed={"off", "warn", "retry"},
+        default="off",
+    )
+    layout_check = bool(data.get("layout_check", False))
+    layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
+    layout_auto_fix = bool(data.get("layout_auto_fix", False))
+    layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
+    layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
+    font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", 0.0)))
+    font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", 0.0)))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
@@ -156,6 +273,7 @@ def load_config(path: str | Path) -> PipelineConfig:
     return PipelineConfig(
         llm=llm,
         tm=tm,
+        pdf=pdf,
         include_headers=include_headers,
         include_footers=include_footers,
         concurrency=concurrency,
@@ -164,5 +282,14 @@ def load_config(path: str | Path) -> PipelineConfig:
         qa_jsonl_path=qa_jsonl_path,
         translation_history_path=translation_history_path,
         log_path=log_path,
+        abbyy_profile=abbyy_profile,
+        glossary_lemma_check=glossary_lemma_check,
+        layout_check=layout_check,
+        layout_expansion_warn_ratio=layout_expansion_warn_ratio,
+        layout_auto_fix=layout_auto_fix,
+        layout_font_reduction_pt=layout_font_reduction_pt,
+        layout_spacing_factor=layout_spacing_factor,
+        font_shrink_body_pt=font_shrink_body_pt,
+        font_shrink_table_pt=font_shrink_table_pt,
         pattern_set=pattern_set,
     )

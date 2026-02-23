@@ -3,8 +3,9 @@
 Проект: **параграф/ячейка‑уровневый** перевод авиационной техдокументации (DOCX, часто после PDF→DOCX) на русский
 с **инлайн‑защитой** PN/ATA/размеров/ссылок, **строгой валидацией** маркеров и **QA‑отчётом**.
 
-> Важно: `python-docx` **не пересчитывает поля Word** (TOC/PAGEREF). В cross‑platform режиме документ
-> может потребовать ручного “Update Fields” в Word.
+> Важно: `python-docx` **не пересчитывает поля Word** (TOC/PAGEREF).
+> Если `mode: com`, pipeline теперь автоматически запускает COM-проход Word:
+> обновляет поля/TOC и делает автофит текстбоксов (с уменьшением шрифта до 1-2 шагов при переполнении).
 
 ---
 
@@ -26,6 +27,27 @@ pre-commit install
 ```bash
 docxru translate --input source.docx --output target_ru.docx --config config/config.example.yaml
 ```
+
+## PDF перевод (new)
+
+Установка PDF-зависимостей:
+
+```bash
+pip install -e ".[pdf]"
+```
+
+Базовый запуск:
+
+```bash
+docxru translate-pdf --input source.pdf --output target_ru.pdf --config config/config.example.yaml
+```
+
+Дополнительно:
+
+- `--bilingual` -> включает OCG-слой `Russian Translation` (EN+RU переключаемые слои).
+- `--ocr-fallback` -> запускает `ocrmypdf` для сканированных страниц.
+- `--max-pages N` -> ограничивает перевод первыми `N` страницами.
+- `--resume` -> повторно использует TM/progress кэш.
 
 Выходные файлы:
 - `target_ru.docx` — переведённый документ
@@ -99,7 +121,8 @@ Notes:
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
 - `llm.glossary_path` is applied for all providers.
 - `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens).
-- `llm.hard_glossary: true` enables strict placeholder-based term locking. Use only when required: it can reduce natural RU morphology (падеж/согласование).
+- `llm.hard_glossary: true` enables strict placeholder-based term locking.
+  Scope is adaptive in pipeline (TOC/table/short labels), but for natural prose keep it `false` unless strict locking is required.
 - `llm.reasoning_effort` can tune OpenAI reasoning spend (`none|minimal|low|medium|high|xhigh`).
 - `llm.prompt_cache_key` / `llm.prompt_cache_retention` can reduce cost for repeated prompt prefixes in OpenAI calls.
 - Grouped translation mode is available for `openai` and `ollama`:
@@ -110,6 +133,49 @@ Notes:
 - Optional translation memory history:
   - `translation_history_path` writes append-only JSONL with source/target/context for successful segments.
   - Use `python scripts/tm_lookup.py --term "your term"` to search prior decisions in `translation_cache.sqlite`.
+
+Reliability and terminology controls:
+
+- Structured output for prompt-based providers:
+  - `llm.structured_output_mode: "off" | "auto" | "strict"`
+  - CLI: `--structured-output off|auto|strict`
+- Glossary prompt scope:
+  - `llm.glossary_prompt_mode: "off" | "full" | "matched"`
+  - `llm.glossary_match_limit: 24` (used in `matched` mode)
+  - CLI: `--glossary-prompt-mode off|full|matched`
+- Batch guardrails:
+  - `llm.batch_skip_on_brline: true`
+  - `llm.batch_max_style_tokens: 16`
+  - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped batch mode.
+- Fuzzy TM hints in prompt context:
+  - `tm.fuzzy_enabled`, `tm.fuzzy_top_k`, `tm.fuzzy_min_similarity`, `tm.fuzzy_prompt_max_chars`
+  - CLI switch: `--fuzzy-tm`
+- Optional ABBYY normalization:
+  - `abbyy_profile: "off" | "safe" | "aggressive"`
+  - CLI: `--abbyy-profile off|safe|aggressive`
+- Optional glossary morphology check (`pymorphy3`, if installed):
+  - `glossary_lemma_check: "off" | "warn" | "retry"`
+  - In `retry` mode, pipeline performs one additional glossary-focused rewrite when matched terms are missing.
+- Optional consistency and layout checks:
+  - `layout_check: true|false`
+  - `layout_expansion_warn_ratio: 1.5` (warn on high RU/EN expansion ratio)
+  - `layout_auto_fix: true|false` (apply optional spacing/font reductions on risky segments)
+  - `layout_font_reduction_pt`, `layout_spacing_factor`
+
+New QA/diagnostic issue codes:
+
+- `batch_json_schema_violation`: grouped batch response failed JSON/schema contract.
+- `batch_validation_fallback`: grouped output failed marker validation, single-segment fallback used.
+- `batch_fallback_single`: grouped request failed, translated segment-by-segment.
+- `consistency_term_variation`: same glossary source term observed with multiple RU variants.
+- `length_ratio_high`: translated segment expansion ratio exceeds configured threshold.
+- `layout_table_overflow_risk`: translated table-cell text likely exceeds available width.
+- `layout_textbox_overflow_risk`: translated textbox text likely exceeds available area.
+- `layout_auto_fix_applied`: auto-fix (spacing/font reduction) was applied to a segment.
+
+YAML note:
+
+- Enum-like values such as `"off"` should be quoted in YAML. Unquoted `off` may be parsed as boolean `false`.
 
 Safety behavior:
 

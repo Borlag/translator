@@ -9,25 +9,55 @@ llm:
   system_prompt_path: null # optional .md/.txt with extra translation instructions
   glossary_path: null      # optional .md/.txt glossary file with EN->RU pairs
   glossary_in_prompt: true # false = do not send full glossary in every prompt
-  hard_glossary: false     # true = lock glossary terms via placeholders (stricter, but can hurt RU morphology)
+  hard_glossary: false     # true = adaptive term locking via placeholders (TOC/table/short labels); can still hurt RU morphology in prose
   reasoning_effort: null   # openai hint: none|minimal|low|medium|high|xhigh
   prompt_cache_key: null   # optional openai cache key for repeated prompt prefixes
   prompt_cache_retention: null # optional openai retention hint, e.g. "24h"
+  structured_output_mode: "auto" # off | auto | strict
   temperature: 0.1
   max_output_tokens: 2000
   retries: 2
   timeout_s: 60.0
+  glossary_prompt_mode: "full" # off | full | matched
+  glossary_match_limit: 24
   batch_segments: 1      # >1 enables grouped translation (OpenAI/Ollama) for better context continuity
   batch_max_chars: 12000 # soft payload cap per grouped request
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
+  context_window_chars: 600 # >0 disables grouped/parallel translate and injects recent EN=>RU context
 
 tm:
   path: translation_cache.sqlite
+  fuzzy_enabled: false
+  fuzzy_top_k: 3
+  fuzzy_min_similarity: 0.75
+  fuzzy_prompt_max_chars: 500
+
+pdf:
+  bilingual_mode: false
+  ocr_fallback: false
+  max_pages: null
+  max_font_shrink_ratio: 0.6
+  block_merge_threshold_pt: 12.0
+  skip_headers_footers: false
+  table_detection: true
+  font_map: {}
+  default_sans_font: NotoSans-Regular.ttf
+  default_serif_font: NotoSerif-Regular.ttf
+  default_mono_font: NotoSansMono-Regular.ttf
 
 include_headers: false
 include_footers: false
 
 concurrency: 4
 mode: reflow              # reflow | com
+abbyy_profile: "off"        # off | safe | aggressive
+glossary_lemma_check: "off" # off | warn | retry
+layout_check: false         # run layout risk checks after translation
+layout_expansion_warn_ratio: 1.5
+layout_auto_fix: false      # apply optional spacing/font fixes for risky segments
+layout_font_reduction_pt: 0.5
+layout_spacing_factor: 0.8
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl

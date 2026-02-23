@@ -1,0 +1,289 @@
+{
+  "meta": {
+    "source_files": {
+      "original_en": "test_11.docx",
+      "translated_ru": "test_2_ru_openai.docx",
+      "glossary": "glossary.md"
+    },
+    "scope_note": "Отчет основан на сравнении доступного фрагмента документов (видимые разделы: титульные листы, Letter of Transmittal/TOC, Introduction, Description and Operation, Testing and Fault Isolation). Полный документ может содержать дополнительные несостыковки.",
+    "severity_scale": {
+      "critical": "Сильная смысловая ошибка/нарушение глоссария/LLM-артефакт/срыв структуры (влияет на безопасность/понятность/доверие).",
+      "major": "Заметная терминологическая/языковая/верстальная проблема (мешает чтению, но не всегда меняет смысл).",
+      "minor": "Типографика/единичные огрехи (исправляется пост-обработкой)."
+    }
+  },
+  "issues": [
+    {
+      "id": "GLOSSARY-001",
+      "category": "glossary_violation",
+      "severity": "critical",
+      "location_hint": "Title / cover page",
+      "en": "MAIN LANDING GEAR LEG",
+      "ru_found": "НОЖКА МАГИСТРАЛЬНОГО ШАССИ",
+      "ru_expected": "Стойка основного шасси",
+      "glossary_key": "Main Landing Gear Leg",
+      "notes": "Полная замена ключевого термина. Создает впечатление непрофессионального перевода."
+    },
+    {
+      "id": "GLOSSARY-002",
+      "category": "glossary_violation",
+      "severity": "critical",
+      "location_hint": "TOC / multiple repair entries 11-x and figure titles",
+      "en": "Main Fitting",
+      "ru_found": [
+        "Корпус Корпус",
+        "Основной фитинг",
+        "Главный фитинг",
+        "Основной фланец",
+        "Основная арматура",
+        "Главная лапа"
+      ],
+      "ru_expected": "Корпус стойки",
+      "glossary_key": "Main Fitting",
+      "notes": "Термин гуляет + есть явные артефакты ('Корпус Корпус'). Нужен принудительный терминологический lock."
+    },
+    {
+      "id": "GLOSSARY-003",
+      "category": "glossary_violation",
+      "severity": "critical",
+      "location_hint": "TOC repair list 12-1 ... 12-5",
+      "en": "Upper Torque Link / Lower Torque Link",
+      "ru_found": [
+        "Верхний Момент затяжки Связь",
+        "Нижний Момент затяжки Связь"
+      ],
+      "ru_expected": [
+        "Верхний шлиц-шарнир",
+        "Нижний шлиц-шарнир"
+      ],
+      "glossary_key": [
+        "Upper Torque Link",
+        "Lower Torque Link"
+      ],
+      "notes": "Смысловая катастрофа: torque link = элемент шасси, а не момент затяжки."
+    },
+    {
+      "id": "GLOSSARY-004",
+      "category": "glossary_violation",
+      "severity": "critical",
+      "location_hint": "TOC figure list 727/728 and procedure text",
+      "en": "Proximity Switch",
+      "ru_found": [
+        "Близкий переключатель",
+        "Позиционный (индуктивный) датчик приближения"
+      ],
+      "ru_expected": "Датчик приближения",
+      "glossary_key": "Proximity Switch / Proximity Sensor",
+      "notes": "В одном документе несколько вариантов. Термин должен быть единым."
+    },
+    {
+      "id": "GLOSSARY-005",
+      "category": "glossary_violation",
+      "severity": "critical",
+      "location_hint": "TOC repair list 21-1 ... 21-6",
+      "en": "Transfer Block",
+      "ru_found": [
+        "Перенос Блок",
+        "Ремонт блока передачи",
+        "Ремонт распределительного блока",
+        "Ремонт блока переключения"
+      ],
+      "ru_expected": "Блок переключения",
+      "glossary_key": "Transfer Block",
+      "notes": "Термин должен быть стабилен. Сейчас часть строк выглядит как дословный перевод без смысла ('Перенос Блок')."
+    },
+    {
+      "id": "GLOSSARY-006",
+      "category": "glossary_violation",
+      "severity": "major",
+      "location_hint": "TOC headings",
+      "en": "Illustrated Parts List / With Illustrated Parts List",
+      "ru_found": [
+        "ИЛЛЮСТРИРОВАННЫЙ СПИСОК ДЕТАЛЕЙ",
+        "Иллюстрированный Детали Список",
+        "Как К Использовать Это Иллюстрированный Детали Список"
+      ],
+      "ru_expected": [
+        "Иллюстрированный перечень деталей",
+        "С иллюстрированным перечнем деталей"
+      ],
+      "glossary_key": [
+        "Illustrated Parts List",
+        "With Illustrated Parts List"
+      ],
+      "notes": "Нарушение терминов из блока Document Control Headings + машинная грамматика."
+    },
+    {
+      "id": "LANG-001",
+      "category": "untranslated_segments",
+      "severity": "critical",
+      "location_hint": "Testing and Fault Isolation > Procedure > Leakage Tests",
+      "en": [
+        "Make a record of the pressure.",
+        "Open the charging valve (17-20) and measure the nitrogen pressure: it must be the same as the record in para (2). Leakage must not occur.",
+        "Release the nitrogen pressure.",
+        "Make sure that all of the nitrogen pressure has been released: remove the charging valve (17-20).",
+        "Refer to ASSEMBLY: install the charging valve (17-20) and complete the assembly procedure."
+      ],
+      "ru_found": "Часть строк осталась на английском внутри русскоязычной процедуры.",
+      "ru_expected": "Полный перевод без EN-вставок.",
+      "notes": "Недопустимо для эксплуатационной документации: ломает читаемость и юридически/процедурно рискованно."
+    },
+    {
+      "id": "ARTIFACT-001",
+      "category": "llm_artifacts",
+      "severity": "critical",
+      "location_hint": "TOC figure 716 / text lines around figure list",
+      "en": "Crimping of the Pin (15-120)",
+      "ru_found": "Обжимка из эта/этот/то (в зависимости от контекста) Штифт (15-120)",
+      "ru_expected": "Обжимка штифта (15-120) (или иной корректный термин без мета-подсказок)",
+      "notes": "В документ попала служебная подсказка модели. Требуется фильтр артефактов."
+    },
+    {
+      "id": "ARTIFACT-002",
+      "category": "llm_artifacts",
+      "severity": "critical",
+      "location_hint": "TOC figure 719 lines",
+      "en": "Application of Ardrox AV100D to ...",
+      "ru_found": "Применение из Ardrox AV100D в эта/этот/то (в зависимости от контекста) ...",
+      "ru_expected": "Нанесение Ardrox AV100D на ...",
+      "notes": "Служебные placeholder-слова + неверная грамматика."
+    },
+    {
+      "id": "ARTIFACT-003",
+      "category": "duplication",
+      "severity": "major",
+      "location_hint": "TOC multiple lines",
+      "en": "Main Fitting / Lock Stay Cardan / Pintle Pin",
+      "ru_found": [
+        "Корпус Корпус",
+        "Фиксатор Фиксатор Кардан",
+        "Штифт навеса стойки Штифт"
+      ],
+      "ru_expected": [
+        "Корпус стойки",
+        "Фиксатор кардана (или иной согласованный термин без дублей)",
+        "Штифт навеса стойки"
+      ],
+      "notes": "Дублирование токенов — типичный след сегментного перевода/склейки строк."
+    },
+    {
+      "id": "FORMAT-001",
+      "category": "structure_breakage",
+      "severity": "critical",
+      "location_hint": "TOC blocks",
+      "en": "TABLE OF CONTENTS (Continued) ... Page",
+      "ru_found": "ТАБЛИЦА ИЗ СОДЕРЖАНИЕ + множественные повторяющиеся блоки TOC",
+      "ru_expected": "Единый блок 'Таблица содержания/Содержание' без дублей, с сохранением табличной структуры",
+      "notes": "Признак разрушения таблицы (колонки/строки) и повторной вставки фрагментов."
+    },
+    {
+      "id": "FORMAT-002",
+      "category": "structure_breakage",
+      "severity": "critical",
+      "location_hint": "TOC repair list around Repair No. 20-1",
+      "en": "Repair No. 20-1 ... Repair No. 20-1",
+      "ru_found": "Ремонт № 20-1 ... (справа) Ремонт № 19-2",
+      "ru_expected": "Ремонт № 20-1 ... (справа) Ремонт № 20-1",
+      "notes": "Поломка соответствия колонок (левый/правый столбец). Нужен валидатор пар 'Repair No.' по строкам."
+    },
+    {
+      "id": "FORMAT-003",
+      "category": "text_gluing",
+      "severity": "major",
+      "location_hint": "TOC repair list around Repair No. 11-24 / 11-25 / 11-30",
+      "en": "Repair to Main Fitting ... Installation",
+      "ru_found": [
+        "Ремонт Корпуса стойкиРемонт № 11-24",
+        "Подсборка ... установка внутренней втулкиRepair No. 11-30"
+      ],
+      "ru_expected": "Должны быть пробелы/разрывы по структуре строк; английские хвосты удалены.",
+      "notes": "Склейка строк + остатки 'Repair No.' на английском внутри русской строки."
+    },
+    {
+      "id": "STYLE-001",
+      "category": "grammar_style",
+      "severity": "major",
+      "location_hint": "Figure titles / Protective Treatment lines",
+      "en": "Protective Treatment",
+      "ru_found": "Защитный Обработка",
+      "ru_expected": "Защитная обработка",
+      "glossary_key": "Protective Treatment",
+      "notes": "Ошибочный род и капитализация. Должно фикситься правилом замены по глоссарию."
+    },
+    {
+      "id": "STYLE-002",
+      "category": "hybrid_language",
+      "severity": "major",
+      "location_hint": "Multiple sections",
+      "en": "Mixed RU/EN lines",
+      "ru_found": "EN термины/предложения внутри RU абзацев (Make a record..., Open the charging valve...)",
+      "ru_expected": "Либо 100% RU, либо строго оформленные цитаты/наименования (но в процедурах — 100% RU).",
+      "notes": "Требуется детектор и повторный перевод только EN-остатков."
+    },
+    {
+      "id": "TYPO-001",
+      "category": "typography",
+      "severity": "minor",
+      "location_hint": "Pressure line in procedure",
+      "en": "980 and 1020 lbf/in2",
+      "ru_found": "980 и1020 lbf/in2",
+      "ru_expected": "980 и 1020 lbf/in2",
+      "notes": "Пробел после союза."
+    }
+  ],
+  "summary": {
+    "counts": {
+      "glossary_violation": 6,
+      "untranslated_segments": 1,
+      "llm_artifacts": 2,
+      "duplication": 1,
+      "structure_breakage": 2,
+      "text_gluing": 1,
+      "grammar_style": 2,
+      "hybrid_language": 1,
+      "typography": 1
+    },
+    "top_risks": [
+      "Ключевые термины шасси не соответствуют глоссарию и гуляют (Main Landing Gear Leg, Main Fitting, Torque Link, Transfer Block).",
+      "В процедурах остались английские предложения (недопустимо для CMM).",
+      "LLM-артефакты типа 'эта/этот/то (в зависимости от контекста)' попали в итоговый документ.",
+      "Оглавление/таблицы разрушены: несоответствие Repair No. по столбцам, дубли блоков."
+    ]
+  },
+  "recommended_validations_for_pipeline": [
+    {
+      "name": "glossary_enforcement",
+      "type": "hard_replace_or_lock",
+      "description": "Перед вставкой перевода применить обязательную замену терминов по глоссарию (case-insensitive, с защитой от склонений/окончаний где уместно)."
+    },
+    {
+      "name": "language_leak_detector",
+      "type": "regex_scan",
+      "description": "На выходе запретить латиницу в русских параграфах, кроме разрешённых токенов (PN, Ref. Item, MIL-*, M-DLPS*). Всё найденное отправлять на повторный перевод."
+    },
+    {
+      "name": "llm_artifact_detector",
+      "type": "regex_scan",
+      "description": "Искать маркеры вроде 'в зависимости от контекста', 'эта/этот/то', 'TODO', 'TBA' (кроме TBA как значения), двойные слова, 'Применение из', и т.п."
+    },
+    {
+      "name": "toc_table_integrity",
+      "type": "structure_check",
+      "description": "Для строк TOC валидировать, что слева и справа Repair No. совпадают; аналогично для Fig./Page колонок."
+    },
+    {
+      "name": "duplication_collapse",
+      "type": "postprocess",
+      "description": "Коллапсировать дублирующиеся блоки TOC по сигнатуре заголовка и диапазону страниц."
+    }
+  ],
+  "next_steps_checklist": [
+    "Внедрить обязательный glossary lock (без альтернатив) для всех ключевых сущностей шасси.",
+    "Добавить пост-скан на латиницу и повторный перевод только EN-остатков.",
+    "Добавить скан LLM-артефактов ('эта/этот/то', 'в зависимости от контекста', 'Применение из' и т.д.).",
+    "Разделить обработку таблиц/TOC: переводить по ячейкам, не как плоский текст.",
+    "Сделать валидатор TOC (Repair No./Fig./Page) и фейлить сборку при несоответствиях."
+  ],
+  "imho": "Основной провал — не качество модели, а отсутствие обязательного применения глоссария + отсутствие пост-валидации структуры (таблицы/TOC) и фильтра артефактов."
+}

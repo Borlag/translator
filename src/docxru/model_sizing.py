@@ -14,7 +14,7 @@ class ModelContextProfile:
     output_context_tokens: int
     input_per_million: float | None
     output_per_million: float | None
-    tier: str  # economy | balanced | premium
+    tier: str  # economy | balanced | premium | turbo
 
 
 @dataclass(frozen=True)
@@ -44,8 +44,35 @@ class RuntimeModelSizing:
 _CHARS_PER_INPUT_TOKEN = 3.2
 _CHARS_PER_OUTPUT_TOKEN = 2.2
 _RU_EXPANSION_RATIO = 1.35
-_TRANSLATE_INPUT_UTILIZATION = 0.08
 _CHECKER_INPUT_UTILIZATION = 0.14
+
+
+def _translate_input_utilization(input_context_tokens: int) -> float:
+    if int(input_context_tokens) >= 200_000:
+        return 0.15
+    if int(input_context_tokens) >= 100_000:
+        return 0.10
+    return 0.08
+
+
+def recommend_grouped_timeout_s(
+    *,
+    timeout_s: float,
+    batch_segments: int,
+    batch_max_chars: int,
+) -> float:
+    out = max(30.0, float(timeout_s))
+    if int(batch_segments) <= 1:
+        return out
+
+    chars = max(0, int(batch_max_chars))
+    if chars >= 100_000:
+        return max(out, 360.0)
+    if chars >= 60_000:
+        return max(out, 300.0)
+    if chars >= 36_000:
+        return max(out, 180.0)
+    return out
 
 _TIER_LIMITS: dict[str, TierLimits] = {
     "economy": TierLimits(
@@ -72,6 +99,14 @@ _TIER_LIMITS: dict[str, TierLimits] = {
         checker_output_cap=3600,
         checker_pages_per_chunk=4,
     ),
+    "turbo": TierLimits(
+        batch_chars_cap=120_000,
+        batch_segments_cap=80,
+        translate_output_cap=64_000,
+        checker_segments_cap=250,
+        checker_output_cap=8000,
+        checker_pages_per_chunk=8,
+    ),
 }
 
 
@@ -87,7 +122,7 @@ _MODEL_PROFILES: tuple[ModelContextProfile, ...] = (
         output_context_tokens=128_000,
         input_per_million=1.75,
         output_per_million=14.0,
-        tier="premium",
+        tier="turbo",
     ),
     ModelContextProfile(
         provider="openai",
@@ -97,7 +132,7 @@ _MODEL_PROFILES: tuple[ModelContextProfile, ...] = (
         output_context_tokens=128_000,
         input_per_million=0.25,
         output_per_million=2.0,
-        tier="balanced",
+        tier="turbo",
     ),
     ModelContextProfile(
         provider="openai",
@@ -117,7 +152,7 @@ _MODEL_PROFILES: tuple[ModelContextProfile, ...] = (
         output_context_tokens=128_000,
         input_per_million=1.25,
         output_per_million=10.0,
-        tier="premium",
+        tier="turbo",
     ),
     ModelContextProfile(
         provider="openai",
@@ -209,7 +244,7 @@ def recommend_runtime_model_sizing(
     if profile is not None:
         limits = _TIER_LIMITS.get(profile.tier, _TIER_LIMITS["balanced"])
         if context_window_chars <= 0 and out_batch_segments > 1:
-            translate_input_budget = int(profile.input_context_tokens * _TRANSLATE_INPUT_UTILIZATION)
+            translate_input_budget = int(profile.input_context_tokens * _translate_input_utilization(profile.input_context_tokens))
             prompt_tokens = int((max(0, int(prompt_chars)) + 1200) / _CHARS_PER_INPUT_TOKEN)
             usable_input_tokens = max(900, translate_input_budget - prompt_tokens)
             budget_chars = int(usable_input_tokens * _CHARS_PER_INPUT_TOKEN)

@@ -133,7 +133,8 @@ Notes:
   - `llm.batch_max_chars` (default `12000`) is a soft per-request payload cap.
   - `llm.auto_model_sizing` (default `false`) auto-tunes grouped batch limits and checker chunk sizes by model context window.
   - CLI overrides: `--batch-segments` and `--batch-max-chars`.
-  - If grouped output fails marker validation, the pipeline automatically falls back to single-segment translation for safety.
+  - If grouped output fails marker validation, behavior depends on `run.fail_fast_on_translate_error`:
+    `true` (default) aborts translation, `false` falls back to single-segment translation.
 - Optional translation memory history:
   - `translation_history_path` writes append-only JSONL with source/target/context for successful segments.
   - Use `python scripts/tm_lookup.py --term "your term"` to search prior decisions in `translation_cache.sqlite`.
@@ -151,7 +152,9 @@ Reliability and terminology controls:
   - `llm.batch_skip_on_brline: true`
   - `llm.batch_max_style_tokens: 16`
   - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped request mode.
+  - Runtime auto-raises `llm.timeout_s` for grouped mode when batch payload is large (>=36k/60k/100k chars).
   - `run.batch_fallback_warn_ratio: 0.08` warns when grouped-batch fallback share exceeds threshold.
+  - `run.fail_fast_on_translate_error: true` stops translation immediately on translate failures instead of continuing.
   - With `llm.auto_model_sizing: true`, runtime limits are tuned for selected model:
     - translation: `batch_segments`, `batch_max_chars`, `llm.max_output_tokens`
     - checker: `checker.pages_per_chunk`, `checker.fallback_segments_per_chunk`, `checker.max_output_tokens`
@@ -249,6 +252,10 @@ This version adds a second-pass LLM checker and a lightweight local dashboard.
   - `suggested_target` (exact replacement text)
   - `instruction` (what to replace)
   - confidence/severity metadata
+- Produces filtered safe edits in `checker_suggestions_safe.json`:
+  - removes no-op edits
+  - removes low-confidence edits (`checker.auto_apply_min_confidence`)
+  - removes marker/style-token/placeholder-unsafe edits
 - Appends checker findings to existing QA outputs (`qa.jsonl`, `qa_report.html`) as `llm_check_*` issue codes.
 
 ### Enable checker
@@ -256,12 +263,26 @@ This version adds a second-pass LLM checker and a lightweight local dashboard.
 ```yaml
 checker:
   enabled: true
+  model: gpt-5-mini
   pages_per_chunk: 3
   only_on_issue_severities: ["warn", "error"]
   output_path: checker_suggestions.json
+  safe_output_path: checker_suggestions_safe.json
+  auto_apply_safe: false
+  auto_apply_min_confidence: 0.7
   openai_batch_enabled: true
   openai_batch_completion_window: "24h"
 ```
+
+### Applying checker suggestions
+
+- Automatic apply during pipeline run:
+  - set `checker.auto_apply_safe: true`
+  - pipeline applies only safe checker edits and rewrites output DOCX
+- Manual apply after run (Studio UI):
+  - open run in Studio
+  - click `Apply Checker (Safe)` to create `<output_name>_checked.docx`
+  - original output remains unchanged
 
 ### Tokens and cost tracking
 

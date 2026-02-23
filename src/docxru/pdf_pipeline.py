@@ -8,7 +8,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from .checker import CHECKER_SYSTEM_PROMPT, run_llm_checker, write_checker_suggestions
+from .checker import (
+    CHECKER_SYSTEM_PROMPT,
+    filter_checker_suggestions,
+    run_llm_checker,
+    write_checker_safe_suggestions,
+    write_checker_suggestions,
+)
 from .config import PipelineConfig
 from .dashboard_server import ensure_dashboard_html
 from .llm import (
@@ -414,6 +420,7 @@ def _translate_and_write_pdf(
             "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
             "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
             "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
+            "checker_suggestions_safe": _to_dashboard_link(run_paths.checker_suggestions_safe_path),
         }
     )
     status_writer.set_phase("prepare")
@@ -426,10 +433,22 @@ def _translate_and_write_pdf(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(source_pdf.read_bytes())
         write_checker_suggestions(run_paths.checker_suggestions_path, [])
+        write_checker_safe_suggestions(
+            run_paths.checker_suggestions_safe_path,
+            source_edits=[],
+            safe_edits=[],
+            skipped=[],
+        )
         status_writer.set_phase("done")
         status_writer.set_done(0)
         status_writer.set_usage(usage_totals.snapshot())
-        status_writer.merge_metrics({"issues_total": 0, "checker_suggestions": 0})
+        status_writer.merge_metrics(
+            {
+                "issues_total": 0,
+                "checker_suggestions": 0,
+                "checker_safe_suggestions": 0,
+            }
+        )
         status_writer.write(force=True)
         logger.info("No text segments found. Source PDF copied unchanged.")
         return
@@ -635,6 +654,15 @@ def _translate_and_write_pdf(
             logger,
             "checker system prompt",
         )
+        checker_glossary_text = (
+            _read_optional_text(
+                effective_checker_cfg.glossary_path,
+                logger,
+                "checker glossary",
+            )
+            if effective_checker_cfg.glossary_path
+            else glossary_text
+        )
         checker_client = build_llm_client(
             provider=checker_provider,
             model=checker_model,
@@ -645,8 +673,8 @@ def _translate_and_write_pdf(
             target_lang=cfg.llm.target_lang,
             base_url=cfg.llm.base_url,
             custom_system_prompt=checker_custom_prompt,
-            glossary_text=None,
-            glossary_prompt_text=None,
+            glossary_text=checker_glossary_text,
+            glossary_prompt_text=checker_glossary_text,
             reasoning_effort=cfg.llm.reasoning_effort,
             prompt_cache_key=cfg.llm.prompt_cache_key,
             prompt_cache_retention=cfg.llm.prompt_cache_retention,
@@ -663,12 +691,24 @@ def _translate_and_write_pdf(
             logger=logger,
         )
     write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+    safe_checker_edits, safe_checker_skipped = filter_checker_suggestions(
+        checker_edits,
+        safe_only=True,
+        min_confidence=float(effective_checker_cfg.auto_apply_min_confidence),
+    )
+    write_checker_safe_suggestions(
+        run_paths.checker_suggestions_safe_path,
+        source_edits=checker_edits,
+        safe_edits=safe_checker_edits,
+        skipped=safe_checker_skipped,
+    )
 
     status_writer.set_phase("qa")
     status_writer.set_usage(usage_totals.snapshot())
     status_writer.merge_metrics(
         {
             "checker_suggestions": len(checker_edits),
+            "checker_safe_suggestions": len(safe_checker_edits),
             "issues_total": sum(len(seg.issues) for seg in qa_segments),
         }
     )
@@ -688,6 +728,7 @@ def _translate_and_write_pdf(
     status_writer.merge_metrics(
         {
             "checker_suggestions": len(checker_edits),
+            "checker_safe_suggestions": len(safe_checker_edits),
             "issues_total": sum(len(seg.issues) for seg in qa_segments),
         }
     )

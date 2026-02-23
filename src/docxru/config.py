@@ -92,6 +92,9 @@ class CheckerConfig:
     only_on_issue_severities: tuple[str, ...] = ("warn", "error")
     only_on_issue_codes: tuple[str, ...] = ()
     output_path: str = "checker_suggestions.json"
+    safe_output_path: str = "checker_suggestions_safe.json"
+    auto_apply_safe: bool = False
+    auto_apply_min_confidence: float = 0.7
     # DOCX does not expose real page numbers; fallback to fixed-size segment windows.
     fallback_segments_per_chunk: int = 120
     # Optional async OpenAI Batch API mode for checker (cost-saving, high-latency path).
@@ -118,6 +121,8 @@ class RunConfig:
     status_flush_every_n_segments: int = 10
     # Warn when fallback share among grouped batch attempts exceeds this ratio.
     batch_fallback_warn_ratio: float = 0.08
+    # Stop translation immediately on segment/batch translation errors instead of continuing.
+    fail_fast_on_translate_error: bool = True
 
 
 @dataclass(frozen=True)
@@ -307,6 +312,12 @@ def load_config(path: str | Path) -> PipelineConfig:
         or ("warn", "error"),
         only_on_issue_codes=_coerce_str_tuple(checker_data.get("only_on_issue_codes")),
         output_path=str(checker_data.get("output_path", "checker_suggestions.json")),
+        safe_output_path=str(checker_data.get("safe_output_path", "checker_suggestions_safe.json")),
+        auto_apply_safe=bool(checker_data.get("auto_apply_safe", False)),
+        auto_apply_min_confidence=max(
+            0.0,
+            min(1.0, float(checker_data.get("auto_apply_min_confidence", 0.7))),
+        ),
         fallback_segments_per_chunk=max(1, int(checker_data.get("fallback_segments_per_chunk", 120))),
         openai_batch_enabled=bool(checker_data.get("openai_batch_enabled", False)),
         openai_batch_completion_window=(
@@ -334,6 +345,7 @@ def load_config(path: str | Path) -> PipelineConfig:
             0.0,
             min(1.0, float(run_data.get("batch_fallback_warn_ratio", 0.08))),
         ),
+        fail_fast_on_translate_error=bool(run_data.get("fail_fast_on_translate_error", True)),
     )
 
     include_headers = bool(data.get("include_headers", False))

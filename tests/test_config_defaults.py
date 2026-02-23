@@ -59,6 +59,9 @@ def test_pipeline_config_checker_and_pricing_defaults():
     assert cfg.checker.enabled is False
     assert cfg.checker.pages_per_chunk == 3
     assert cfg.checker.fallback_segments_per_chunk == 120
+    assert cfg.checker.safe_output_path == "checker_suggestions_safe.json"
+    assert cfg.checker.auto_apply_safe is False
+    assert cfg.checker.auto_apply_min_confidence == 0.7
     assert cfg.checker.openai_batch_enabled is False
     assert cfg.checker.openai_batch_completion_window == "24h"
     assert cfg.checker.openai_batch_poll_interval_s == 20.0
@@ -67,6 +70,7 @@ def test_pipeline_config_checker_and_pricing_defaults():
     assert cfg.pricing.currency == "USD"
     assert cfg.run.status_flush_every_n_segments == 10
     assert cfg.run.batch_fallback_warn_ratio == 0.08
+    assert cfg.run.fail_fast_on_translate_error is True
 
 
 def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
@@ -84,6 +88,9 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
         "  system_prompt_path: checker_prompt.md\n"
         "  pages_per_chunk: 3\n"
         "  fallback_segments_per_chunk: 80\n"
+        "  safe_output_path: checker_safe.json\n"
+        "  auto_apply_safe: true\n"
+        "  auto_apply_min_confidence: 0.85\n"
         "  openai_batch_enabled: true\n"
         "  openai_batch_completion_window: 24h\n"
         "  openai_batch_poll_interval_s: 10\n"
@@ -99,7 +106,8 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
         "  status_path: run_status.json\n"
         "  dashboard_html_path: dashboard.html\n"
         "  status_flush_every_n_segments: 5\n"
-        "  batch_fallback_warn_ratio: 0.12\n",
+        "  batch_fallback_warn_ratio: 0.12\n"
+        "  fail_fast_on_translate_error: false\n",
         encoding="utf-8",
     )
 
@@ -109,6 +117,9 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
     assert cfg.checker.system_prompt_path == str(checker_prompt.resolve())
     assert cfg.checker.pages_per_chunk == 3
     assert cfg.checker.fallback_segments_per_chunk == 80
+    assert cfg.checker.safe_output_path == "checker_safe.json"
+    assert cfg.checker.auto_apply_safe is True
+    assert cfg.checker.auto_apply_min_confidence == 0.85
     assert cfg.checker.openai_batch_enabled is True
     assert cfg.checker.openai_batch_completion_window == "24h"
     assert cfg.checker.openai_batch_poll_interval_s == 10.0
@@ -123,6 +134,7 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
     assert cfg.run.dashboard_html_path == str((tmp_path / "dashboard.html").resolve())
     assert cfg.run.status_flush_every_n_segments == 5
     assert cfg.run.batch_fallback_warn_ratio == 0.12
+    assert cfg.run.fail_fast_on_translate_error is False
 
 
 def test_load_config_reads_auto_model_sizing_flag(tmp_path):

@@ -13,7 +13,14 @@ from docx import Document
 from docx.oxml.ns import qn
 from tqdm import tqdm
 
-from .checker import CHECKER_SYSTEM_PROMPT, run_llm_checker, write_checker_suggestions
+from .checker import (
+    CHECKER_SYSTEM_PROMPT,
+    apply_checker_suggestions_to_segments,
+    filter_checker_suggestions,
+    run_llm_checker,
+    write_checker_safe_suggestions,
+    write_checker_suggestions,
+)
 from .config import PipelineConfig
 from .consistency import report_consistency
 from .dashboard_server import ensure_dashboard_html
@@ -29,7 +36,7 @@ from .llm import (
     supports_repair,
 )
 from .logging_utils import setup_logging
-from .model_sizing import recommend_runtime_model_sizing
+from .model_sizing import _median_source_chars, recommend_grouped_timeout_s, recommend_runtime_model_sizing
 from .models import Issue, Segment, Severity
 from .oxml_table_fix import normalize_abbyy_oxml
 from .pricing import PricingTable, load_pricing_table
@@ -404,6 +411,54 @@ def _build_tm_references_context(
         )
         consumed += line_cost
     return refs
+
+
+def _estimate_manual_batch_output_tokens(
+    *,
+    batch_segments: int,
+    batch_max_chars: int,
+    source_char_lengths: list[int],
+) -> int:
+    median_chars = _median_source_chars(source_char_lengths)
+    assumed_batch_chars = max(
+        max(1, int(batch_max_chars)),
+        max(1, int(batch_segments)) * max(1, int(median_chars)),
+    )
+    estimated_batch_output_chars = int(assumed_batch_chars * 1.35)
+    return int(estimated_batch_output_chars / 2.2) + 420
+
+
+def _effective_manual_max_output_tokens(
+    *,
+    auto_model_sizing: bool,
+    batch_segments: int,
+    batch_max_chars: int,
+    max_output_tokens: int,
+    source_char_lengths: list[int],
+) -> int:
+    if auto_model_sizing or int(batch_segments) <= 1:
+        return int(max_output_tokens)
+    estimated_output_tokens = _estimate_manual_batch_output_tokens(
+        batch_segments=int(batch_segments),
+        batch_max_chars=int(batch_max_chars),
+        source_char_lengths=source_char_lengths,
+    )
+    return max(int(max_output_tokens), int(estimated_output_tokens))
+
+
+def _recommended_grouped_batch_workers(
+    *,
+    concurrency: int,
+    grouped_jobs_count: int,
+    batch_max_chars: int,
+) -> int:
+    workers = min(max(1, int(concurrency)), max(1, int(grouped_jobs_count)))
+    chars = max(0, int(batch_max_chars))
+    if chars >= 100_000:
+        return min(workers, 2)
+    if chars >= 60_000:
+        return min(workers, 3)
+    return workers
 
 
 def _should_attach_neighbor_context(seg: Segment) -> bool:
@@ -1180,6 +1235,7 @@ def _translate_batch_group(
     llm_client,
     logger: logging.Logger,
 ) -> list[tuple[Segment, str, str, str, list[Issue]]]:
+    fail_fast = bool(cfg.run.fail_fast_on_translate_error)
     if len(jobs) == 1:
         seg, source_hash, source_norm = jobs[0]
         out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
@@ -1188,6 +1244,8 @@ def _translate_batch_group(
     try:
         batch_map = _translate_batch_once(llm_client, jobs)
     except Exception as e:
+        if fail_fast:
+            raise RuntimeError(f"Batch translate failed (size={len(jobs)}): {e}") from e
         logger.warning(f"Batch translate failed (size={len(jobs)}), fallback to single-segment: {e}")
         results: list[tuple[Segment, str, str, str, list[Issue]]] = []
         has_json_contract_error = _is_batch_json_contract_error(e)
@@ -1219,6 +1277,11 @@ def _translate_batch_group(
     for seg, source_hash, source_norm in jobs:
         candidate = batch_map.get(seg.segment_id)
         if candidate is None:
+            if fail_fast:
+                raise RuntimeError(
+                    "Batch response missed segment id "
+                    f"'{seg.segment_id}' (batch size={len(jobs)})."
+                )
             out, fallback_issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
             issues = [
                 Issue(
@@ -1234,6 +1297,11 @@ def _translate_batch_group(
 
         batch_issues = _validate_segment_candidate(seg, candidate)
         if any(i.severity == Severity.ERROR for i in batch_issues):
+            if fail_fast:
+                raise RuntimeError(
+                    "Batch output failed validation for segment "
+                    f"'{seg.segment_id}' (batch size={len(jobs)})."
+                )
             out, fallback_issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
             issues = [
                 Issue(
@@ -1500,6 +1568,7 @@ def translate_docx(
             "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
             "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
             "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
+            "checker_suggestions_safe": _to_dashboard_link(run_paths.checker_suggestions_safe_path),
             "checker_trace": _to_dashboard_link(run_paths.checker_trace_path),
         }
     )
@@ -1563,6 +1632,7 @@ def translate_docx(
     effective_batch_segments = cfg.llm.batch_segments
     effective_batch_max_chars = cfg.llm.batch_max_chars
     effective_llm_max_output_tokens = cfg.llm.max_output_tokens
+    effective_llm_timeout_s = float(cfg.llm.timeout_s)
     effective_checker_cfg = cfg.checker
     if cfg.llm.auto_model_sizing:
         checker_provider_for_sizing = (cfg.checker.provider or cfg.llm.provider).strip()
@@ -1611,6 +1681,45 @@ def translate_docx(
             int(effective_checker_cfg.fallback_segments_per_chunk),
             int(effective_checker_cfg.max_output_tokens),
         )
+    if not cfg.llm.auto_model_sizing and int(effective_batch_segments) > 1:
+        source_lengths = [len(seg.source_plain or "") for seg in segments]
+        estimated_output_tokens = _estimate_manual_batch_output_tokens(
+            batch_segments=int(effective_batch_segments),
+            batch_max_chars=int(effective_batch_max_chars),
+            source_char_lengths=source_lengths,
+        )
+        effective_manual_output_tokens = _effective_manual_max_output_tokens(
+            auto_model_sizing=False,
+            batch_segments=int(effective_batch_segments),
+            batch_max_chars=int(effective_batch_max_chars),
+            max_output_tokens=int(effective_llm_max_output_tokens),
+            source_char_lengths=source_lengths,
+        )
+        if int(effective_manual_output_tokens) > int(effective_llm_max_output_tokens):
+            logger.info(
+                "Auto-raised max_output_tokens to %d (batch content requires more than configured %d); "
+                "auto_model_sizing=false, batch=%dx%dchars, estimated_min=%d",
+                int(effective_manual_output_tokens),
+                int(cfg.llm.max_output_tokens),
+                int(effective_batch_segments),
+                int(effective_batch_max_chars),
+                int(estimated_output_tokens),
+            )
+            effective_llm_max_output_tokens = int(effective_manual_output_tokens)
+    timeout_before = float(effective_llm_timeout_s)
+    effective_llm_timeout_s = recommend_grouped_timeout_s(
+        timeout_s=timeout_before,
+        batch_segments=int(effective_batch_segments),
+        batch_max_chars=int(effective_batch_max_chars),
+    )
+    if float(effective_llm_timeout_s) > timeout_before:
+        logger.info(
+            "Auto-raised llm timeout_s to %.1f for grouped batches (prev=%.1f; batch=%dx%dchars)",
+            float(effective_llm_timeout_s),
+            float(timeout_before),
+            int(effective_batch_segments),
+            int(effective_batch_max_chars),
+        )
     tm_profile_key = _build_tm_profile_key(
         cfg,
         custom_system_prompt=custom_system_prompt,
@@ -1621,7 +1730,7 @@ def translate_docx(
         provider=cfg.llm.provider,
         model=cfg.llm.model,
         temperature=cfg.llm.temperature,
-        timeout_s=cfg.llm.timeout_s,
+        timeout_s=effective_llm_timeout_s,
         max_output_tokens=effective_llm_max_output_tokens,
         source_lang=cfg.llm.source_lang,
         target_lang=cfg.llm.target_lang,
@@ -1652,6 +1761,8 @@ def translate_docx(
     fuzzy_reference_segments = 0
     toc_inplace_translated = 0
     checker_suggestions_count = 0
+    checker_safe_suggestions_count = 0
+    checker_applied_suggestions = 0
     checker_requests_total = 0
     checker_requests_succeeded = 0
     checker_requests_failed = 0
@@ -1662,10 +1773,13 @@ def translate_docx(
     batch_attempted_segments = 0
     batch_fallback_segments = 0
     batch_json_schema_violations = 0
+    fail_fast_on_translate_error = bool(cfg.run.fail_fast_on_translate_error)
 
     def _flush_status(phase: str, *, force: bool = False) -> None:
         nonlocal processed_segments
         nonlocal checker_suggestions_count
+        nonlocal checker_safe_suggestions_count
+        nonlocal checker_applied_suggestions
         nonlocal checker_requests_total
         nonlocal checker_requests_succeeded
         nonlocal checker_requests_failed
@@ -1692,6 +1806,8 @@ def translate_docx(
                 "complex_in_place": complex_translated,
                 "toc_in_place": toc_inplace_translated,
                 "checker_suggestions": checker_suggestions_count,
+                "checker_safe_suggestions": checker_safe_suggestions_count,
+                "checker_applied_suggestions": checker_applied_suggestions,
                 "checker_requests_total": checker_requests_total,
                 "checker_requests_succeeded": checker_requests_succeeded,
                 "checker_requests_failed": checker_requests_failed,
@@ -1732,6 +1848,24 @@ def translate_docx(
             batch_fallback_segments += 1
         if "batch_json_schema_violation" in codes:
             batch_json_schema_violations += 1
+
+    def _record_translate_crash(seg: Segment, source_hash: str, err: Exception) -> None:
+        nonlocal processed_segments
+        seg.issues.append(
+            Issue(
+                code="translate_crash",
+                severity=Severity.ERROR,
+                message=f"Translate crash: {err}",
+                details={},
+            )
+        )
+        tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(err))
+        processed_segments += 1
+        _flush_status("translate")
+        if fail_fast_on_translate_error:
+            raise RuntimeError(
+                f"Translation aborted at segment '{seg.segment_id}' due to error: {err}"
+            ) from err
     if resume and segments:
         try:
             progress_cache = tm.get_progress_bulk([seg.segment_id for seg in segments])
@@ -1739,6 +1873,7 @@ def translate_docx(
         except Exception as e:
             logger.warning(f"Resume progress bulk load failed; fallback to per-segment lookup: {e}")
 
+    prepare_inplace_jobs: list[tuple[str, Segment, tuple[tuple[re.Pattern[str], str], ...]]] = []
     for seg in tqdm(segments, desc="Prepare", unit="seg"):
         prev_progress = progress_cache.get(seg.segment_id) if resume else None
 
@@ -1793,44 +1928,13 @@ def translate_docx(
 
         # Dedicated TOC flow: preserve tab/page layout and translate column chunks in-place.
         if seg.context.get("is_toc_entry"):
-            changed, toc_issues = _translate_complex_paragraph_in_place(
-                seg,
-                cfg,
-                llm_client,
-                complex_chunk_cache,
-                seg_glossary_terms,
-            )
-            seg.issues.extend(toc_issues)
-            if changed:
-                toc_inplace_translated += 1
-            processed_segments += 1
-            _flush_status("prepare")
+            prepare_inplace_jobs.append(("toc", seg, seg_glossary_terms))
             continue
 
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
         # to avoid reordering/corruption when rebuilding runs.
         if not is_supported_paragraph(seg.paragraph_ref):
-            changed, complex_issues = _translate_complex_paragraph_in_place(
-                seg,
-                cfg,
-                llm_client,
-                complex_chunk_cache,
-                seg_glossary_terms,
-            )
-            seg.issues.extend(complex_issues)
-            if changed:
-                complex_translated += 1
-            else:
-                seg.issues.append(
-                    Issue(
-                        code="skip_complex_paragraph",
-                        severity=Severity.INFO,
-                        message="Сегмент пропущен: сложная структура абзаца (не только runs) — оставлено как в исходнике",
-                        details={},
-                    )
-                )
-            processed_segments += 1
-            _flush_status("prepare")
+            prepare_inplace_jobs.append(("complex", seg, seg_glossary_terms))
             continue
         try:
             tagged, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
@@ -1922,6 +2026,64 @@ def translate_docx(
                     fuzzy_reference_segments += 1
             to_translate.append((seg, source_hash, source_norm))
 
+    if prepare_inplace_jobs:
+        toc_jobs = sum(1 for kind, _, _ in prepare_inplace_jobs if kind == "toc")
+        complex_jobs = len(prepare_inplace_jobs) - toc_jobs
+        workers = min(max(1, int(cfg.concurrency)), len(prepare_inplace_jobs))
+        logger.info(
+            "Prepare queued in-place segments: total=%d; toc=%d; complex=%d; workers=%d",
+            len(prepare_inplace_jobs),
+            int(toc_jobs),
+            int(complex_jobs),
+            int(workers),
+        )
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = {
+                ex.submit(
+                    _translate_complex_paragraph_in_place,
+                    seg,
+                    cfg,
+                    llm_client,
+                    complex_chunk_cache,
+                    seg_glossary_terms,
+                ): (kind, seg)
+                for kind, seg, seg_glossary_terms in prepare_inplace_jobs
+            }
+            for fut in tqdm(as_completed(futures), total=len(futures), desc="Prepare (in-place)", unit="seg"):
+                kind, seg = futures[fut]
+                try:
+                    changed, inplace_issues = fut.result()
+                except Exception as e:
+                    seg.issues.append(
+                        Issue(
+                            code="prepare_in_place_crash",
+                            severity=Severity.ERROR,
+                            message=f"Prepare in-place crash: {e}",
+                            details={"kind": kind},
+                        )
+                    )
+                    processed_segments += 1
+                    _flush_status("prepare")
+                    continue
+                seg.issues.extend(inplace_issues)
+                if kind == "toc":
+                    if changed:
+                        toc_inplace_translated += 1
+                else:
+                    if changed:
+                        complex_translated += 1
+                    else:
+                        seg.issues.append(
+                            Issue(
+                                code="skip_complex_paragraph",
+                                severity=Severity.INFO,
+                                message="Сегмент пропущен: сложная структура абзаца (не только runs) — оставлено как в исходнике",
+                                details={},
+                            )
+                        )
+                processed_segments += 1
+                _flush_status("prepare")
+
     logger.info(f"TM hits: {tm_hits}")
     if resume:
         logger.info(f"Resume hits: {resume_hits}")
@@ -1958,17 +2120,7 @@ def translate_docx(
                 try:
                     out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
                 except Exception as e:
-                    seg.issues.append(
-                        Issue(
-                            code="translate_crash",
-                            severity=Severity.ERROR,
-                            message=f"Translate crash: {e}",
-                            details={},
-                        )
-                    )
-                    tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
-                    processed_segments += 1
-                    _flush_status("translate")
+                    _record_translate_crash(seg, source_hash, e)
                     continue
                 _ingest_batch_issue_metrics(issues)
                 complex_translated += _finalize_translation_result(
@@ -2027,8 +2179,21 @@ def translate_docx(
                     logger.info("No grouped batches prepared after eligibility filtering.")
 
                 if grouped_jobs:
-                    batch_workers = min(max(1, cfg.concurrency), len(grouped_jobs))
-                    logger.info(f"Grouped batch workers: {batch_workers}")
+                    default_batch_workers = min(max(1, cfg.concurrency), len(grouped_jobs))
+                    batch_workers = _recommended_grouped_batch_workers(
+                        concurrency=cfg.concurrency,
+                        grouped_jobs_count=len(grouped_jobs),
+                        batch_max_chars=effective_batch_max_chars,
+                    )
+                    if batch_workers < default_batch_workers:
+                        logger.info(
+                            "Grouped batch workers auto-capped: %d -> %d (batch_max_chars=%d)",
+                            int(default_batch_workers),
+                            int(batch_workers),
+                            int(effective_batch_max_chars),
+                        )
+                    else:
+                        logger.info(f"Grouped batch workers: {batch_workers}")
                     with ThreadPoolExecutor(max_workers=batch_workers) as ex:
                         futures = {
                             ex.submit(_translate_batch_group, jobs, cfg, llm_client, logger): jobs
@@ -2039,6 +2204,10 @@ def translate_docx(
                             try:
                                 batch_results = fut.result()
                             except Exception as e:
+                                if fail_fast_on_translate_error:
+                                    raise RuntimeError(
+                                        f"Batch worker crashed (size={len(jobs)}): {e}"
+                                    ) from e
                                 logger.warning(
                                     f"Batch worker crashed (size={len(jobs)}), fallback to single-segment: {e}"
                                 )
@@ -2046,17 +2215,7 @@ def translate_docx(
                                     try:
                                         out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
                                     except Exception as single_err:
-                                        seg.issues.append(
-                                            Issue(
-                                                code="translate_crash",
-                                                severity=Severity.ERROR,
-                                                message=f"Translate crash: {single_err}",
-                                                details={},
-                                            )
-                                        )
-                                        tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(single_err))
-                                        processed_segments += 1
-                                        _flush_status("translate")
+                                        _record_translate_crash(seg, source_hash, single_err)
                                         continue
                                     issues = [
                                         Issue(
@@ -2126,17 +2285,7 @@ def translate_docx(
                             try:
                                 out, issues = fut.result()
                             except Exception as e:
-                                seg.issues.append(
-                                    Issue(
-                                        code="translate_crash",
-                                        severity=Severity.ERROR,
-                                        message=f"Translate crash: {e}",
-                                        details={},
-                                    )
-                                )
-                                tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
-                                processed_segments += 1
-                                _flush_status("translate")
+                                _record_translate_crash(seg, source_hash, e)
                                 continue
 
                             issues = [
@@ -2177,17 +2326,7 @@ def translate_docx(
                         try:
                             out, issues = fut.result()
                         except Exception as e:
-                            seg.issues.append(
-                                Issue(
-                                    code="translate_crash",
-                                    severity=Severity.ERROR,
-                                    message=f"Translate crash: {e}",
-                                    details={},
-                                )
-                            )
-                            tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
-                            processed_segments += 1
-                            _flush_status("translate")
+                            _record_translate_crash(seg, source_hash, e)
                             continue
 
                         _ingest_batch_issue_metrics(issues)
@@ -2362,6 +2501,15 @@ def translate_docx(
             logger,
             "checker system prompt",
         )
+        checker_glossary_text = (
+            _read_optional_text(
+                effective_checker_cfg.glossary_path,
+                logger,
+                "checker glossary",
+            )
+            if effective_checker_cfg.glossary_path
+            else glossary_text
+        )
         checker_client = build_llm_client(
             provider=checker_provider,
             model=checker_model,
@@ -2372,8 +2520,8 @@ def translate_docx(
             target_lang=cfg.llm.target_lang,
             base_url=cfg.llm.base_url,
             custom_system_prompt=checker_custom_prompt,
-            glossary_text=None,
-            glossary_prompt_text=None,
+            glossary_text=checker_glossary_text,
+            glossary_prompt_text=checker_glossary_text,
             reasoning_effort=cfg.llm.reasoning_effort,
             prompt_cache_key=cfg.llm.prompt_cache_key,
             prompt_cache_retention=cfg.llm.prompt_cache_retention,
@@ -2399,8 +2547,44 @@ def translate_docx(
         checker_requests_failed = int(checker_trace_stats.get("requests_failed", 0))
         checker_chunks_failed = int(checker_trace_stats.get("chunks_failed", 0))
         checker_suggestions_count = len(checker_edits)
+        checker_safe_edits, checker_safe_skipped = filter_checker_suggestions(
+            checker_edits,
+            safe_only=True,
+            min_confidence=float(effective_checker_cfg.auto_apply_min_confidence),
+        )
+        checker_safe_suggestions_count = len(checker_safe_edits)
         write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+        write_checker_safe_suggestions(
+            run_paths.checker_suggestions_safe_path,
+            source_edits=checker_edits,
+            safe_edits=checker_safe_edits,
+            skipped=checker_safe_skipped,
+        )
         logger.info("Checker suggestions: %d (%s)", checker_suggestions_count, run_paths.checker_suggestions_path)
+        logger.info(
+            "Checker safe suggestions: %d/%d (%s)",
+            checker_safe_suggestions_count,
+            checker_suggestions_count,
+            run_paths.checker_suggestions_safe_path,
+        )
+        if effective_checker_cfg.auto_apply_safe and checker_safe_edits:
+            apply_summary = apply_checker_suggestions_to_segments(
+                segments=segments,
+                edits=checker_safe_edits,
+                safe_only=True,
+                min_confidence=float(effective_checker_cfg.auto_apply_min_confidence),
+                require_current_match=True,
+                logger=logger,
+            )
+            checker_applied_suggestions = int(apply_summary.get("applied", 0))
+            if checker_applied_suggestions > 0:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                doc.save(str(output_path))
+                logger.info(
+                    "Checker safe auto-apply wrote updated DOCX: applied=%d; output=%s",
+                    checker_applied_suggestions,
+                    output_path,
+                )
         logger.info(
             "Checker requests: total=%d; ok=%d; failed=%d; chunks_failed=%d",
             checker_requests_total,
@@ -2412,6 +2596,8 @@ def translate_docx(
         status_writer.merge_metrics(
             {
                 "checker_suggestions": checker_suggestions_count,
+                "checker_safe_suggestions": checker_safe_suggestions_count,
+                "checker_applied_suggestions": checker_applied_suggestions,
                 "checker_requests_total": checker_requests_total,
                 "checker_requests_succeeded": checker_requests_succeeded,
                 "checker_requests_failed": checker_requests_failed,
@@ -2420,10 +2606,28 @@ def translate_docx(
             }
         )
         status_writer.write(force=True)
-    elif not run_paths.checker_trace_path.exists():
-        run_paths.checker_trace_path.write_text("", encoding="utf-8")
-    elif not run_paths.checker_suggestions_path.exists():
+    else:
+        if not run_paths.checker_trace_path.exists():
+            run_paths.checker_trace_path.write_text("", encoding="utf-8")
+        if not run_paths.checker_suggestions_path.exists():
+            write_checker_suggestions(run_paths.checker_suggestions_path, [])
+        if not run_paths.checker_suggestions_safe_path.exists():
+            write_checker_safe_suggestions(
+                run_paths.checker_suggestions_safe_path,
+                source_edits=[],
+                safe_edits=[],
+                skipped=[],
+            )
+
+    if not run_paths.checker_suggestions_path.exists():
         write_checker_suggestions(run_paths.checker_suggestions_path, [])
+    if not run_paths.checker_suggestions_safe_path.exists():
+        write_checker_safe_suggestions(
+            run_paths.checker_suggestions_safe_path,
+            source_edits=[],
+            safe_edits=[],
+            skipped=[],
+        )
 
     # QA outputs
     status_writer.set_phase("qa")
@@ -2462,6 +2666,8 @@ def translate_docx(
     status_writer.merge_metrics(
         {
             "checker_suggestions": checker_suggestions_count,
+            "checker_safe_suggestions": checker_safe_suggestions_count,
+            "checker_applied_suggestions": checker_applied_suggestions,
             "checker_requests_total": checker_requests_total,
             "checker_requests_succeeded": checker_requests_succeeded,
             "checker_requests_failed": checker_requests_failed,

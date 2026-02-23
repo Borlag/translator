@@ -3,15 +3,20 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .config import CheckerConfig
 from .models import Issue, Segment, Severity
+from .tagging import paragraph_to_tagged, tagged_to_runs
+from .validator import validate_placeholders, validate_style_tokens
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
 _PDF_PAGE_RE = re.compile(r"/p(\d+)(?:/|$)", flags=re.IGNORECASE)
+_SPACE_RE = re.compile(r"\s+")
+_NOCHANGE_INSTRUCTION_RE = re.compile(r"\bno\s+change\s+needed\b|без\s+изменени", flags=re.IGNORECASE)
 
 CHECKER_SYSTEM_PROMPT = """You are a bilingual EN->RU translation quality checker.
 Your job is to find concrete translation defects and suggest exact replacement wording.
@@ -82,6 +87,95 @@ def _segment_target_text(seg: Segment) -> str:
     if isinstance(fallback, str) and fallback.strip():
         return fallback
     return ""
+
+
+def _compact_text(text: Any, *, max_chars: int = 220) -> str:
+    value = _SPACE_RE.sub(" ", str(text or "")).strip()
+    if not value:
+        return ""
+    if len(value) <= max_chars:
+        return value
+    return value[: max_chars - 3].rstrip() + "..."
+
+
+def _segment_context_payload(seg: Segment) -> dict[str, Any]:
+    issues = [
+        {"code": issue.code, "severity": issue.severity.value}
+        for issue in seg.issues[:6]
+    ]
+    section_header = _compact_text(seg.context.get("section_header"), max_chars=160)
+    paragraph_style = _compact_text(seg.context.get("paragraph_style"), max_chars=80)
+    prev_source = _compact_text(seg.context.get("prev_text"), max_chars=140)
+    next_source = _compact_text(seg.context.get("next_text"), max_chars=140)
+    style_norm = paragraph_style.strip().lower()
+    heading_like = any(token in style_norm for token in ("heading", "title", "toc", "заголов", "оглавл"))
+    payload: dict[str, Any] = {
+        "part": str(seg.context.get("part") or ""),
+        "section_header": section_header,
+        "paragraph_style": paragraph_style,
+        "heading_like": heading_like,
+        "in_table": bool(seg.context.get("in_table")),
+        "in_textbox": bool(seg.context.get("in_textbox")),
+        "is_toc_entry": bool(seg.context.get("is_toc_entry")),
+        "issues": issues,
+    }
+    if prev_source:
+        payload["prev_source"] = prev_source
+    if next_source:
+        payload["next_source"] = next_source
+    row_index = seg.context.get("row_index")
+    col_index = seg.context.get("col_index")
+    if isinstance(row_index, int):
+        payload["row_index"] = row_index
+    if isinstance(col_index, int):
+        payload["col_index"] = col_index
+    return payload
+
+
+def _normalize_text_for_compare(text: Any) -> str:
+    return _SPACE_RE.sub(" ", str(text or "")).strip()
+
+
+def _coerce_confidence(value: Any) -> float:
+    try:
+        confidence = float(value)
+    except Exception:
+        confidence = 0.0
+    return max(0.0, min(1.0, confidence))
+
+
+def _evaluate_checker_edit(
+    *,
+    edit: dict[str, Any],
+    current_target: str,
+    safe_only: bool,
+    min_confidence: float,
+) -> list[str]:
+    reasons: list[str] = []
+    current = _normalize_text_for_compare(current_target)
+    suggested = _normalize_text_for_compare(edit.get("suggested_target"))
+    instruction = str(edit.get("instruction") or "").strip()
+
+    if not suggested:
+        reasons.append("missing_suggested_target")
+    if not instruction:
+        reasons.append("missing_instruction")
+    if current and suggested and current == suggested:
+        reasons.append("no_op")
+    if instruction and _NOCHANGE_INSTRUCTION_RE.search(instruction):
+        reasons.append("nochange_instruction")
+
+    confidence = _coerce_confidence(edit.get("confidence"))
+    if confidence < float(min_confidence):
+        reasons.append("low_confidence")
+
+    if safe_only and current and suggested:
+        if validate_style_tokens(current, suggested):
+            reasons.append("style_tags_mismatch")
+        if validate_placeholders(current, suggested):
+            reasons.append("placeholders_mismatch")
+
+    return reasons
 
 
 def _collect_used_glossary_terms(chunk: list[Segment], *, limit: int = 200) -> list[dict[str, str]]:
@@ -185,6 +279,10 @@ def _build_checker_prompt(
         "TASK: CHECK_TRANSLATION_CHUNK\n"
         "Compare SOURCE and TARGET for each segment.\n"
         "Focus on terminology, meaning loss, dangerous ambiguity, and wrong technical phrasing.\n"
+        "Use segment context (section_header, paragraph_style, heading_like, part, location, in_table, in_textbox, is_toc_entry, prev_source, next_source) to judge headings/labels/tables correctly.\n"
+        "For heading-like segments, keep concise title style and section intent; do not rewrite as full prose sentences.\n"
+        "For TOC-style segments, preserve leader dots, numbering, and page references unless SOURCE clearly differs.\n"
+        "For tables/textboxes, preserve units, abbreviations, and compact label phrasing.\n"
         "If there is no issue, return empty edits list.\n"
         "Return ONLY JSON object with schema:\n"
         "{\n"
@@ -207,6 +305,9 @@ def _build_checker_prompt(
         "- Use only segment_id values from input.\n"
         "- suggested_target must be final replacement text for this segment.\n"
         "- instruction must explicitly say what to replace.\n"
+        "- Never remove, reorder, or mutate any marker token like ⟦S_*⟧, ⟦/S_*⟧, ⟦OBJ_*⟧, ⟦BR*_*⟧.\n"
+        "- If correction cannot be made without changing marker tokens, do not emit an edit.\n"
+        "- Do not return no-op edits (where suggested_target == current_target).\n"
         "- Do not include markdown.\n"
         "INPUT_JSON:\n"
         f"{json.dumps(payload, ensure_ascii=False)}"
@@ -321,6 +422,7 @@ def _run_llm_checker_openai_batch(
                 "location": seg.location,
                 "source": seg.source_plain,
                 "target": _segment_target_text(seg),
+                "context": _segment_context_payload(seg),
             }
             for seg in candidates
         ]
@@ -585,6 +687,7 @@ def run_llm_checker(
                     "location": seg.location,
                     "source": seg.source_plain,
                     "target": _segment_target_text(seg),
+                    "context": _segment_context_payload(seg),
                 }
                 for seg in current_candidates
             ]
@@ -758,3 +861,192 @@ def write_checker_suggestions(path: Path, edits: list[dict[str, Any]]) -> None:
         "edits": edits,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def read_checker_suggestions(path: Path) -> list[dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError("checker suggestions payload must be a JSON object")
+    raw = payload.get("edits")
+    if raw is None:
+        raw = payload.get("safe_edits")
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict):
+            out.append(item)
+    return out
+
+
+def filter_checker_suggestions(
+    edits: list[dict[str, Any]],
+    *,
+    safe_only: bool = True,
+    min_confidence: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    safe: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    conf_floor = max(0.0, min(1.0, float(min_confidence)))
+
+    for edit in edits:
+        current_target = str(edit.get("current_target") or "")
+        reasons = _evaluate_checker_edit(
+            edit=edit,
+            current_target=current_target,
+            safe_only=bool(safe_only),
+            min_confidence=conf_floor,
+        )
+        if reasons:
+            skipped.append(
+                {
+                    "segment_id": edit.get("segment_id"),
+                    "location": edit.get("location"),
+                    "chunk_id": edit.get("chunk_id"),
+                    "confidence": _coerce_confidence(edit.get("confidence")),
+                    "reasons": reasons,
+                }
+            )
+            continue
+        safe.append(edit)
+    return safe, skipped
+
+
+def write_checker_safe_suggestions(
+    path: Path,
+    *,
+    source_edits: list[dict[str, Any]],
+    safe_edits: list[dict[str, Any]],
+    skipped: list[dict[str, Any]],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "count": len(safe_edits),
+        "source_count": len(source_edits),
+        "skipped_count": len(skipped),
+        "safe_edits": safe_edits,
+        "skipped": skipped,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def apply_checker_suggestions_to_segments(
+    *,
+    segments: list[Segment],
+    edits: list[dict[str, Any]],
+    safe_only: bool = True,
+    min_confidence: float = 0.0,
+    require_current_match: bool = True,
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    seg_by_id = {seg.segment_id: seg for seg in segments}
+    seg_by_location = {seg.location: seg for seg in segments if seg.location}
+    conf_floor = max(0.0, min(1.0, float(min_confidence)))
+    skipped_reasons: Counter[str] = Counter()
+    applied = 0
+    skipped = 0
+
+    for edit in edits:
+        segment_id = str(edit.get("segment_id") or "").strip()
+        location = str(edit.get("location") or "").strip()
+        seg = seg_by_id.get(segment_id)
+        if seg is None and location:
+            seg = seg_by_location.get(location)
+        if seg is None:
+            skipped += 1
+            skipped_reasons["segment_not_found"] += 1
+            continue
+
+        current_target = _segment_target_text(seg)
+        if not current_target:
+            if seg.paragraph_ref is None:
+                skipped += 1
+                skipped_reasons["segment_has_no_paragraph_ref"] += 1
+                continue
+            try:
+                tagged, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
+            except Exception:
+                skipped += 1
+                skipped_reasons["segment_tagging_failed"] += 1
+                continue
+            seg.spans = spans
+            seg.inline_run_map = inline_map
+            current_target = tagged
+            seg.target_tagged = tagged
+
+        if seg.spans is None:
+            if seg.paragraph_ref is None:
+                skipped += 1
+                skipped_reasons["segment_spans_missing"] += 1
+                continue
+            try:
+                _, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
+            except Exception:
+                skipped += 1
+                skipped_reasons["segment_spans_rebuild_failed"] += 1
+                continue
+            seg.spans = spans
+            seg.inline_run_map = inline_map
+        if seg.inline_run_map is None:
+            seg.inline_run_map = {}
+
+        edit_current = _normalize_text_for_compare(edit.get("current_target"))
+        seg_current = _normalize_text_for_compare(current_target)
+        if require_current_match and edit_current and seg_current and edit_current != seg_current:
+            skipped += 1
+            skipped_reasons["current_target_mismatch"] += 1
+            continue
+
+        reasons = _evaluate_checker_edit(
+            edit=edit,
+            current_target=current_target,
+            safe_only=bool(safe_only),
+            min_confidence=conf_floor,
+        )
+        if reasons:
+            skipped += 1
+            for reason in reasons:
+                skipped_reasons[reason] += 1
+            continue
+
+        suggested = str(edit.get("suggested_target") or "")
+        try:
+            tagged_to_runs(
+                seg.paragraph_ref,
+                suggested,
+                seg.spans,
+                inline_run_map=seg.inline_run_map,
+            )
+        except Exception:
+            skipped += 1
+            skipped_reasons["write_error"] += 1
+            continue
+
+        seg.target_tagged = suggested
+        if seg.context is not None:
+            seg.context["checker_applied"] = True
+        applied += 1
+
+    summary = {
+        "requested": len(edits),
+        "applied": applied,
+        "skipped": skipped,
+        "safe_only": bool(safe_only),
+        "min_confidence": conf_floor,
+        "require_current_match": bool(require_current_match),
+        "skipped_reasons": dict(skipped_reasons),
+    }
+    if logger is not None:
+        logger.info(
+            "Checker suggestions apply: requested=%d; applied=%d; skipped=%d; safe_only=%s",
+            len(edits),
+            applied,
+            skipped,
+            bool(safe_only),
+        )
+        if skipped_reasons:
+            logger.info(
+                "Checker apply skipped reasons: %s",
+                ", ".join(f"{reason}={count}" for reason, count in skipped_reasons.most_common()),
+            )
+    return summary

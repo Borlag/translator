@@ -50,7 +50,7 @@ pdf:
 checker:
   enabled: false
   provider: null           # null = reuse llm.provider
-  model: null              # null = reuse llm.model
+  model: gpt-5-mini        # null = reuse llm.model; gpt-5-mini is recommended for higher-quality checker edits
   temperature: 0.0
   max_output_tokens: 2000
   timeout_s: 60.0
@@ -63,6 +63,9 @@ checker:
   only_on_issue_severities: ["warn", "error"] # if empty, checker audits all translated segments
   only_on_issue_codes: []  # optional deterministic issue-code filter
   output_path: checker_suggestions.json
+  safe_output_path: checker_suggestions_safe.json # auto-filtered no-op/token-safe subset
+  auto_apply_safe: false   # true = auto-apply safe checker edits into output DOCX
+  auto_apply_min_confidence: 0.7 # safe auto-apply confidence floor [0..1]
   openai_batch_enabled: false # async overnight checker via OpenAI Batch API (requires openai checker provider)
   openai_batch_completion_window: "24h"
   openai_batch_poll_interval_s: 20.0
@@ -79,6 +82,7 @@ run:
   status_path: null        # null = <run_dir>/run_status.json
   dashboard_html_path: null # null = <run_dir>/dashboard.html
   status_flush_every_n_segments: 10
+  fail_fast_on_translate_error: true # true = stop translation immediately on LLM translate errors
 
 include_headers: false
 include_footers: false

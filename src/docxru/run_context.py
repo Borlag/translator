@@ -20,6 +20,7 @@ class RunPaths:
     qa_report_path: Path
     qa_jsonl_path: Path
     checker_suggestions_path: Path
+    checker_suggestions_safe_path: Path
     checker_trace_path: Path
 
 
@@ -49,6 +50,11 @@ def resolve_run_paths(cfg: PipelineConfig, *, output_path: Path) -> RunPaths:
         checker_suggestions_path = checker_path
     else:
         checker_suggestions_path = run_dir / checker_path
+    checker_safe_path = Path(cfg.checker.safe_output_path)
+    if checker_safe_path.is_absolute():
+        checker_suggestions_safe_path = checker_safe_path
+    else:
+        checker_suggestions_safe_path = run_dir / checker_safe_path
     checker_trace_path = run_dir / "checker_trace.jsonl"
 
     return RunPaths(
@@ -59,5 +65,6 @@ def resolve_run_paths(cfg: PipelineConfig, *, output_path: Path) -> RunPaths:
         qa_report_path=qa_report_path,
         qa_jsonl_path=qa_jsonl_path,
         checker_suggestions_path=checker_suggestions_path,
+        checker_suggestions_safe_path=checker_suggestions_safe_path,
         checker_trace_path=checker_trace_path,
     )

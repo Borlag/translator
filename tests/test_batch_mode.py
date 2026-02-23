@@ -4,15 +4,17 @@ import logging
 
 import pytest
 
-from docxru.config import LLMConfig, PipelineConfig
+from docxru.config import LLMConfig, PipelineConfig, RunConfig
 from docxru.models import Segment
 from docxru.pipeline import (
     _batch_ineligibility_reasons,
     _build_batch_translation_prompt,
     _chunk_translation_jobs,
+    _effective_manual_max_output_tokens,
     _parse_batch_translation_output,
-    _translate_batch_once,
+    _recommended_grouped_batch_workers,
     _translate_batch_group,
+    _translate_batch_once,
 )
 
 
@@ -144,7 +146,10 @@ def test_translate_batch_group_marks_json_schema_violation():
             return "OK"
 
     jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
-    cfg = PipelineConfig(llm=LLMConfig(retries=1))
+    cfg = PipelineConfig(
+        llm=LLMConfig(retries=1),
+        run=RunConfig(fail_fast_on_translate_error=False),
+    )
 
     results = _translate_batch_group(jobs, cfg, FakeClient(), logging.getLogger("test"))
 
@@ -153,6 +158,25 @@ def test_translate_batch_group_marks_json_schema_violation():
         codes = {issue.code for issue in issues}
         assert "batch_fallback_single" in codes
         assert "batch_json_schema_violation" in codes
+
+
+def test_translate_batch_group_fail_fast_raises_on_batch_error():
+    class FakeClient:
+        supports_repair = True
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            del text
+            del context
+            raise RuntimeError("The read operation timed out")
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
+    cfg = PipelineConfig(
+        llm=LLMConfig(retries=1),
+        run=RunConfig(fail_fast_on_translate_error=True),
+    )
+
+    with pytest.raises(RuntimeError, match="Batch translate failed"):
+        _translate_batch_group(jobs, cfg, FakeClient(), logging.getLogger("test"))
 
 
 def test_build_batch_translation_prompt_mentions_context_and_glossary():
@@ -205,3 +229,43 @@ def test_translate_batch_once_includes_per_item_context_and_glossary_in_prompt()
     assert "TABLE_CELL" in fake.prompt
     assert '"glossary"' in fake.prompt
     assert "Main Fitting" in fake.prompt
+
+
+def test_effective_manual_max_output_tokens_auto_raises_for_large_grouped_batches():
+    raised = _effective_manual_max_output_tokens(
+        auto_model_sizing=False,
+        batch_segments=20,
+        batch_max_chars=36_000,
+        max_output_tokens=2_400,
+        source_char_lengths=[450, 500, 520, 470, 610, 390],
+    )
+    assert raised > 2_400
+
+
+def test_effective_manual_max_output_tokens_keeps_single_segment_budget():
+    kept = _effective_manual_max_output_tokens(
+        auto_model_sizing=False,
+        batch_segments=1,
+        batch_max_chars=36_000,
+        max_output_tokens=2_400,
+        source_char_lengths=[450, 500, 520],
+    )
+    assert kept == 2_400
+
+
+def test_recommended_grouped_batch_workers_caps_huge_batches():
+    workers = _recommended_grouped_batch_workers(
+        concurrency=4,
+        grouped_jobs_count=10,
+        batch_max_chars=120_000,
+    )
+    assert workers == 2
+
+
+def test_recommended_grouped_batch_workers_respects_default_for_regular_batches():
+    workers = _recommended_grouped_batch_workers(
+        concurrency=4,
+        grouped_jobs_count=3,
+        batch_max_chars=18_000,
+    )
+    assert workers == 3

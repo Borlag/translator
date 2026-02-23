@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+from contextlib import suppress
 from pathlib import Path
 
 from docxru.studio_server import (
+    StudioRun,
     StudioRunManager,
     _build_studio_html,
     _default_model_for_provider,
@@ -43,6 +47,8 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
         checker_temperature=0.0,
         checker_max_output_tokens=1500,
         checker_openai_batch_enabled=True,
+        checker_auto_apply_safe=True,
+        checker_auto_apply_min_confidence=0.8,
         run_base_dir=tmp_path / "runs",
         run_id=run_id,
         run_dir=run_dir,
@@ -59,8 +65,12 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
     assert payload["checker"]["pages_per_chunk"] == 3
     assert payload["checker"]["fallback_segments_per_chunk"] == 80
     assert payload["checker"]["openai_batch_enabled"] is True
+    assert payload["checker"]["safe_output_path"] == "checker_suggestions_safe.json"
+    assert payload["checker"]["auto_apply_safe"] is True
+    assert payload["checker"]["auto_apply_min_confidence"] == 0.8
     assert payload["run"]["run_id"] == run_id
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.08
+    assert payload["run"]["fail_fast_on_translate_error"] is True
     assert payload["concurrency"] == 3
 
 
@@ -83,6 +93,8 @@ def test_studio_build_config_payload_can_enable_sequential_context_mode(tmp_path
         checker_temperature=0.0,
         checker_max_output_tokens=2000,
         checker_openai_batch_enabled=False,
+        checker_auto_apply_safe=False,
+        checker_auto_apply_min_confidence=0.7,
         run_base_dir=tmp_path / "runs",
         run_id="run_seq",
         run_dir=tmp_path / "runs" / "run_seq",
@@ -112,6 +124,8 @@ def test_studio_build_config_payload_can_enable_grouped_aggressive_mode(tmp_path
         checker_temperature=0.0,
         checker_max_output_tokens=2000,
         checker_openai_batch_enabled=False,
+        checker_auto_apply_safe=False,
+        checker_auto_apply_min_confidence=0.7,
         run_base_dir=tmp_path / "runs",
         run_id="run_agg",
         run_dir=tmp_path / "runs" / "run_agg",
@@ -119,8 +133,42 @@ def test_studio_build_config_payload_can_enable_grouped_aggressive_mode(tmp_path
     assert payload["llm"]["batch_segments"] == 20
     assert payload["llm"]["batch_max_chars"] == 36000
     assert payload["llm"]["context_window_chars"] == 0
-    assert payload["llm"]["auto_model_sizing"] is False
+    assert payload["llm"]["auto_model_sizing"] is True
+    assert payload["llm"]["timeout_s"] == 180.0
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.12
+
+
+def test_studio_build_config_payload_can_enable_grouped_turbo_mode(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+    payload = manager._build_config_payload(  # noqa: SLF001 - intentional for unit-level validation
+        provider="openai",
+        model="gpt-5-mini",
+        temperature=0.1,
+        max_output_tokens=2000,
+        concurrency=2,
+        translation_grouping_mode="grouped_turbo",
+        prompt_path=None,
+        glossary_path=None,
+        checker_enabled=False,
+        checker_provider=None,
+        checker_model=None,
+        checker_pages_per_chunk=3,
+        checker_fallback_segments_per_chunk=120,
+        checker_temperature=0.0,
+        checker_max_output_tokens=2000,
+        checker_openai_batch_enabled=False,
+        checker_auto_apply_safe=False,
+        checker_auto_apply_min_confidence=0.7,
+        run_base_dir=tmp_path / "runs",
+        run_id="run_turbo",
+        run_dir=tmp_path / "runs" / "run_turbo",
+    )
+    assert payload["llm"]["batch_segments"] == 80
+    assert payload["llm"]["batch_max_chars"] == 120_000
+    assert payload["llm"]["context_window_chars"] == 0
+    assert payload["llm"]["auto_model_sizing"] is True
+    assert payload["llm"]["timeout_s"] == 360.0
+    assert payload["run"]["batch_fallback_warn_ratio"] == 0.20
 
 
 def test_default_model_for_provider():
@@ -130,7 +178,8 @@ def test_default_model_for_provider():
     assert _default_model_for_provider("mock") == "mock"
 
 
-def test_list_openai_models_without_key_returns_fallback():
+def test_list_openai_models_without_key_returns_fallback(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     models = _list_openai_models("")
     assert "gpt-4o-mini" in models
 
@@ -140,7 +189,11 @@ def test_studio_html_contains_checker_trace_widgets():
     assert "checkerTraceLink" in html
     assert "checkerTraceTail" in html
     assert "checkerOpenaiBatch" in html
+    assert "checkerAutoApplySafe" in html
+    assert "applyCheckerBtn" in html
     assert "grouped_aggressive" in html
+    assert "grouped_turbo" in html
+    assert "stopRunBtn" in html
     assert "estimateBtn" in html
     assert "estimateHint" in html
 
@@ -156,6 +209,23 @@ def test_estimate_request_latency_bounds_openai_gpt5_grouped_is_higher_than_seq(
     grp_low, grp_high = _estimate_request_latency_bounds_seconds("openai", "gpt-5-mini", grouped_mode=True)
     assert grp_low > seq_low
     assert grp_high > seq_high
+
+
+def test_estimate_request_latency_bounds_scales_for_large_grouped_batches():
+    base_low, base_high = _estimate_request_latency_bounds_seconds(
+        "openai",
+        "gpt-5-mini",
+        grouped_mode=True,
+        batch_max_chars=36_000,
+    )
+    turbo_low, turbo_high = _estimate_request_latency_bounds_seconds(
+        "openai",
+        "gpt-5-mini",
+        grouped_mode=True,
+        batch_max_chars=120_000,
+    )
+    assert turbo_low > base_low
+    assert turbo_high > base_high
 
 
 def test_studio_field_readers_do_not_require_mapping_get(tmp_path):
@@ -178,3 +248,74 @@ def test_studio_field_readers_do_not_require_mapping_get(tmp_path):
     form = _FakeForm()
     assert manager._read_text_value(form, "provider", "mock") == "openai"  # noqa: SLF001
     assert manager._read_text_value(form, "missing", "mock") == "mock"  # noqa: SLF001
+
+
+def test_studio_run_manager_can_force_stop_running_translation_process(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+    run_id = "run_stop"
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        start_new_session=True,
+    )
+    run = StudioRun(
+        run_id=run_id,
+        run_dir=run_dir,
+        source_path=run_dir / "input.docx",
+        output_path=run_dir / "translated.docx",
+        config_path=run_dir / "config.studio.yaml",
+        log_path=run_dir / "studio_process.log",
+        status_path=run_dir / "run_status.json",
+        command=[sys.executable, "-m", "docxru", "translate"],
+        process=process,
+        started_at="2026-02-23T00:00:00+00:00",
+    )
+    manager._runs[run_id] = run  # noqa: SLF001 - unit-level hook
+    try:
+        payload = manager.stop_run(run_id)
+        assert payload["ok"] is True
+        assert payload["stopped"] is True
+        status = manager.get_status(run_id)
+        assert status["state"] == "cancelled"
+        assert status["stop_requested_at"]
+        assert status["stop_completed_at"]
+    finally:
+        with suppress(Exception):
+            if process.poll() is None:
+                process.kill()
+
+
+def test_studio_run_manager_stop_run_on_finished_process_is_noop(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+    run_id = "run_done"
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    process = subprocess.Popen(
+        [sys.executable, "-c", "print('ok')"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        start_new_session=True,
+    )
+    process.wait(timeout=10)
+    run = StudioRun(
+        run_id=run_id,
+        run_dir=run_dir,
+        source_path=run_dir / "input.docx",
+        output_path=run_dir / "translated.docx",
+        config_path=run_dir / "config.studio.yaml",
+        log_path=run_dir / "studio_process.log",
+        status_path=run_dir / "run_status.json",
+        command=[sys.executable, "-m", "docxru", "translate"],
+        process=process,
+        started_at="2026-02-23T00:00:00+00:00",
+    )
+    manager._runs[run_id] = run  # noqa: SLF001 - unit-level hook
+    payload = manager.stop_run(run_id)
+    assert payload["ok"] is True
+    assert payload["already_finished"] is True
+    assert payload["stopped"] is False

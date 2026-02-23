@@ -4,6 +4,7 @@ import cgi
 import io
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -20,12 +21,20 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import yaml
+from docx import Document
 
+from .checker import (
+    apply_checker_suggestions_to_segments,
+    filter_checker_suggestions,
+    read_checker_suggestions,
+    write_checker_safe_suggestions,
+)
+from .config import load_config
 from .dashboard_server import ensure_dashboard_html
 from .docx_reader import collect_segments
-from .model_sizing import recommend_runtime_model_sizing
+from .model_sizing import recommend_grouped_timeout_s, recommend_runtime_model_sizing
 from .pipeline import _should_translate_segment_text
-from .tagging import is_supported_paragraph
+from .tagging import is_supported_paragraph, paragraph_to_tagged
 
 DEFAULT_OPENAI_MODELS: tuple[str, ...] = (
     "gpt-5.2",
@@ -117,6 +126,65 @@ def _open_path(path: Path) -> None:
     subprocess.Popen(["xdg-open", str(path)])
 
 
+def _kill_process_tree(process: subprocess.Popen[str], *, wait_timeout_s: float = 8.0) -> tuple[bool, str]:
+    if process.poll() is not None:
+        return True, "already_exited"
+
+    pid = int(getattr(process, "pid", 0) or 0)
+    if pid <= 0:
+        return False, "invalid_pid"
+
+    if sys.platform.startswith("win"):
+        with suppress(Exception):
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=max(1.0, float(wait_timeout_s)),
+            )
+        with suppress(Exception):
+            process.wait(timeout=max(1.0, float(wait_timeout_s)))
+        if process.poll() is not None:
+            return True, "taskkill"
+        with suppress(Exception):
+            process.kill()
+            process.wait(timeout=1.5)
+        if process.poll() is not None:
+            return True, "kill_fallback"
+        return False, "timeout"
+
+    # POSIX: process is started with start_new_session=True, so its process group is isolated.
+    sent_group_term = False
+    with suppress(Exception):
+        pgid = os.getpgid(pid)
+        if pgid > 0:
+            os.killpg(pgid, signal.SIGTERM)
+            sent_group_term = True
+    if not sent_group_term:
+        with suppress(Exception):
+            process.terminate()
+    with suppress(Exception):
+        process.wait(timeout=2.0)
+    if process.poll() is not None:
+        return True, "sigterm_group" if sent_group_term else "terminate"
+
+    sent_group_kill = False
+    with suppress(Exception):
+        pgid = os.getpgid(pid)
+        if pgid > 0:
+            os.killpg(pgid, signal.SIGKILL)
+            sent_group_kill = True
+    if not sent_group_kill:
+        with suppress(Exception):
+            process.kill()
+    with suppress(Exception):
+        process.wait(timeout=max(1.0, float(wait_timeout_s)))
+    if process.poll() is not None:
+        return True, "sigkill_group" if sent_group_kill else "kill"
+    return False, "timeout"
+
+
 def _list_openai_models(api_key: str | None = None) -> list[str]:
     key = (api_key or "").strip() or (os.environ.get("OPENAI_API_KEY", "").strip())
     if not key:
@@ -180,16 +248,26 @@ def _translation_grouping_profile(mode: str) -> tuple[str, dict[str, Any], float
         )
     if key == "grouped_aggressive":
         # Aggressive mode increases throughput by allowing larger grouped requests.
-        # Keep auto sizing off to avoid re-clamping back to conservative caps.
         return (
             "grouped_aggressive",
             {
                 "batch_segments": 20,
                 "batch_max_chars": 36000,
                 "context_window_chars": 0,
-                "auto_model_sizing": False,
+                "auto_model_sizing": True,
             },
             0.12,
+        )
+    if key == "grouped_turbo":
+        return (
+            "grouped_turbo",
+            {
+                "batch_segments": 80,
+                "batch_max_chars": 120_000,
+                "context_window_chars": 0,
+                "auto_model_sizing": True,
+            },
+            0.20,
         )
     # Default studio profile prioritizes throughput for large manuals.
     return (
@@ -225,7 +303,13 @@ def _estimate_grouped_request_count(source_char_lengths: list[int], *, max_segme
     return groups
 
 
-def _estimate_request_latency_bounds_seconds(provider: str, model: str, *, grouped_mode: bool) -> tuple[float, float]:
+def _estimate_request_latency_bounds_seconds(
+    provider: str,
+    model: str,
+    *,
+    grouped_mode: bool,
+    batch_max_chars: int = 36_000,
+) -> tuple[float, float]:
     provider_norm = (provider or "").strip().lower()
     model_norm = (model or "").strip().lower()
     if provider_norm == "mock":
@@ -239,8 +323,13 @@ def _estimate_request_latency_bounds_seconds(provider: str, model: str, *, group
         if model_norm.startswith("gpt-5"):
             low += 1.0
             high += 3.0
-        return (low, high)
-    return (6.0, 16.0) if grouped_mode else (4.0, 12.0)
+    else:
+        low, high = (6.0, 16.0) if grouped_mode else (4.0, 12.0)
+    if grouped_mode and int(batch_max_chars) > 36_000:
+        scale = min(4.0, float(batch_max_chars) / 36_000.0)
+        low *= scale
+        high *= scale
+    return (low, high)
 
 
 def _build_studio_html() -> str:
@@ -292,6 +381,7 @@ def _build_studio_html() -> str:
       font-weight: 600; text-decoration: none;
     }
     button.primary { border-color: #0a57d6; background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #fff; }
+    button.danger { border-color: #b71f35; background: linear-gradient(90deg, #d8314b, #b91e36); color: #fff; }
     .status-kv { display: grid; grid-template-columns: 150px 1fr; gap: 7px 10px; font-size: 14px; }
     .k { color: var(--muted); }
     .mono { font-family: Consolas, "SFMono-Regular", Menlo, monospace; }
@@ -354,6 +444,7 @@ def _build_studio_html() -> str:
             <label>Translation Request Grouping (docxru)</label>
             <select name="translation_grouping_mode" id="translationGroupingMode">
               <option value="grouped_fast">Grouped Requests (recommended, faster)</option>
+              <option value="grouped_turbo">Grouped Requests (turbo, large-context models)</option>
               <option value="grouped_aggressive">Grouped Requests (aggressive, fastest)</option>
               <option value="sequential_context">Sequential Context Window (slower, max continuity)</option>
             </select>
@@ -397,7 +488,7 @@ def _build_studio_html() -> str:
             <div id="checkerModelRow" class="row">
               <label>Checker Model (OpenAI)</label>
               <select id="checkerOpenaiModelSelect">
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="gpt-5-mini">gpt-5-mini</option>
               </select>
             </div>
             <div class="row">
@@ -424,10 +515,19 @@ def _build_studio_html() -> str:
             <input id="checkerOpenaiBatch" type="checkbox" name="checker_openai_batch" value="1" />
             <label for="checkerOpenaiBatch">Use OpenAI Batch API for checker only (async/night mode, separate from translation grouping)</label>
           </div>
+          <div class="checkline" style="margin-top:6px;">
+            <input id="checkerAutoApplySafe" type="checkbox" name="checker_auto_apply_safe" value="1" />
+            <label for="checkerAutoApplySafe">Auto-apply safe checker edits to output DOCX</label>
+          </div>
+          <div class="row" style="max-width:280px;">
+            <label>Checker Auto-Apply Min Confidence</label>
+            <input type="number" name="checker_auto_apply_min_confidence" value="0.7" step="0.05" min="0" max="1" />
+          </div>
         </div>
 
         <div class="btns">
           <button id="startBtn" type="submit" class="primary">Start Translation</button>
+          <button id="stopRunBtn" type="button" class="danger" disabled>Stop Translation</button>
           <button id="estimateBtn" type="button">Estimate Duration</button>
           <button id="openRunBtn" type="button">Open Run Folder</button>
           <span id="runPill" class="pill">no run</span>
@@ -455,8 +555,11 @@ def _build_studio_html() -> str:
         <a id="dashboardLink" class="btn" href="#" target="_blank" rel="noreferrer">Dashboard</a>
         <a id="qaLink" class="btn" href="#" target="_blank" rel="noreferrer">QA Report</a>
         <a id="checkerLink" class="btn" href="#" target="_blank" rel="noreferrer">Checker JSON</a>
+        <a id="checkerSafeLink" class="btn" href="#" target="_blank" rel="noreferrer">Checker Safe JSON</a>
         <a id="checkerTraceLink" class="btn" href="#" target="_blank" rel="noreferrer">Checker Trace</a>
         <a id="outputLink" class="btn" href="#" target="_blank" rel="noreferrer">Output</a>
+        <a id="checkedOutputLink" class="btn" href="#" target="_blank" rel="noreferrer">Checked Output</a>
+        <button id="applyCheckerBtn" type="button">Apply Checker (Safe)</button>
       </div>
       <div class="muted" style="margin:10px 0 4px;">Live log tail</div>
       <pre id="logTail">(no log yet)</pre>
@@ -494,6 +597,7 @@ def _build_studio_html() -> str:
   const refreshModelsBtn = document.getElementById("refreshModelsBtn");
   const runForm = document.getElementById("runForm");
   const sourceFileInput = document.querySelector("input[name='input_file']");
+  const stopRunBtn = document.getElementById("stopRunBtn");
   const estimateBtn = document.getElementById("estimateBtn");
   const estimateHint = document.getElementById("estimateHint");
   const checkerEnabled = document.getElementById("checkerEnabled");
@@ -505,6 +609,7 @@ def _build_studio_html() -> str:
   const checkerOpenaiBatchRow = document.getElementById("checkerOpenaiBatchRow");
   const checkerOpenaiBatch = document.getElementById("checkerOpenaiBatch");
   const openaiApiKeyInput = document.querySelector("input[name='openai_api_key']");
+  const applyCheckerBtn = document.getElementById("applyCheckerBtn");
 
   function defaultModelForProvider(provider) {
     const p = (provider || "").toLowerCase();
@@ -566,7 +671,7 @@ def _build_studio_html() -> str:
       checkerOpenaiBatch.checked = false;
     }
     if (isOpenAI) {
-      checkerModelHidden.value = checkerOpenaiModelSelect.value || (openaiModelSelect.value || "gpt-4o-mini");
+      checkerModelHidden.value = checkerOpenaiModelSelect.value || (openaiModelSelect.value || "gpt-5-mini");
     } else {
       checkerModelHidden.value = "";
     }
@@ -591,7 +696,7 @@ def _build_studio_html() -> str:
       console.warn(err);
     }
     fillModelSelect(openaiModelSelect, models, openaiModelSelect.value || "gpt-4o-mini");
-    fillModelSelect(checkerOpenaiModelSelect, models, checkerOpenaiModelSelect.value || openaiModelSelect.value || "gpt-4o-mini");
+    fillModelSelect(checkerOpenaiModelSelect, models, checkerOpenaiModelSelect.value || "gpt-5-mini");
     syncTranslateModelUI();
     syncCheckerUI();
   }
@@ -642,6 +747,13 @@ def _build_studio_html() -> str:
   function fmtCost(v, currency) {
     if (v == null || Number.isNaN(v)) return "N/A";
     return `${(currency || "USD").toUpperCase()} ${Number(v).toFixed(4)}`;
+  }
+
+  function syncRunButtons(state) {
+    const s = (state || "").toLowerCase();
+    const canStop = Boolean(currentRunId) && (s === "running" || s === "stopping");
+    stopRunBtn.disabled = !canStop;
+    stopRunBtn.textContent = s === "stopping" ? "Stopping..." : "Stop Translation";
   }
 
   async function estimateDuration() {
@@ -721,8 +833,15 @@ def _build_studio_html() -> str:
       if (links.dashboard) document.getElementById("dashboardLink").href = links.dashboard;
       if (links.qa_report) document.getElementById("qaLink").href = links.qa_report;
       if (links.checker_suggestions) document.getElementById("checkerLink").href = links.checker_suggestions;
+      if (links.checker_suggestions_safe) document.getElementById("checkerSafeLink").href = links.checker_suggestions_safe;
       if (links.checker_trace) document.getElementById("checkerTraceLink").href = links.checker_trace;
       if (links.output) document.getElementById("outputLink").href = links.output;
+      if (links.checked_output) document.getElementById("checkedOutputLink").href = links.checked_output;
+      const canApplyChecker = Boolean(currentRunId)
+        && String(data.state || "").toLowerCase() === "completed"
+        && Number(metrics.checker_suggestions || 0) > 0;
+      applyCheckerBtn.disabled = !canApplyChecker;
+      syncRunButtons(data.state || "");
     } catch (err) {
       console.error(err);
     }
@@ -764,10 +883,60 @@ def _build_studio_html() -> str:
     }
   });
 
+  applyCheckerBtn.addEventListener("click", async () => {
+    if (!currentRunId) return;
+    applyCheckerBtn.disabled = true;
+    applyCheckerBtn.textContent = "Applying...";
+    try {
+      const resp = await fetch(`/api/apply-checker?run_id=${encodeURIComponent(currentRunId)}&mode=safe`, {
+        method: "POST"
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        alert(data.error || `Apply checker failed: ${resp.status}`);
+        return;
+      }
+      const summary = data.summary || {};
+      estimateHint.textContent =
+        `Checker apply done: applied ${fmtNum(summary.applied || 0)} / ${fmtNum(summary.requested || 0)} edits.`;
+      await refreshStatus();
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      applyCheckerBtn.textContent = "Apply Checker (Safe)";
+      await refreshStatus();
+    }
+  });
+
+  stopRunBtn.addEventListener("click", async () => {
+    if (!currentRunId) return;
+    const currentState = (document.getElementById("state").textContent || "").toLowerCase();
+    if (currentState !== "running" && currentState !== "stopping") return;
+    const confirmed = window.confirm("Force stop current translation and kill process tree?");
+    if (!confirmed) return;
+    stopRunBtn.disabled = true;
+    stopRunBtn.textContent = "Stopping...";
+    try {
+      const resp = await fetch(`/api/stop-run?run_id=${encodeURIComponent(currentRunId)}`, { method: "POST" });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        alert(data.error || data.message || `Stop failed: ${resp.status}`);
+      } else {
+        estimateHint.textContent = "Stop requested. Translation process kill signal sent.";
+      }
+      await refreshStatus();
+    } catch (err) {
+      alert(String(err));
+      await refreshStatus();
+    }
+  });
+
   fillModelSelect(openaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-4o-mini");
-  fillModelSelect(checkerOpenaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-4o-mini");
+  fillModelSelect(checkerOpenaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-5-mini");
   syncTranslateModelUI();
   syncCheckerUI();
+  syncRunButtons("idle");
+  applyCheckerBtn.disabled = true;
   refreshOpenAIModels();
 
   setInterval(refreshStatus, 1000);
@@ -789,6 +958,9 @@ class StudioRun:
     command: list[str]
     process: subprocess.Popen[str]
     started_at: str
+    stop_requested_at: str | None = None
+    stop_completed_at: str | None = None
+    stop_method: str | None = None
 
 
 class StudioRunManager:
@@ -841,6 +1013,8 @@ class StudioRunManager:
         checker_temperature: float,
         checker_max_output_tokens: int,
         checker_openai_batch_enabled: bool,
+        checker_auto_apply_safe: bool,
+        checker_auto_apply_min_confidence: float,
         run_base_dir: Path,
         run_id: str,
         run_dir: Path,
@@ -850,6 +1024,11 @@ class StudioRunManager:
         tm_path = repo_root / "translation_cache.sqlite"
         _grouping_mode, grouping_profile, batch_fallback_warn_ratio = _translation_grouping_profile(
             translation_grouping_mode
+        )
+        timeout_s = recommend_grouped_timeout_s(
+            timeout_s=60.0,
+            batch_segments=int(grouping_profile.get("batch_segments", 1) or 1),
+            batch_max_chars=int(grouping_profile.get("batch_max_chars", 0) or 0),
         )
 
         payload: dict[str, Any] = {
@@ -861,7 +1040,7 @@ class StudioRunManager:
                 "temperature": temperature,
                 "max_output_tokens": max_output_tokens,
                 "retries": 2,
-                "timeout_s": 60.0,
+                "timeout_s": timeout_s,
                 "system_prompt_path": (str(prompt_path) if prompt_path is not None else None),
                 "glossary_path": (str(glossary_path) if glossary_path is not None else None),
                 "glossary_prompt_mode": "matched",
@@ -880,8 +1059,11 @@ class StudioRunManager:
                 "temperature": checker_temperature,
                 "max_output_tokens": checker_max_output_tokens,
                 "openai_batch_enabled": bool(checker_openai_batch_enabled),
+                "auto_apply_safe": bool(checker_auto_apply_safe),
+                "auto_apply_min_confidence": max(0.0, min(1.0, float(checker_auto_apply_min_confidence))),
                 "only_on_issue_severities": ["warn", "error"],
                 "output_path": "checker_suggestions.json",
+                "safe_output_path": "checker_suggestions_safe.json",
             },
             "pricing": {
                 "enabled": False,
@@ -894,6 +1076,7 @@ class StudioRunManager:
                 "dashboard_html_path": str(run_dir / "dashboard.html"),
                 "status_flush_every_n_segments": 5,
                 "batch_fallback_warn_ratio": float(batch_fallback_warn_ratio),
+                "fail_fast_on_translate_error": True,
             },
             "concurrency": max(1, concurrency),
             "mode": "reflow",
@@ -1029,6 +1212,7 @@ class StudioRunManager:
             provider,
             model,
             grouped_mode=grouped_mode,
+            batch_max_chars=effective_batch_max_chars,
         )
         eta_low = prepare_seconds + (request_count * per_req_low)
         eta_high = prepare_seconds + (request_count * per_req_high)
@@ -1103,7 +1287,7 @@ class StudioRunManager:
             if checker_model_raw:
                 checker_model = checker_model_raw
             elif (effective_checker_provider or "").strip().lower() == "openai":
-                checker_model = model
+                checker_model = "gpt-5-mini"
             else:
                 checker_model = _default_model_for_provider(effective_checker_provider)
         else:
@@ -1123,6 +1307,13 @@ class StudioRunManager:
             and (effective_checker_provider or "").strip().lower() == "openai"
             and _to_bool(self._read_text_value(form, "checker_openai_batch", "0"))
         )
+        checker_auto_apply_safe = checker_enabled and _to_bool(
+            self._read_text_value(form, "checker_auto_apply_safe", "0")
+        )
+        checker_auto_apply_min_confidence = max(
+            0.0,
+            min(1.0, _to_float(self._read_text_value(form, "checker_auto_apply_min_confidence", "0.7"), 0.7)),
+        )
 
         config_payload = self._build_config_payload(
             provider=provider,
@@ -1141,6 +1332,8 @@ class StudioRunManager:
             checker_temperature=checker_temperature,
             checker_max_output_tokens=checker_max_output_tokens,
             checker_openai_batch_enabled=checker_openai_batch_enabled,
+            checker_auto_apply_safe=checker_auto_apply_safe,
+            checker_auto_apply_min_confidence=checker_auto_apply_min_confidence,
             run_base_dir=self.runs_dir,
             run_id=run_id,
             run_dir=run_dir,
@@ -1177,6 +1370,7 @@ class StudioRunManager:
             stdout=log_file,
             stderr=subprocess.STDOUT,
             text=True,
+            start_new_session=True,
         )
         log_file.close()
 
@@ -1210,7 +1404,9 @@ class StudioRunManager:
         if run is None:
             raise KeyError(run_id)
         return_code = run.process.poll()
-        if return_code is None:
+        if run.stop_requested_at:
+            state = "stopping" if return_code is None else "cancelled"
+        elif return_code is None:
             state = "running"
         elif return_code == 0:
             state = "completed"
@@ -1230,10 +1426,14 @@ class StudioRunManager:
             "qa_report": f"/runs/{run.run_id}/qa_report.html",
             "qa_jsonl": f"/runs/{run.run_id}/qa.jsonl",
             "checker_suggestions": f"/runs/{run.run_id}/checker_suggestions.json",
+            "checker_suggestions_safe": f"/runs/{run.run_id}/checker_suggestions_safe.json",
             "checker_trace": f"/runs/{run.run_id}/checker_trace.jsonl",
             "output": f"/runs/{run.run_id}/{run.output_path.name}",
             "log": f"/runs/{run.run_id}/{run.log_path.name}",
         }
+        checked_output = run.run_dir / f"{run.output_path.stem}_checked{run.output_path.suffix}"
+        if checked_output.exists():
+            links["checked_output"] = f"/runs/{run.run_id}/{checked_output.name}"
         checker_trace_path = run.run_dir / "checker_trace.jsonl"
 
         return {
@@ -1242,6 +1442,9 @@ class StudioRunManager:
             "state": state,
             "return_code": return_code,
             "started_at": run.started_at,
+            "stop_requested_at": run.stop_requested_at,
+            "stop_completed_at": run.stop_completed_at,
+            "stop_method": run.stop_method,
             "command": run.command,
             "run_dir": str(run.run_dir),
             "links": links,
@@ -1257,6 +1460,113 @@ class StudioRunManager:
             raise KeyError(run_id)
         _open_path(run.run_dir)
         return {"ok": True, "path": str(run.run_dir)}
+
+    def apply_checker_suggestions(self, run_id: str, *, safe_only: bool = True) -> dict[str, Any]:
+        with self._lock:
+            run = self._runs.get(run_id)
+        if run is None:
+            raise KeyError(run_id)
+        if run.process.poll() is None:
+            raise RuntimeError("Run is still in progress. Wait until completion before applying checker suggestions.")
+        if run.output_path.suffix.lower() != ".docx":
+            raise RuntimeError("Checker apply is currently supported for DOCX outputs only.")
+        if not run.output_path.exists():
+            raise RuntimeError(f"Translated output not found: {run.output_path}")
+
+        checker_path = run.run_dir / "checker_suggestions.json"
+        checker_safe_path = run.run_dir / "checker_suggestions_safe.json"
+        if not checker_path.exists():
+            raise RuntimeError(f"Checker suggestions file not found: {checker_path}")
+
+        cfg = load_config(run.config_path)
+        all_edits = read_checker_suggestions(checker_path)
+        if safe_only:
+            if checker_safe_path.exists():
+                safe_edits = read_checker_suggestions(checker_safe_path)
+            else:
+                safe_edits, skipped = filter_checker_suggestions(
+                    all_edits,
+                    safe_only=True,
+                    min_confidence=float(cfg.checker.auto_apply_min_confidence),
+                )
+                write_checker_safe_suggestions(
+                    checker_safe_path,
+                    source_edits=all_edits,
+                    safe_edits=safe_edits,
+                    skipped=skipped,
+                )
+            edits_to_apply = safe_edits
+        else:
+            edits_to_apply = all_edits
+
+        doc = Document(str(run.output_path))
+        segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
+        for seg in segments:
+            if seg.paragraph_ref is None:
+                continue
+            with suppress(Exception):
+                tagged, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
+                seg.target_tagged = tagged
+                seg.spans = spans
+                seg.inline_run_map = inline_map
+
+        summary = apply_checker_suggestions_to_segments(
+            segments=segments,
+            edits=edits_to_apply,
+            safe_only=bool(safe_only),
+            min_confidence=float(cfg.checker.auto_apply_min_confidence),
+            require_current_match=True,
+            logger=None,
+        )
+        checked_output = run.run_dir / f"{run.output_path.stem}_checked{run.output_path.suffix}"
+        checked_output.parent.mkdir(parents=True, exist_ok=True)
+        doc.save(str(checked_output))
+        return {
+            "ok": True,
+            "run_id": run_id,
+            "safe_only": bool(safe_only),
+            "summary": summary,
+            "checked_output": str(checked_output),
+            "links": {
+                "checked_output": f"/runs/{run_id}/{checked_output.name}",
+            },
+        }
+
+    def stop_run(self, run_id: str) -> dict[str, Any]:
+        with self._lock:
+            run = self._runs.get(run_id)
+        if run is None:
+            raise KeyError(run_id)
+
+        if run.process.poll() is not None:
+            status = self.get_status(run_id)
+            return {
+                "ok": True,
+                "run_id": run_id,
+                "already_finished": True,
+                "stopped": False,
+                "state": status.get("state"),
+            }
+
+        with self._lock:
+            run.stop_requested_at = run.stop_requested_at or _now_utc_iso()
+
+        stopped, method = _kill_process_tree(run.process)
+
+        with self._lock:
+            run.stop_method = method
+            if stopped:
+                run.stop_completed_at = _now_utc_iso()
+
+        status = self.get_status(run_id)
+        return {
+            "ok": bool(stopped),
+            "run_id": run_id,
+            "already_finished": False,
+            "stopped": bool(stopped),
+            "state": status.get("state"),
+            "method": method,
+        }
 
 
 class StudioRequestHandler(SimpleHTTPRequestHandler):
@@ -1357,6 +1667,24 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, payload)
             return
 
+        if parsed.path == "/api/stop-run":
+            params = parse_qs(parsed.query)
+            run_id = (params.get("run_id", [""])[0] or "").strip()
+            if not run_id:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "run_id is required"})
+                return
+            try:
+                payload = self._manager.stop_run(run_id)
+            except KeyError:
+                self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
+                return
+            except Exception as exc:
+                self._write_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                return
+            code = HTTPStatus.OK if payload.get("ok", False) else HTTPStatus.INTERNAL_SERVER_ERROR
+            self._write_json(code, payload)
+            return
+
         if parsed.path == "/api/open-run":
             params = parse_qs(parsed.query)
             run_id = (params.get("run_id", [""])[0] or "").strip()
@@ -1365,6 +1693,25 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 payload = self._manager.open_run_dir(run_id)
+            except KeyError:
+                self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
+                return
+            except Exception as exc:
+                self._write_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                return
+            self._write_json(HTTPStatus.OK, payload)
+            return
+
+        if parsed.path == "/api/apply-checker":
+            params = parse_qs(parsed.query)
+            run_id = (params.get("run_id", [""])[0] or "").strip()
+            mode = (params.get("mode", ["safe"])[0] or "safe").strip().lower()
+            if not run_id:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "run_id is required"})
+                return
+            safe_only = mode != "all"
+            try:
+                payload = self._manager.apply_checker_suggestions(run_id, safe_only=safe_only)
             except KeyError:
                 self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
                 return

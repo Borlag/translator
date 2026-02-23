@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import logging
 
-from docxru.checker import run_llm_checker
+from docx import Document
+
+from docxru.checker import apply_checker_suggestions_to_segments, filter_checker_suggestions, run_llm_checker
 from docxru.config import CheckerConfig
 from docxru.models import Issue, Segment, Severity
+from docxru.tagging import paragraph_to_tagged
 
 
 class _FakeCheckerClient:
@@ -369,3 +372,69 @@ def test_run_llm_checker_openai_batch_mode_falls_back_to_sync():
     assert client.calls == 1
     assert stats.get("batch_mode_fallback") is True
     assert "batch temporary failure" in str(stats.get("batch_mode_error") or "")
+
+
+def test_filter_checker_suggestions_drops_noop_and_token_unsafe_edits():
+    edits = [
+        {
+            "segment_id": "s1",
+            "location": "body/p0",
+            "current_target": "⟦S_1⟧A⟦/S_1⟧",
+            "suggested_target": "⟦S_1⟧A⟦/S_1⟧",
+            "instruction": "No change needed.",
+            "confidence": 0.9,
+        },
+        {
+            "segment_id": "s2",
+            "location": "body/p1",
+            "current_target": "⟦S_1⟧B⟦/S_1⟧",
+            "suggested_target": "B",
+            "instruction": "remove tags",
+            "confidence": 0.9,
+        },
+        {
+            "segment_id": "s3",
+            "location": "body/p2",
+            "current_target": "⟦S_1⟧C⟦/S_1⟧",
+            "suggested_target": "⟦S_1⟧C-fixed⟦/S_1⟧",
+            "instruction": "replace C with C-fixed",
+            "confidence": 0.9,
+        },
+    ]
+    safe, skipped = filter_checker_suggestions(edits, safe_only=True, min_confidence=0.7)
+    assert len(safe) == 1
+    assert safe[0]["segment_id"] == "s3"
+    assert len(skipped) == 2
+
+
+def test_apply_checker_suggestions_to_segments_applies_safe_edit():
+    doc = Document()
+    paragraph = doc.add_paragraph("SOURCE")
+    tagged, spans, inline_run_map = paragraph_to_tagged(paragraph)
+    seg = Segment(
+        segment_id="s1",
+        location="body/p0",
+        context={"part": "body"},
+        source_plain="SOURCE",
+        paragraph_ref=paragraph,
+        target_tagged=tagged,
+        spans=spans,
+        inline_run_map=inline_run_map,
+    )
+    edit = {
+        "segment_id": "s1",
+        "location": "body/p0",
+        "current_target": tagged,
+        "suggested_target": tagged.replace("SOURCE", "TARGET"),
+        "instruction": "Replace SOURCE with TARGET.",
+        "confidence": 0.95,
+    }
+    summary = apply_checker_suggestions_to_segments(
+        segments=[seg],
+        edits=[edit],
+        safe_only=True,
+        min_confidence=0.7,
+        require_current_match=True,
+    )
+    assert summary["applied"] == 1
+    assert paragraph.text == "TARGET"

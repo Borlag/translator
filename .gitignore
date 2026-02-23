@@ -42,6 +42,8 @@ ENV/
 .env
 .env.*
 *.local
+.claude/
+.codex/
 
 # Logs, runtime files, and temp files
 *.log
@@ -56,6 +58,9 @@ logs/
 # Local databases and caches
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
 
 # Reports and generated outputs
 qa_report.html
@@ -63,6 +68,10 @@ qa.jsonl
 output/
 tmp/
 tmp_out/
+coverage/
+htmlcov/
+.coverage
+.coverage.*
 
 # IDE and editor files
 .idea/
@@ -82,3 +91,4 @@ Desktop.ini
 $RECYCLE.BIN/
 .Spotlight-V100/
 .Trashes/
+nul

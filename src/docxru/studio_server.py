@@ -225,7 +225,7 @@ def _list_openai_models(api_key: str | None = None) -> list[str]:
 def _default_model_for_provider(provider: str) -> str:
     p = (provider or "").strip().lower()
     if p == "openai":
-        return "gpt-4o-mini"
+        return "gpt-5-mini"
     if p == "ollama":
         return "qwen2.5:7b"
     if p == "google":
@@ -428,7 +428,7 @@ def _build_studio_html() -> str:
           <div id="translateModelRow" class="row">
             <label>Translate Model (OpenAI)</label>
             <select id="openaiModelSelect">
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-5-mini">gpt-5-mini</option>
             </select>
             <div class="btns" style="margin-top:6px;">
               <button type="button" id="refreshModelsBtn">Refresh OpenAI models</button>
@@ -443,15 +443,15 @@ def _build_studio_html() -> str:
           <div class="row">
             <label>Translation Request Grouping (docxru)</label>
             <select name="translation_grouping_mode" id="translationGroupingMode">
+              <option value="grouped_turbo" selected>Grouped Requests (turbo, large-context models)</option>
               <option value="grouped_fast">Grouped Requests (recommended, faster)</option>
-              <option value="grouped_turbo">Grouped Requests (turbo, large-context models)</option>
               <option value="grouped_aggressive">Grouped Requests (aggressive, fastest)</option>
               <option value="sequential_context">Sequential Context Window (slower, max continuity)</option>
             </select>
             <div class="muted">This controls docxru translation request grouping and is separate from OpenAI Batch API.</div>
           </div>
         </div>
-        <input type="hidden" name="model" id="modelHidden" value="gpt-4o-mini" />
+        <input type="hidden" name="model" id="modelHidden" value="gpt-5-mini" />
 
         <div class="grid3">
           <div class="row">
@@ -613,7 +613,7 @@ def _build_studio_html() -> str:
 
   function defaultModelForProvider(provider) {
     const p = (provider || "").toLowerCase();
-    if (p === "openai") return "gpt-4o-mini";
+    if (p === "openai") return "gpt-5-mini";
     if (p === "ollama") return "qwen2.5:7b";
     if (p === "google") return "ignored";
     return "mock";
@@ -630,14 +630,14 @@ def _build_studio_html() -> str:
     }
     if (!values.length) {
       const fallback = document.createElement("option");
-      fallback.value = "gpt-4o-mini";
-      fallback.textContent = "gpt-4o-mini";
+      fallback.value = "gpt-5-mini";
+      fallback.textContent = "gpt-5-mini";
       selectEl.appendChild(fallback);
     }
-    const preferred = preferredValue || selectEl.value || "gpt-4o-mini";
+    const preferred = preferredValue || selectEl.value || "gpt-5-mini";
     selectEl.value = preferred;
     if (!selectEl.value) {
-      selectEl.value = "gpt-4o-mini";
+      selectEl.value = "gpt-5-mini";
     }
   }
 
@@ -650,7 +650,7 @@ def _build_studio_html() -> str:
     const isOpenAI = provider === "openai";
     translateModelRow.style.display = isOpenAI ? "" : "none";
     if (isOpenAI) {
-      modelHidden.value = openaiModelSelect.value || "gpt-4o-mini";
+      modelHidden.value = openaiModelSelect.value || "gpt-5-mini";
     } else {
       modelHidden.value = defaultModelForProvider(provider);
     }
@@ -695,7 +695,7 @@ def _build_studio_html() -> str:
     } catch (err) {
       console.warn(err);
     }
-    fillModelSelect(openaiModelSelect, models, openaiModelSelect.value || "gpt-4o-mini");
+    fillModelSelect(openaiModelSelect, models, openaiModelSelect.value || "gpt-5-mini");
     fillModelSelect(checkerOpenaiModelSelect, models, checkerOpenaiModelSelect.value || "gpt-5-mini");
     syncTranslateModelUI();
     syncCheckerUI();
@@ -931,7 +931,7 @@ def _build_studio_html() -> str:
     }
   });
 
-  fillModelSelect(openaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-4o-mini");
+  fillModelSelect(openaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-5-mini");
   fillModelSelect(checkerOpenaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-5-mini");
   syncTranslateModelUI();
   syncCheckerUI();
@@ -1134,7 +1134,7 @@ class StudioRunManager:
         model_raw = self._read_text_value(form, "model", "")
         model = model_raw or _default_model_for_provider(provider)
         max_output_tokens = max(64, _to_int(self._read_text_value(form, "max_output_tokens", "2000"), 2000))
-        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_fast")
+        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_turbo")
         _mode_key, grouping, batch_fallback_warn_ratio = _translation_grouping_profile(translation_grouping_mode)
 
         checker_provider_raw = self._read_text_value(form, "checker_provider", "")
@@ -1276,7 +1276,7 @@ class StudioRunManager:
         temperature = _to_float(self._read_text_value(form, "temperature", "0.1"), 0.1)
         max_output_tokens = max(64, _to_int(self._read_text_value(form, "max_output_tokens", "2000"), 2000))
         concurrency = max(1, _to_int(self._read_text_value(form, "concurrency", "4"), 4))
-        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_fast")
+        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_turbo")
 
         checker_enabled = _to_bool(self._read_text_value(form, "checker_enabled", "0"))
         checker_provider_raw = self._read_text_value(form, "checker_provider", "")

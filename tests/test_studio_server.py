@@ -172,7 +172,7 @@ def test_studio_build_config_payload_can_enable_grouped_turbo_mode(tmp_path):
 
 
 def test_default_model_for_provider():
-    assert _default_model_for_provider("openai") == "gpt-4o-mini"
+    assert _default_model_for_provider("openai") == "gpt-5-mini"
     assert _default_model_for_provider("ollama") == "qwen2.5:7b"
     assert _default_model_for_provider("google") == "ignored"
     assert _default_model_for_provider("mock") == "mock"
@@ -193,6 +193,8 @@ def test_studio_html_contains_checker_trace_widgets():
     assert "applyCheckerBtn" in html
     assert "grouped_aggressive" in html
     assert "grouped_turbo" in html
+    assert 'value="grouped_turbo" selected' in html
+    assert 'name="model" id="modelHidden" value="gpt-5-mini"' in html
     assert "stopRunBtn" in html
     assert "estimateBtn" in html
     assert "estimateHint" in html

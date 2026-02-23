@@ -25,6 +25,7 @@ llm:
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
   context_window_chars: 0
+  auto_model_sizing: true
 
 tm:
   path: ../translation_cache.sqlite

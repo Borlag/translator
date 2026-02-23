@@ -13,8 +13,10 @@ from docx import Document
 from docx.oxml.ns import qn
 from tqdm import tqdm
 
+from .checker import CHECKER_SYSTEM_PROMPT, run_llm_checker, write_checker_suggestions
 from .config import PipelineConfig
 from .consistency import report_consistency
+from .dashboard_server import ensure_dashboard_html
 from .docx_reader import collect_segments
 from .layout_check import validate_layout
 from .layout_fix import apply_global_font_shrink, fix_expansion_issues
@@ -27,12 +29,17 @@ from .llm import (
     supports_repair,
 )
 from .logging_utils import setup_logging
+from .model_sizing import recommend_runtime_model_sizing
 from .models import Issue, Segment, Severity
 from .oxml_table_fix import normalize_abbyy_oxml
+from .pricing import PricingTable, load_pricing_table
 from .qa_report import write_qa_jsonl, write_qa_report
+from .run_context import resolve_run_paths
+from .run_status import RunStatusWriter
 from .tagging import is_supported_paragraph, paragraph_to_tagged, tagged_to_runs
 from .tm import FuzzyTMHit, TMStore, normalize_text, sha256_hex
 from .token_shield import BRACKET_TOKEN_RE, shield, shield_terms, strip_bracket_tokens, unshield
+from .usage import UsageTotals
 from .validator import (
     is_glossary_lemma_check_available,
     validate_all,
@@ -1412,8 +1419,15 @@ def translate_docx(
     max_segments: int | None = None,
 ) -> None:
     logger = setup_logging(Path(cfg.log_path))
+    run_paths = resolve_run_paths(cfg, output_path=output_path)
+    run_paths.run_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dashboard_html(run_paths.dashboard_html_path.parent, filename=run_paths.dashboard_html_path.name)
+
     logger.info(f"Input: {input_path}")
     logger.info(f"Output: {output_path}")
+    logger.info(f"Run dir: {run_paths.run_dir}")
+    logger.info(f"Run status: {run_paths.status_path}")
+    logger.info(f"Dashboard HTML: {run_paths.dashboard_html_path}")
     logger.info(
         "Mode: "
         f"{cfg.mode}; "
@@ -1451,6 +1465,48 @@ def translate_docx(
         segments = segments[:max_segments]
         logger.info(f"Segment limit enabled: {len(segments)} segments")
     logger.info(f"Segments найдено: {len(segments)}")
+
+    usage_totals = UsageTotals()
+    pricing_table = PricingTable.empty(currency=cfg.pricing.currency)
+    if cfg.pricing.enabled:
+        if cfg.pricing.pricing_path:
+            try:
+                pricing_table = load_pricing_table(cfg.pricing.pricing_path, currency=cfg.pricing.currency)
+                logger.info("Pricing table loaded: %s", cfg.pricing.pricing_path)
+            except Exception as exc:
+                logger.warning("Failed to load pricing table (%s): %s", cfg.pricing.pricing_path, exc)
+        else:
+            logger.warning("pricing.enabled=true but pricing.pricing_path is empty")
+
+    status_writer = RunStatusWriter(
+        path=run_paths.status_path,
+        run_id=run_paths.run_id,
+        total_segments=len(segments),
+        flush_every_n_updates=cfg.run.status_flush_every_n_segments,
+    )
+
+    def _to_dashboard_link(path: Path) -> str:
+        try:
+            rel = path.resolve().relative_to(run_paths.run_dir.resolve())
+            return rel.as_posix()
+        except Exception:
+            return str(path)
+
+    status_writer.merge_paths(
+        {
+            "run_dir": str(run_paths.run_dir),
+            "output": str(output_path),
+            "qa_report": _to_dashboard_link(run_paths.qa_report_path),
+            "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
+            "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
+            "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
+            "checker_trace": _to_dashboard_link(run_paths.checker_trace_path),
+        }
+    )
+    status_writer.set_phase("prepare")
+    status_writer.set_done(0)
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.write(force=True)
 
     # Attach neighbor snippets to improve local consistency.
     _attach_neighbor_snippets(segments, cfg)
@@ -1504,6 +1560,57 @@ def translate_docx(
             "Provider 'google' is running without hard glossary locking; terminology can be less stable "
             "but wording is usually more natural."
         )
+    effective_batch_segments = cfg.llm.batch_segments
+    effective_batch_max_chars = cfg.llm.batch_max_chars
+    effective_llm_max_output_tokens = cfg.llm.max_output_tokens
+    effective_checker_cfg = cfg.checker
+    if cfg.llm.auto_model_sizing:
+        checker_provider_for_sizing = (cfg.checker.provider or cfg.llm.provider).strip()
+        checker_model_for_sizing = (cfg.checker.model or cfg.llm.model).strip()
+        source_lengths = [len(seg.source_plain or "") for seg in segments]
+        prompt_chars = len(custom_system_prompt or "") + len(effective_glossary_text or "")
+        if glossary_prompt_mode == "matched" and glossary_text:
+            # Matched mode sends only term snippets, but reserve budget for those snippets.
+            prompt_chars += min(1200, len(glossary_text))
+        sizing = recommend_runtime_model_sizing(
+            provider=cfg.llm.provider,
+            model=cfg.llm.model,
+            checker_provider=checker_provider_for_sizing,
+            checker_model=checker_model_for_sizing,
+            source_char_lengths=source_lengths,
+            prompt_chars=prompt_chars,
+            batch_segments=cfg.llm.batch_segments,
+            batch_max_chars=cfg.llm.batch_max_chars,
+            max_output_tokens=cfg.llm.max_output_tokens,
+            context_window_chars=cfg.llm.context_window_chars,
+            checker_pages_per_chunk=cfg.checker.pages_per_chunk,
+            checker_fallback_segments_per_chunk=cfg.checker.fallback_segments_per_chunk,
+            checker_max_output_tokens=cfg.checker.max_output_tokens,
+        )
+        effective_batch_segments = sizing.batch_segments
+        effective_batch_max_chars = sizing.batch_max_chars
+        effective_llm_max_output_tokens = sizing.max_output_tokens
+        effective_checker_cfg = cfg.checker.__class__(
+            **{
+                **cfg.checker.__dict__,
+                "pages_per_chunk": sizing.checker_pages_per_chunk,
+                "fallback_segments_per_chunk": sizing.checker_fallback_segments_per_chunk,
+                "max_output_tokens": sizing.checker_max_output_tokens,
+            }
+        )
+        for note in sizing.notes:
+            logger.info("Model auto-sizing: %s", note)
+        logger.info(
+            "Model auto-sizing effective values: batch_segments=%d; batch_max_chars=%d; "
+            "llm_max_output_tokens=%d; checker_pages_per_chunk=%d; checker_fallback_segments_per_chunk=%d; "
+            "checker_max_output_tokens=%d",
+            int(effective_batch_segments),
+            int(effective_batch_max_chars),
+            int(effective_llm_max_output_tokens),
+            int(effective_checker_cfg.pages_per_chunk),
+            int(effective_checker_cfg.fallback_segments_per_chunk),
+            int(effective_checker_cfg.max_output_tokens),
+        )
     tm_profile_key = _build_tm_profile_key(
         cfg,
         custom_system_prompt=custom_system_prompt,
@@ -1515,7 +1622,7 @@ def translate_docx(
         model=cfg.llm.model,
         temperature=cfg.llm.temperature,
         timeout_s=cfg.llm.timeout_s,
-        max_output_tokens=cfg.llm.max_output_tokens,
+        max_output_tokens=effective_llm_max_output_tokens,
         source_lang=cfg.llm.source_lang,
         target_lang=cfg.llm.target_lang,
         base_url=cfg.llm.base_url,
@@ -1526,6 +1633,9 @@ def translate_docx(
         prompt_cache_key=cfg.llm.prompt_cache_key,
         prompt_cache_retention=cfg.llm.prompt_cache_retention,
         structured_output_mode=cfg.llm.structured_output_mode,
+        on_usage=usage_totals.add,
+        estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
+        pricing_currency=pricing_table.currency,
     )
 
     # Stage 1: tagging + shielding + TM lookup
@@ -1541,8 +1651,46 @@ def translate_docx(
     matched_glossary_segments = 0
     fuzzy_reference_segments = 0
     toc_inplace_translated = 0
+    checker_suggestions_count = 0
+    checker_requests_total = 0
+    checker_requests_succeeded = 0
+    checker_requests_failed = 0
+    checker_chunks_failed = 0
+    processed_segments = 0
     document_glossary: dict[str, str] = {}
     progress_cache: dict[str, dict[str, Any]] = {}
+
+    def _flush_status(phase: str, *, force: bool = False) -> None:
+        nonlocal processed_segments
+        nonlocal checker_suggestions_count
+        nonlocal checker_requests_total
+        nonlocal checker_requests_succeeded
+        nonlocal checker_requests_failed
+        nonlocal checker_chunks_failed
+        step = max(1, int(cfg.run.status_flush_every_n_segments))
+        if not force and processed_segments % step != 0:
+            return
+        status_writer.set_phase(phase)
+        status_writer.set_done(processed_segments)
+        status_writer.set_usage(usage_totals.snapshot())
+        status_writer.merge_metrics(
+            {
+                "tm_hits": tm_hits,
+                "resume_hits": resume_hits,
+                "tagging_errors": tagging_errors,
+                "llm_queue": len(to_translate),
+                "llm_translated": len(llm_translated_segments),
+                "complex_in_place": complex_translated,
+                "toc_in_place": toc_inplace_translated,
+                "checker_suggestions": checker_suggestions_count,
+                "checker_requests_total": checker_requests_total,
+                "checker_requests_succeeded": checker_requests_succeeded,
+                "checker_requests_failed": checker_requests_failed,
+                "checker_chunks_failed": checker_chunks_failed,
+                "issues_total": sum(len(seg.issues) for seg in segments),
+            }
+        )
+        status_writer.write(force=force)
     if resume and segments:
         try:
             progress_cache = tm.get_progress_bulk([seg.segment_id for seg in segments])
@@ -1564,6 +1712,8 @@ def translate_docx(
                     details={},
                 )
             )
+            processed_segments += 1
+            _flush_status("prepare")
             continue
 
         if glossary_prompt_mode == "matched" and glossary_in_prompt and document_glossary:
@@ -1588,6 +1738,15 @@ def translate_docx(
                         if source_term in document_glossary:
                             document_glossary.pop(source_term, None)
                         document_glossary[source_term] = target_term
+        elif glossary_matchers and not seg.context.get("matched_glossary_terms"):
+            # Keep compact term evidence for checker pass even when prompt mode is not "matched".
+            checker_terms = _build_matched_glossary_context(
+                seg.source_plain,
+                glossary_matchers,
+                limit=min(12, cfg.llm.glossary_match_limit),
+            )
+            if checker_terms:
+                seg.context["matched_glossary_terms"] = checker_terms
 
         seg_glossary_terms = _segment_glossary_terms(seg, glossary_terms)
 
@@ -1603,6 +1762,8 @@ def translate_docx(
             seg.issues.extend(toc_issues)
             if changed:
                 toc_inplace_translated += 1
+            processed_segments += 1
+            _flush_status("prepare")
             continue
 
         # Safety gate: skip paragraphs that contain complex inline XML (hyperlinks, content controls, etc.)
@@ -1627,6 +1788,8 @@ def translate_docx(
                         details={},
                     )
                 )
+            processed_segments += 1
+            _flush_status("prepare")
             continue
         try:
             tagged, spans, inline_map = paragraph_to_tagged(seg.paragraph_ref)
@@ -1640,6 +1803,8 @@ def translate_docx(
                 )
             )
             tagging_errors += 1
+            processed_segments += 1
+            _flush_status("prepare")
             continue
 
         seg.source_tagged = tagged
@@ -1687,6 +1852,8 @@ def translate_docx(
                 tm_hits += 1
                 resume_hits += 1
                 tm_hit_segments.add(seg.segment_id)
+                processed_segments += 1
+                _flush_status("prepare")
                 continue
 
         hit = tm.get_exact(source_hash)
@@ -1695,6 +1862,8 @@ def translate_docx(
             tm_hits += 1
             tm_hit_segments.add(seg.segment_id)
             tm.set_progress(seg.segment_id, "tm", source_hash=source_hash)
+            processed_segments += 1
+            _flush_status("prepare")
         else:
             if cfg.tm.fuzzy_enabled:
                 fuzzy_hits = tm.get_fuzzy(
@@ -1721,8 +1890,10 @@ def translate_docx(
     logger.info(f"Segments with matched glossary prompt hints: {matched_glossary_segments}")
     logger.info(f"Segments with fuzzy TM prompt hints: {fuzzy_reference_segments}")
     logger.info(f"LLM segments: {len(to_translate)}")
+    _flush_status("prepare", force=True)
 
     # Stage 2: LLM translate (single-segment or grouped batches)
+    _flush_status("translate", force=True)
     if to_translate:
         provider_norm = cfg.llm.provider.strip().lower()
         context_window_chars = max(0, int(cfg.llm.context_window_chars))
@@ -1755,6 +1926,8 @@ def translate_docx(
                         )
                     )
                     tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                    processed_segments += 1
+                    _flush_status("translate")
                     continue
                 complex_translated += _finalize_translation_result(
                     seg=seg,
@@ -1770,9 +1943,11 @@ def translate_docx(
                     llm_translated_segments=llm_translated_segments,
                     recent_translations=recent_translations,
                 )
+                processed_segments += 1
+                _flush_status("translate")
         else:
-            grouped_mode = cfg.llm.batch_segments > 1 and provider_norm in _BATCH_PROVIDER_ALLOWLIST
-            if cfg.llm.batch_segments > 1 and not grouped_mode:
+            grouped_mode = effective_batch_segments > 1 and provider_norm in _BATCH_PROVIDER_ALLOWLIST
+            if effective_batch_segments > 1 and not grouped_mode:
                 logger.info(
                     f"Grouped batch mode requested, but provider '{cfg.llm.provider}' is not supported; using per-segment mode."
                 )
@@ -1801,8 +1976,8 @@ def translate_docx(
                 if batch_eligible:
                     grouped_jobs = _chunk_translation_jobs(
                         batch_eligible,
-                        max_segments=cfg.llm.batch_segments,
-                        max_chars=cfg.llm.batch_max_chars,
+                        max_segments=effective_batch_segments,
+                        max_chars=effective_batch_max_chars,
                     )
                     logger.info(f"Grouped batches prepared: {len(grouped_jobs)}")
                 else:
@@ -1838,6 +2013,8 @@ def translate_docx(
                                             )
                                         )
                                         tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(single_err))
+                                        processed_segments += 1
+                                        _flush_status("translate")
                                         continue
                                     issues = [
                                         Issue(
@@ -1861,6 +2038,8 @@ def translate_docx(
                                         glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                                         llm_translated_segments=llm_translated_segments,
                                     )
+                                    processed_segments += 1
+                                    _flush_status("translate")
                                 continue
 
                             for seg, source_hash, source_norm, out, issues in batch_results:
@@ -1877,6 +2056,8 @@ def translate_docx(
                                     glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                                     llm_translated_segments=llm_translated_segments,
                                 )
+                                processed_segments += 1
+                                _flush_status("translate")
 
                 if single_only:
                     single_workers = min(max(1, cfg.concurrency), len(single_only))
@@ -1910,6 +2091,8 @@ def translate_docx(
                                     )
                                 )
                                 tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                                processed_segments += 1
+                                _flush_status("translate")
                                 continue
 
                             issues = [
@@ -1936,6 +2119,8 @@ def translate_docx(
                                 glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                                 llm_translated_segments=llm_translated_segments,
                             )
+                            processed_segments += 1
+                            _flush_status("translate")
             else:
                 with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as ex:
                     futures = {
@@ -1956,6 +2141,8 @@ def translate_docx(
                                 )
                             )
                             tm.set_progress(seg.segment_id, "error", source_hash=source_hash, error=str(e))
+                            processed_segments += 1
+                            _flush_status("translate")
                             continue
 
                         complex_translated += _finalize_translation_result(
@@ -1971,8 +2158,14 @@ def translate_docx(
                             glossary_terms=_segment_glossary_terms(seg, glossary_terms),
                             llm_translated_segments=llm_translated_segments,
                         )
+                        processed_segments += 1
+                        _flush_status("translate")
+
+    _flush_status("translate", force=True)
 
     # Stage 3: Unshield + write back to DOCX
+    status_writer.set_phase("writeback")
+    status_writer.write(force=True)
     written = 0
     for seg in tqdm(segments, desc="Write", unit="seg"):
         if not seg.spans or seg.shielded_tagged is None:
@@ -2093,9 +2286,88 @@ def translate_docx(
         except Exception as e:
             logger.warning(f"Word COM post-process failed: {e}")
 
+    checker_edits: list[dict[str, Any]] = []
+    if effective_checker_cfg.enabled:
+        status_writer.set_phase("checker")
+        status_writer.write(force=True)
+        checker_trace_stats: dict[str, Any] = {}
+        run_paths.checker_trace_path.parent.mkdir(parents=True, exist_ok=True)
+        run_paths.checker_trace_path.write_text("", encoding="utf-8")
+        checker_provider = (effective_checker_cfg.provider or cfg.llm.provider).strip()
+        checker_model = (effective_checker_cfg.model or cfg.llm.model).strip()
+        checker_custom_prompt = _read_optional_text(
+            effective_checker_cfg.system_prompt_path,
+            logger,
+            "checker system prompt",
+        )
+        checker_client = build_llm_client(
+            provider=checker_provider,
+            model=checker_model,
+            temperature=effective_checker_cfg.temperature,
+            timeout_s=effective_checker_cfg.timeout_s,
+            max_output_tokens=effective_checker_cfg.max_output_tokens,
+            source_lang=cfg.llm.source_lang,
+            target_lang=cfg.llm.target_lang,
+            base_url=cfg.llm.base_url,
+            custom_system_prompt=checker_custom_prompt,
+            glossary_text=None,
+            glossary_prompt_text=None,
+            reasoning_effort=cfg.llm.reasoning_effort,
+            prompt_cache_key=cfg.llm.prompt_cache_key,
+            prompt_cache_retention=cfg.llm.prompt_cache_retention,
+            structured_output_mode="strict",
+            base_system_prompt=CHECKER_SYSTEM_PROMPT,
+            on_usage=usage_totals.add,
+            estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
+            pricing_currency=pricing_table.currency,
+        )
+        for seg in segments:
+            if seg.target_tagged is None and seg.target_shielded_tagged:
+                seg.context["checker_target_text"] = unshield(seg.target_shielded_tagged, seg.token_map or {})
+        checker_edits = run_llm_checker(
+            segments=segments,
+            checker_cfg=effective_checker_cfg,
+            checker_client=checker_client,
+            logger=logger,
+            trace_path=run_paths.checker_trace_path,
+            stats_out=checker_trace_stats,
+        )
+        checker_requests_total = int(checker_trace_stats.get("requests_total", 0))
+        checker_requests_succeeded = int(checker_trace_stats.get("requests_succeeded", 0))
+        checker_requests_failed = int(checker_trace_stats.get("requests_failed", 0))
+        checker_chunks_failed = int(checker_trace_stats.get("chunks_failed", 0))
+        checker_suggestions_count = len(checker_edits)
+        write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+        logger.info("Checker suggestions: %d (%s)", checker_suggestions_count, run_paths.checker_suggestions_path)
+        logger.info(
+            "Checker requests: total=%d; ok=%d; failed=%d; chunks_failed=%d",
+            checker_requests_total,
+            checker_requests_succeeded,
+            checker_requests_failed,
+            checker_chunks_failed,
+        )
+        status_writer.set_usage(usage_totals.snapshot())
+        status_writer.merge_metrics(
+            {
+                "checker_suggestions": checker_suggestions_count,
+                "checker_requests_total": checker_requests_total,
+                "checker_requests_succeeded": checker_requests_succeeded,
+                "checker_requests_failed": checker_requests_failed,
+                "checker_chunks_failed": checker_chunks_failed,
+                "issues_total": sum(len(seg.issues) for seg in segments),
+            }
+        )
+        status_writer.write(force=True)
+    elif not run_paths.checker_trace_path.exists():
+        run_paths.checker_trace_path.write_text("", encoding="utf-8")
+    elif not run_paths.checker_suggestions_path.exists():
+        write_checker_suggestions(run_paths.checker_suggestions_path, [])
+
     # QA outputs
-    qa_html = Path(cfg.qa_report_path)
-    qa_jsonl = Path(cfg.qa_jsonl_path)
+    status_writer.set_phase("qa")
+    status_writer.write(force=True)
+    qa_html = run_paths.qa_report_path
+    qa_jsonl = run_paths.qa_jsonl_path
     write_qa_report(segments, qa_html)
     write_qa_jsonl(segments, qa_jsonl)
     logger.info(f"QA report: {qa_html}")
@@ -2121,5 +2393,25 @@ def translate_docx(
             )
         _append_history_jsonl(history_path, history_records)
         logger.info(f"Translation history appended: {history_path} ({len(history_records)} records)")
+
+    status_writer.set_phase("done")
+    status_writer.set_done(len(segments))
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.merge_metrics(
+        {
+            "checker_suggestions": checker_suggestions_count,
+            "checker_requests_total": checker_requests_total,
+            "checker_requests_succeeded": checker_requests_succeeded,
+            "checker_requests_failed": checker_requests_failed,
+            "checker_chunks_failed": checker_chunks_failed,
+            "issues_total": sum(len(seg.issues) for seg in segments),
+            "written_segments": written,
+            "llm_translated": len(llm_translated_segments),
+            "tm_hits": tm_hits,
+            "resume_hits": resume_hits,
+            "complex_in_place": complex_translated,
+        }
+    )
+    status_writer.write(force=True)
 
     tm.close()

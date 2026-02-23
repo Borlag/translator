@@ -1,131 +1,135 @@
-Context
-The user previously translated aviation technical documents manually in ChatGPT — providing a large prompt with glossary, sending screenshots of 15-20 pages per chat session, and translating conversationally with full context. This produced excellent translations. The automated pipeline (docxru) produces significantly worse results because:
+Контекст проблемы
+Перевод 70 страниц (395 сегментов) занимает >1 часа. Три корневые причины:
+Причина 1: max_output_tokens не масштабируется при auto_model_sizing=False
+Режим grouped_aggressive устанавливает auto_model_sizing=False, из-за чего max_output_tokens остаётся на 2,400 (конфиг по умолчанию). Для батча из 20 сегментов нужно ~8,600 output-токенов. Модель не может уместить ответ → "Empty batch response" → fallback на 20 одиночных вызовов.
+Это не модель не справляется — ей не дали достаточно output-токенов.
+Код проблемы (pipeline.py:1565-1567):
+pythoneffective_llm_max_output_tokens = cfg.llm.max_output_tokens  # 2400
+if cfg.llm.auto_model_sizing:  # False для aggressive → пропускается!
+    effective_llm_max_output_tokens = sizing.max_output_tokens  # было бы ~9000
+Причина 2: Контекстное окно используется на 1.4%
+Этап ограниченияЗначениеПотеряКонтекст GPT-5-mini400,000 токенов—_TRANSLATE_INPUT_UTILIZATION = 0.0832,000 токенов92% потеряноТир "balanced" batch_chars_cap=18,000~5,625 токеновещё 82% обрезаноИтого используется~5,625 из 400,00098.6% окна пустует
+Причина 3: Prepare фаза — 7 минут (81 TOC-сегмент последовательно)
+81 TOC-сегмент переводится поштучно в цикле Prepare (pipeline.py:1795-1808). Каждый — отдельный API-вызов, без параллелизма. 81 × ~5 сек = ~7 минут ещё до начала основного перевода.
 
-Critical bug: Batch translation mode (used for most segments) completely bypasses the glossary, custom system prompt, and all per-segment context — using only a 5-line generic English prompt instead of the full professional Russian translator prompt with glossary.
-Formatting: Russian text is 30-50% longer than English, but font sizes are preserved exactly from the source, causing layout overflow in tables and textboxes. The user wants proactive font shrinking.
+План изменений
+1. Исправить max_output_tokens для aggressive-режима (критический баг)
+Файл: src/docxru/pipeline.py
+Добавить safety net перед созданием LLM-клиента (~строка 1614). Если auto_model_sizing=False и batch_segments > 1, вычислить минимальный max_output_tokens по формуле из содержимого:
+pythonif not cfg.llm.auto_model_sizing and effective_batch_segments > 1:
+    median_chars = _median_source_chars([len(s.source_plain or "") for s in segments])
+    estimated_batch_output_chars = effective_batch_max_chars * 1.35  # RU expansion
+    estimated_output_tokens = int(estimated_batch_output_chars / 2.2) + 420
+    if estimated_output_tokens > effective_llm_max_output_tokens:
+        effective_llm_max_output_tokens = estimated_output_tokens
+        logger.info(
+            "Auto-raised max_output_tokens to %d (batch content requires more than configured %d)",
+            effective_llm_max_output_tokens, cfg.llm.max_output_tokens,
+        )
+Использовать вспомогательную функцию _median_source_chars из model_sizing.py (импортировать).
+Также: в grouped_aggressive профиле в studio_server.py (строка 181) переключить auto_model_sizing на True:
+python"auto_model_sizing": True,  # Было False, что приводило к batch failures
+2. Добавить тир "turbo" в model_sizing.py
+Файл: src/docxru/model_sizing.py
+Добавить в _TIER_LIMITS:
+python"turbo": TierLimits(
+    batch_chars_cap=120_000,
+    batch_segments_cap=80,
+    translate_output_cap=64_000,
+    checker_segments_cap=250,
+    checker_output_cap=8000,
+    checker_pages_per_chunk=8,
+),
+Обоснование:
 
+120K символов ≈ 37,500 input-токенов → 10% от 400K (безопасно для внимания модели)
+64K output-токенов = 50% от 128K (достаточный запас)
 
-Part 1: Fix Translation Quality (Batch Mode + Context)
-1A. Use full system prompt in batch mode
-Root cause: When task == "batch_translate", the LLM clients use BATCH_SYSTEM_PROMPT_TEMPLATE (a 5-line English-only prompt with no glossary/expertise). This means ~90% of segments translated in batch mode get no glossary, no domain context, no professional translator instructions.
-Files to modify:
+3. Сделать _TRANSLATE_INPUT_UTILIZATION динамическим
+Файл: src/docxru/model_sizing.py
+Заменить константу 0.08 на функцию:
+pythondef _translate_input_utilization(input_context_tokens: int) -> float:
+    if input_context_tokens >= 200_000:
+        return 0.15
+    if input_context_tokens >= 100_000:
+        return 0.10
+    return 0.08
+Обновить строку 212: _translate_input_utilization(profile.input_context_tokens)
+4. Переназначить модели GPT-5 на тир "turbo"
+Файл: src/docxru/model_sizing.py
 
-src/docxru/llm.py — lines 65-70, 787-788, 1007-1008
+gpt-5-mini (400K/128K): "balanced" → "turbo"
+gpt-5 (400K/128K): "premium" → "turbo"
+gpt-5.2 (400K/128K): "premium" → "turbo"
+gpt-5-nano, gpt-4.1-mini, gpt-4o-mini — без изменений
 
-Changes:
+5. Добавить режим "grouped_turbo" в студию
+Файл: src/docxru/studio_server.py
+В _translation_grouping_profile добавить:
+pythonif key == "grouped_turbo":
+    return (
+        "grouped_turbo",
+        {
+            "batch_segments": 80,
+            "batch_max_chars": 120_000,
+            "context_window_chars": 0,
+            "auto_model_sizing": True,
+        },
+        0.20,
+    )
+Добавить <option value="grouped_turbo">Grouped (turbo, large-context models)</option> в HTML-форму.
+auto_model_sizing=True гарантирует безопасность: при gpt-4o-mini тир "economy" обрежет до 12K/6 сегментов.
+6. Масштабировать таймауты и ETA
+Файл: src/docxru/studio_server.py
+В _estimate_request_latency_bounds_seconds — добавить batch_max_chars параметр:
+pythonif grouped_mode and batch_max_chars > 36000:
+    scale = min(4.0, batch_max_chars / 36000)
+    low *= scale; high *= scale
+Передать batch_max_chars из estimate_from_form (строка 1028).
+При формировании конфига для запуска: если effective_batch_max_chars > 36000, установить timeout_s = 180.
+7. Параллелизировать TOC-перевод в Prepare
+Файл: src/docxru/pipeline.py
+В цикле Prepare (строка 1742) TOC- и complex-сегменты сейчас переводятся последовательно. Изменить подход:
 
-In OpenAIChatCompletionsClient.translate(): when task == "batch_translate", use self.translation_system_prompt (which already contains the full base prompt + custom prompt + glossary) and append the batch-specific JSON output instructions to it, instead of using BATCH_SYSTEM_PROMPT_TEMPLATE.
-Same change in OllamaChatClient.translate().
-Keep BATCH_SYSTEM_PROMPT_TEMPLATE as a fallback for providers that don't have translation_system_prompt.
+Во время Prepare-цикла собирать TOC/complex сегменты в отдельный список вместо немедленного перевода
+После основного Prepare-цикла — перевести собранные TOC/complex сегменты параллельно через ThreadPoolExecutor(max_workers=cfg.concurrency)
+Обновить прогресс-бар после параллельной обработки
 
-Concrete change in OpenAIChatCompletionsClient.translate():
-pythonelif task == "batch_translate":
-    # Use the full translation prompt (with glossary + custom instructions)
-    # and append batch-specific JSON output instructions
-    system_prompt = self.translation_system_prompt + "\n\n" + BATCH_JSON_INSTRUCTIONS
-Where BATCH_JSON_INSTRUCTIONS is a new constant containing only the JSON output format rules (extracted from the current BATCH_SYSTEM_PROMPT_TEMPLATE):
-pythonBATCH_JSON_INSTRUCTIONS = """BATCH MODE — return ONLY valid JSON in the requested schema.
-Do not add commentary outside the JSON.
-Preserve all marker tokens exactly (⟦...⟧).
-Preserve numbers, units, and punctuation."""
-1B. Add per-segment context to batch items
-Root cause: _build_batch_translation_prompt() sends only {"id": "...", "text": "..."} per segment — no section header, no table/textbox flag, no matched glossary.
-Files to modify:
+Это ускорит Prepare с ~7 мин до ~2 мин (81 вызов / 4 воркера × ~5 сек).
+8. Добавить тесты
+Файл: tests/test_model_sizing.py
 
-src/docxru/pipeline.py — _build_batch_translation_prompt() (line 908) and _translate_batch_once() (line 1049)
-
-Changes:
-
-Extend each batch item to include context:
-
-python  {"id": seg_id, "text": text, "context": "SECTION: 32-10-00 | TABLE_CELL", "glossary": "term1->перевод1; term2->перевод2"}
-
-In _translate_batch_once(), build matched glossary terms for the combined batch text and include section headers from each segment's context.
-Update the batch prompt instructions to tell the LLM to use the per-item context for disambiguation.
-
-1C. Update config defaults for better quality
-File: config/config.agent_openai.yaml
-SettingCurrentNewReasonreasoning_effortminimallowGives GPT-5 more room to think about contextbatch_segments64Smaller batches = better per-segment attentionfuzzy_enabledfalsetrueEnable reference translations from TM cachecontext_window_chars00Keep batch mode but improve its quality first
-1D. Improve batch translation prompt
-File: src/docxru/pipeline.py — _build_batch_translation_prompt() (line 908)
-Update the prompt to:
-
-Reference the per-item context and glossary fields
-Instruct the LLM to use context for disambiguation and glossary for terminology
-Keep the JSON output format requirements
-
-
-Part 2: Formatting — Unconditional Font Size Reduction
-2A. Add new config options
-File: src/docxru/config.py
-Add two new fields to the config dataclass:
-
-font_shrink_body_pt: float = 0.0 (default 0 = disabled; user sets to 2.0)
-font_shrink_table_pt: float = 0.0 (default 0 = disabled; user sets to 3.0)
-
-2B. Implement global font shrink function
-File: src/docxru/layout_fix.py
-Add new function apply_global_font_shrink(segments, cfg) -> int:
-pythondef apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> int:
-    """Unconditionally reduce font sizes for all translated segments."""
-    body_shrink = float(cfg.font_shrink_body_pt)
-    table_shrink = float(cfg.font_shrink_table_pt)
-    if body_shrink <= 0 and table_shrink <= 0:
-        return 0
-
-    MIN_FONT_PT = 6.0
-    changed_count = 0
-    for seg in segments:
-        if seg.paragraph_ref is None or not seg.target_tagged:
-            continue
-
-        shrink = table_shrink if seg.context.get("in_table") or seg.context.get("in_textbox") else body_shrink
-        if shrink <= 0:
-            continue
-
-        para = seg.paragraph_ref
-        changed = False
-        for run in para.runs:
-            if run.font.size is not None:
-                current = run.font.size.pt
-                new_size = max(MIN_FONT_PT, current - shrink)
-                if new_size < current:
-                    run.font.size = Pt(new_size)
-                    changed = True
-        if changed:
-            changed_count += 1
-    return changed_count
-2C. Call the function in the pipeline
-File: src/docxru/pipeline.py
-Insert the call after the write-back loop and before layout checks:
-python# After write-back, before layout check
-if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
-    shrunk = apply_global_font_shrink(segments, cfg)
-    logger.info(f"Global font shrink applied to {shrunk} segments")
-2D. Set config values
-File: config/config.agent_openai.yaml
-Add:
-yamlfont_shrink_body_pt: 2.0
-font_shrink_table_pt: 3.0
-
-Files to Modify (Summary)
-FileChangessrc/docxru/llm.pyNew BATCH_JSON_INSTRUCTIONS constant; modify batch system prompt in OpenAI and Ollama clientssrc/docxru/pipeline.pyUpdate _build_batch_translation_prompt() with context/glossary; update _translate_batch_once() to build per-item context; add global font shrink callsrc/docxru/layout_fix.pyAdd apply_global_font_shrink() functionsrc/docxru/config.pyAdd font_shrink_body_pt and font_shrink_table_pt config fieldsconfig/config.agent_openai.yamlUpdate reasoning_effort, batch_segments, fuzzy_enabled; add font shrink settings
-
-Verification
-
-Unit test: Run existing tests to ensure no regressions: python -m pytest
-Dry run with mock: Run pipeline with provider: mock to verify:
-
-Font shrink function is called and modifies font sizes correctly
-Batch prompt now includes full system prompt text
-Config parsing works for new fields
+GPT-5-mini резолвится в тир "turbo"
+Turbo-тир даёт batch_max_chars >= 60_000 и batch_segments >= 30
+gpt-4o-mini остаётся "economy" с batch_max_chars <= 12_000
+Динамический utilization: 400K → 0.15, 128K → 0.10
+Single-segment mode (batch_segments=1) сохраняется при любом тире
+Safety net: при auto_model_sizing=False и большом батче max_output_tokens автоподнимается
 
 
-Integration test: Run a real translation of a small DOCX file with the updated config and verify:
+Ожидаемый результат
+МетрикаСейчас (aggressive)После (turbo)Prepare фаза~7 мин (81 TOC sequential)~2 мин (81 TOC parallel)Batch failures8 из 15 (53%!)0 (output tokens достаточно)Символов на запрос36,000 (но ответ обрезается)120,000Сегментов на запрос20 (но падает)80API-вызовов (285 LLM сегм.)~15 батчей + ~160 fallback = ~1754-6 батчейВремя перевода (70 стр)>1 час~3-5 минУтилизация input~1.4%~10%Утилизация outputобрезается до 2400~50%
+Порядок реализации
 
-Translated text uses correct glossary terms (check QA report for glossary_lemma_mismatch)
-Font sizes in output DOCX are reduced by expected amounts
-Tables have smaller font than body text
+Шаг 1 — Safety net для max_output_tokens в pipeline.py + auto_model_sizing=True в aggressive (исправляет текущий баг)
+Шаг 2 — Тир "turbo" + динамический utilization в model_sizing.py (увеличивает батчи)
+Шаг 3 — Переназначить GPT-5 модели на turbo (активирует новые лимиты)
+Шаг 4 — Режим "grouped_turbo" в студии (UI для нового режима)
+Шаг 5 — Таймауты и ETA (корректные оценки)
+Шаг 6 — Параллелизация TOC в Prepare (ускорение Prepare фазы)
+Шаг 7 — Тесты
 
+Ключевые файлы
 
-Compare output: Translate the same document with old config (batch_segments=6, minimal reasoning, no fuzzy TM) vs new config and compare translation quality in QA reports
+src/docxru/model_sizing.py — тиры, utilization, профили моделей
+src/docxru/pipeline.py — safety net для output tokens, параллелизация TOC
+src/docxru/studio_server.py — grouped_turbo профиль, таймауты, ETA, aggressive fix
+tests/test_model_sizing.py — тесты
+
+Верификация
+
+pytest tests/test_model_sizing.py — новые + старые тесты проходят
+Запустить студию → aggressive mode → убедиться что batch failures исчезли
+Запустить студию → turbo mode → перевести 70 стр → время < 5 мин
+Сравнить качество turbo vs grouped_fast на одном документе
+Запустить grouped_fast → убедиться что обратная совместимость сохранена

@@ -52,7 +52,7 @@ checker:
   provider: null           # null = reuse llm.provider
   model: gpt-5-mini        # null = reuse llm.model; gpt-5-mini is recommended for higher-quality checker edits
   temperature: 0.0
-  max_output_tokens: 2000
+  max_output_tokens: 6000  # higher default helps avoid checker finish_reason=length on large chunks
   timeout_s: 60.0
   retries: 1
   system_prompt_path: null # optional checker-specific instructions

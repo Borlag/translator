@@ -64,7 +64,7 @@ def test_recommend_runtime_model_sizing_for_gpt5_mini_uses_turbo_limits():
     )
     assert sizing.batch_max_chars >= 60_000
     assert sizing.batch_segments >= 30
-    assert sizing.checker_pages_per_chunk == 8
+    assert sizing.checker_pages_per_chunk == 4
 
 
 def test_recommend_runtime_model_sizing_for_gpt52_allows_larger_batch_than_gpt4o():

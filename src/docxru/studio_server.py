@@ -508,7 +508,7 @@ def _build_studio_html() -> str:
             </div>
             <div class="row">
               <label>Checker Max Output Tokens</label>
-              <input type="number" name="checker_max_output_tokens" value="2000" min="64" />
+              <input type="number" name="checker_max_output_tokens" value="6000" min="64" />
             </div>
           </div>
           <div id="checkerOpenaiBatchRow" class="checkline" style="margin-top:6px; display:none;">
@@ -1156,7 +1156,7 @@ class StudioRunManager:
         )
         checker_max_output_tokens = max(
             64,
-            _to_int(self._read_text_value(form, "checker_max_output_tokens", "2000"), 2000),
+            _to_int(self._read_text_value(form, "checker_max_output_tokens", "6000"), 6000),
         )
 
         prompt_field = self._read_file_field(form, "prompt_file", "system_prompt.md")
@@ -1308,7 +1308,7 @@ class StudioRunManager:
         checker_temperature = _to_float(self._read_text_value(form, "checker_temperature", "0.0"), 0.0)
         checker_max_output_tokens = max(
             64,
-            _to_int(self._read_text_value(form, "checker_max_output_tokens", "2000"), 2000),
+            _to_int(self._read_text_value(form, "checker_max_output_tokens", "6000"), 6000),
         )
         checker_openai_batch_enabled = (
             checker_enabled

@@ -264,6 +264,7 @@ This version adds a second-pass LLM checker and a lightweight local dashboard.
 checker:
   enabled: true
   model: gpt-5-mini
+  max_output_tokens: 6000
   pages_per_chunk: 3
   only_on_issue_severities: ["warn", "error"]
   output_path: checker_suggestions.json

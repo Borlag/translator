@@ -57,6 +57,7 @@ def test_load_config_reads_font_shrink_values(tmp_path):
 def test_pipeline_config_checker_and_pricing_defaults():
     cfg = PipelineConfig()
     assert cfg.checker.enabled is False
+    assert cfg.checker.max_output_tokens == 6000
     assert cfg.checker.pages_per_chunk == 3
     assert cfg.checker.fallback_segments_per_chunk == 120
     assert cfg.checker.safe_output_path == "checker_suggestions_safe.json"

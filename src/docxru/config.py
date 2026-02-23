@@ -82,7 +82,7 @@ class CheckerConfig:
     provider: str | None = None
     model: str | None = None
     temperature: float = 0.0
-    max_output_tokens: int = 2000
+    max_output_tokens: int = 6000
     timeout_s: float = 60.0
     retries: int = 1
     system_prompt_path: str | None = None
@@ -299,7 +299,7 @@ def load_config(path: str | Path) -> PipelineConfig:
             else None
         ),
         temperature=float(checker_data.get("temperature", 0.0)),
-        max_output_tokens=int(checker_data.get("max_output_tokens", 2000)),
+        max_output_tokens=int(checker_data.get("max_output_tokens", 6000)),
         timeout_s=float(checker_data.get("timeout_s", 60.0)),
         retries=max(0, int(checker_data.get("retries", 1))),
         system_prompt_path=_resolve_optional_path(cfg_path.parent, checker_data.get("system_prompt_path")),

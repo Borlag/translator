@@ -103,9 +103,9 @@ _TIER_LIMITS: dict[str, TierLimits] = {
         batch_chars_cap=120_000,
         batch_segments_cap=80,
         translate_output_cap=64_000,
-        checker_segments_cap=250,
+        checker_segments_cap=160,
         checker_output_cap=8000,
-        checker_pages_per_chunk=8,
+        checker_pages_per_chunk=4,
     ),
 }
 

@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import cgi
+import io
 import json
 import os
 import subprocess
@@ -21,6 +22,10 @@ from urllib.parse import parse_qs, urlparse
 import yaml
 
 from .dashboard_server import ensure_dashboard_html
+from .docx_reader import collect_segments
+from .model_sizing import recommend_runtime_model_sizing
+from .pipeline import _should_translate_segment_text
+from .tagging import is_supported_paragraph
 
 DEFAULT_OPENAI_MODELS: tuple[str, ...] = (
     "gpt-5.2",
@@ -160,6 +165,84 @@ def _default_model_for_provider(provider: str) -> str:
     return "mock"
 
 
+def _translation_grouping_profile(mode: str) -> tuple[str, dict[str, Any], float]:
+    key = (mode or "").strip().lower()
+    if key == "sequential_context":
+        return (
+            "sequential_context",
+            {
+                "batch_segments": 1,
+                "batch_max_chars": 12000,
+                "context_window_chars": 600,
+                "auto_model_sizing": True,
+            },
+            0.03,
+        )
+    if key == "grouped_aggressive":
+        # Aggressive mode increases throughput by allowing larger grouped requests.
+        # Keep auto sizing off to avoid re-clamping back to conservative caps.
+        return (
+            "grouped_aggressive",
+            {
+                "batch_segments": 20,
+                "batch_max_chars": 36000,
+                "context_window_chars": 0,
+                "auto_model_sizing": False,
+            },
+            0.12,
+        )
+    # Default studio profile prioritizes throughput for large manuals.
+    return (
+        "grouped_fast",
+        {
+            "batch_segments": 6,
+            "batch_max_chars": 14000,
+            "context_window_chars": 0,
+            "auto_model_sizing": True,
+        },
+        0.08,
+    )
+
+
+def _estimate_grouped_request_count(source_char_lengths: list[int], *, max_segments: int, max_chars: int) -> int:
+    if not source_char_lengths:
+        return 0
+    seg_limit = max(1, int(max_segments))
+    char_limit = max(1, int(max_chars))
+    groups = 0
+    current_seg_count = 0
+    current_chars = 0
+    for source_len in source_char_lengths:
+        estimated = max(1, int(source_len)) + 128
+        if current_seg_count > 0 and (current_seg_count >= seg_limit or current_chars + estimated > char_limit):
+            groups += 1
+            current_seg_count = 0
+            current_chars = 0
+        current_seg_count += 1
+        current_chars += estimated
+    if current_seg_count > 0:
+        groups += 1
+    return groups
+
+
+def _estimate_request_latency_bounds_seconds(provider: str, model: str, *, grouped_mode: bool) -> tuple[float, float]:
+    provider_norm = (provider or "").strip().lower()
+    model_norm = (model or "").strip().lower()
+    if provider_norm == "mock":
+        return (0.01, 0.03)
+    if provider_norm == "google":
+        return (1.8, 5.0)
+    if provider_norm == "ollama":
+        return (3.0, 18.0) if grouped_mode else (2.0, 10.0)
+    if provider_norm == "openai":
+        low, high = (10.0, 24.0) if grouped_mode else (9.0, 17.0)
+        if model_norm.startswith("gpt-5"):
+            low += 1.0
+            high += 3.0
+        return (low, high)
+    return (6.0, 16.0) if grouped_mode else (4.0, 12.0)
+
+
 def _build_studio_html() -> str:
     return """<!doctype html>
 <html lang="en">
@@ -266,6 +349,17 @@ def _build_studio_html() -> str:
             <input type="number" name="concurrency" value="4" min="1" max="64" />
           </div>
         </div>
+        <div class="grid2">
+          <div class="row">
+            <label>Translation Request Grouping (docxru)</label>
+            <select name="translation_grouping_mode" id="translationGroupingMode">
+              <option value="grouped_fast">Grouped Requests (recommended, faster)</option>
+              <option value="grouped_aggressive">Grouped Requests (aggressive, fastest)</option>
+              <option value="sequential_context">Sequential Context Window (slower, max continuity)</option>
+            </select>
+            <div class="muted">This controls docxru translation request grouping and is separate from OpenAI Batch API.</div>
+          </div>
+        </div>
         <input type="hidden" name="model" id="modelHidden" value="gpt-4o-mini" />
 
         <div class="grid3">
@@ -328,15 +422,17 @@ def _build_studio_html() -> str:
           </div>
           <div id="checkerOpenaiBatchRow" class="checkline" style="margin-top:6px; display:none;">
             <input id="checkerOpenaiBatch" type="checkbox" name="checker_openai_batch" value="1" />
-            <label for="checkerOpenaiBatch">Use OpenAI Batch API for checker (async/night mode)</label>
+            <label for="checkerOpenaiBatch">Use OpenAI Batch API for checker only (async/night mode, separate from translation grouping)</label>
           </div>
         </div>
 
         <div class="btns">
           <button id="startBtn" type="submit" class="primary">Start Translation</button>
+          <button id="estimateBtn" type="button">Estimate Duration</button>
           <button id="openRunBtn" type="button">Open Run Folder</button>
           <span id="runPill" class="pill">no run</span>
         </div>
+        <div id="estimateHint" class="muted" style="margin-top:8px;">Estimate not calculated yet.</div>
       </form>
     </div>
 
@@ -391,10 +487,15 @@ def _build_studio_html() -> str:
   ];
 
   const providerSelect = document.getElementById("providerSelect");
+  const translationGroupingMode = document.getElementById("translationGroupingMode");
   const openaiModelSelect = document.getElementById("openaiModelSelect");
   const translateModelRow = document.getElementById("translateModelRow");
   const modelHidden = document.getElementById("modelHidden");
   const refreshModelsBtn = document.getElementById("refreshModelsBtn");
+  const runForm = document.getElementById("runForm");
+  const sourceFileInput = document.querySelector("input[name='input_file']");
+  const estimateBtn = document.getElementById("estimateBtn");
+  const estimateHint = document.getElementById("estimateHint");
   const checkerEnabled = document.getElementById("checkerEnabled");
   const checkerBlock = document.getElementById("checkerBlock");
   const checkerProviderSelect = document.getElementById("checkerProviderSelect");
@@ -500,6 +601,10 @@ def _build_studio_html() -> str:
   providerSelect.addEventListener("change", () => {
     syncTranslateModelUI();
     syncCheckerUI();
+    estimateHint.textContent = "Estimate may have changed; click Estimate Duration.";
+  });
+  translationGroupingMode.addEventListener("change", () => {
+    estimateHint.textContent = "Estimate may have changed; click Estimate Duration.";
   });
   openaiModelSelect.addEventListener("change", () => {
     syncTranslateModelUI();
@@ -507,9 +612,17 @@ def _build_studio_html() -> str:
       checkerOpenaiModelSelect.value = openaiModelSelect.value;
     }
     syncCheckerUI();
+    estimateHint.textContent = "Estimate may have changed; click Estimate Duration.";
   });
-  checkerOpenaiModelSelect.addEventListener("change", syncCheckerUI);
+  checkerOpenaiModelSelect.addEventListener("change", () => {
+    syncCheckerUI();
+    estimateHint.textContent = "Estimate may have changed; click Estimate Duration.";
+  });
+  sourceFileInput.addEventListener("change", () => {
+    estimateHint.textContent = "File selected. Click Estimate Duration.";
+  });
   refreshModelsBtn.addEventListener("click", refreshOpenAIModels);
+  estimateBtn.addEventListener("click", estimateDuration);
 
   function fmtSeconds(v) {
     if (v == null || Number.isNaN(v) || !Number.isFinite(v)) return "-";
@@ -529,6 +642,49 @@ def _build_studio_html() -> str:
   function fmtCost(v, currency) {
     if (v == null || Number.isNaN(v)) return "N/A";
     return `${(currency || "USD").toUpperCase()} ${Number(v).toFixed(4)}`;
+  }
+
+  async function estimateDuration() {
+    if (!sourceFileInput || !sourceFileInput.files || !sourceFileInput.files.length) {
+      estimateHint.textContent = "Select a source file to estimate duration.";
+      return;
+    }
+    syncTranslateModelUI();
+    syncCheckerUI();
+    const fd = new FormData(runForm);
+    estimateBtn.disabled = true;
+    estimateBtn.textContent = "Estimating...";
+    try {
+      const resp = await fetch("/api/estimate", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        estimateHint.textContent = data.error || `Estimate failed: ${resp.status}`;
+        return;
+      }
+      const est = data.estimation || {};
+      if ((est.source_kind || "") !== "docx") {
+        estimateHint.textContent = est.note || "Estimate is currently available for DOCX only.";
+        return;
+      }
+      const grouped = Boolean(est.grouped_mode_effective);
+      const modeLabel = grouped ? "Grouped requests" : "Sequential context";
+      const etaLow = fmtSeconds(Number(est.eta_seconds_low || 0));
+      const etaHigh = fmtSeconds(Number(est.eta_seconds_high || 0));
+      const autoSizing = Boolean(est.auto_model_sizing_effective);
+      const fallbackWarnPct = Math.round(Number(est.batch_fallback_warn_ratio || 0) * 1000) / 10;
+      estimateHint.textContent =
+        `${modeLabel}: ~${etaLow} to ${etaHigh}. ` +
+        `LLM segments ~${fmtNum(est.llm_segments_estimate || 0)}, ` +
+        `requests ~${fmtNum(est.request_count_estimate || 0)}, ` +
+        `effective batch ${fmtNum(est.effective_batch_segments || 1)}x${fmtNum(est.effective_batch_max_chars || 0)} chars, ` +
+        `auto sizing ${autoSizing ? "on" : "off"}, ` +
+        `fallback warn threshold ${fallbackWarnPct}%.`;
+    } catch (err) {
+      estimateHint.textContent = String(err);
+    } finally {
+      estimateBtn.disabled = false;
+      estimateBtn.textContent = "Estimate Duration";
+    }
   }
 
   async function refreshStatus() {
@@ -572,7 +728,7 @@ def _build_studio_html() -> str:
     }
   }
 
-  document.getElementById("runForm").addEventListener("submit", async (e) => {
+  runForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     syncTranslateModelUI();
     syncCheckerUI();
@@ -644,7 +800,7 @@ class StudioRunManager:
         self._runs: dict[str, StudioRun] = {}
 
     def _read_file_field(self, form: cgi.FieldStorage, field_name: str, fallback_name: str) -> tuple[str, bytes] | None:
-        field = form.get(field_name, None)
+        field = form[field_name] if field_name in form else None
         if field is None:
             return None
         if isinstance(field, list):
@@ -658,7 +814,7 @@ class StudioRunManager:
         return name, payload
 
     def _read_text_value(self, form: cgi.FieldStorage, field_name: str, default: str = "") -> str:
-        field = form.get(field_name, None)
+        field = form[field_name] if field_name in form else None
         if field is None:
             return default
         if isinstance(field, list):
@@ -674,6 +830,7 @@ class StudioRunManager:
         temperature: float,
         max_output_tokens: int,
         concurrency: int,
+        translation_grouping_mode: str,
         prompt_path: Path | None,
         glossary_path: Path | None,
         checker_enabled: bool,
@@ -691,6 +848,9 @@ class StudioRunManager:
         repo_root = _repo_root()
         preset_path = repo_root / "config" / "regex_presets.yaml"
         tm_path = repo_root / "translation_cache.sqlite"
+        _grouping_mode, grouping_profile, batch_fallback_warn_ratio = _translation_grouping_profile(
+            translation_grouping_mode
+        )
 
         payload: dict[str, Any] = {
             "llm": {
@@ -706,7 +866,7 @@ class StudioRunManager:
                 "glossary_path": (str(glossary_path) if glossary_path is not None else None),
                 "glossary_prompt_mode": "matched",
                 "structured_output_mode": "auto",
-                "auto_model_sizing": True,
+                **grouping_profile,
             },
             "tm": {
                 "path": str(tm_path),
@@ -733,6 +893,7 @@ class StudioRunManager:
                 "status_path": str(run_dir / "run_status.json"),
                 "dashboard_html_path": str(run_dir / "dashboard.html"),
                 "status_flush_every_n_segments": 5,
+                "batch_fallback_warn_ratio": float(batch_fallback_warn_ratio),
             },
             "concurrency": max(1, concurrency),
             "mode": "reflow",
@@ -746,6 +907,158 @@ class StudioRunManager:
                 "preset_name": "default",
             }
         return payload
+
+    def estimate_from_form(self, form: cgi.FieldStorage) -> dict[str, Any]:
+        src = self._read_file_field(form, "input_file", "input.docx")
+        if src is None:
+            raise RuntimeError("Source file is required")
+        source_name, source_bytes = src
+        source_path = Path(source_name)
+        cmd_name, _ = _infer_translation_cmd(source_path)
+        if cmd_name != "translate":
+            return {
+                "ok": True,
+                "estimation": {
+                    "source_kind": "pdf",
+                    "note": "Pre-run ETA is currently available for DOCX only.",
+                },
+            }
+
+        from docx import Document  # Local import keeps studio startup lightweight.
+
+        doc = Document(io.BytesIO(source_bytes))
+        segments = collect_segments(doc, include_headers=False, include_footers=False)
+
+        skip_non_latin = 0
+        toc_in_place = 0
+        complex_in_place = 0
+        llm_segments = 0
+        source_lengths: list[int] = []
+        for seg in segments:
+            if not _should_translate_segment_text(seg.source_plain):
+                skip_non_latin += 1
+                continue
+            if seg.context.get("is_toc_entry"):
+                toc_in_place += 1
+                continue
+            if not is_supported_paragraph(seg.paragraph_ref):
+                complex_in_place += 1
+                continue
+            llm_segments += 1
+            source_lengths.append(len(seg.source_plain or ""))
+
+        provider = self._read_text_value(form, "provider", "openai") or "openai"
+        model_raw = self._read_text_value(form, "model", "")
+        model = model_raw or _default_model_for_provider(provider)
+        max_output_tokens = max(64, _to_int(self._read_text_value(form, "max_output_tokens", "2000"), 2000))
+        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_fast")
+        _mode_key, grouping, batch_fallback_warn_ratio = _translation_grouping_profile(translation_grouping_mode)
+
+        checker_provider_raw = self._read_text_value(form, "checker_provider", "")
+        checker_provider = checker_provider_raw or provider
+        checker_model_raw = self._read_text_value(form, "checker_model", "")
+        checker_model = checker_model_raw or model
+        checker_pages_per_chunk = max(1, _to_int(self._read_text_value(form, "checker_pages_per_chunk", "3"), 3))
+        checker_fallback_segments = max(
+            1,
+            _to_int(self._read_text_value(form, "checker_fallback_segments_per_chunk", "120"), 120),
+        )
+        checker_max_output_tokens = max(
+            64,
+            _to_int(self._read_text_value(form, "checker_max_output_tokens", "2000"), 2000),
+        )
+
+        prompt_field = self._read_file_field(form, "prompt_file", "system_prompt.md")
+        glossary_field = self._read_file_field(form, "glossary_file", "glossary.md")
+        prompt_chars = 0
+        if prompt_field is not None:
+            prompt_chars += len(prompt_field[1].decode("utf-8", errors="ignore"))
+        if glossary_field is not None:
+            prompt_chars += len(glossary_field[1].decode("utf-8", errors="ignore"))
+
+        auto_model_sizing = bool(grouping.get("auto_model_sizing", True))
+        effective_batch_segments = int(grouping["batch_segments"])
+        effective_batch_max_chars = int(grouping["batch_max_chars"])
+        effective_max_output_tokens = int(max_output_tokens)
+        sizing_notes: list[str] = []
+        if auto_model_sizing:
+            sizing = recommend_runtime_model_sizing(
+                provider=provider,
+                model=model,
+                checker_provider=checker_provider,
+                checker_model=checker_model,
+                source_char_lengths=source_lengths,
+                prompt_chars=prompt_chars,
+                batch_segments=effective_batch_segments,
+                batch_max_chars=effective_batch_max_chars,
+                max_output_tokens=max_output_tokens,
+                context_window_chars=int(grouping["context_window_chars"]),
+                checker_pages_per_chunk=checker_pages_per_chunk,
+                checker_fallback_segments_per_chunk=checker_fallback_segments,
+                checker_max_output_tokens=checker_max_output_tokens,
+            )
+            effective_batch_segments = int(sizing.batch_segments)
+            effective_batch_max_chars = int(sizing.batch_max_chars)
+            effective_max_output_tokens = int(sizing.max_output_tokens)
+            sizing_notes = list(sizing.notes)
+        else:
+            sizing_notes = [
+                (
+                    f"translate profile manual override: batch={effective_batch_segments}x"
+                    f"{effective_batch_max_chars}chars max_output_tokens={effective_max_output_tokens}"
+                )
+            ]
+
+        provider_norm = provider.strip().lower()
+        grouped_mode = (
+            int(grouping["context_window_chars"]) <= 0
+            and effective_batch_segments > 1
+            and provider_norm in {"openai", "ollama"}
+        )
+        if grouped_mode:
+            request_count = _estimate_grouped_request_count(
+                source_lengths,
+                max_segments=effective_batch_segments,
+                max_chars=effective_batch_max_chars,
+            )
+        else:
+            request_count = llm_segments
+
+        prepare_seconds = max(2.0, len(segments) / 155.0)
+        per_req_low, per_req_high = _estimate_request_latency_bounds_seconds(
+            provider,
+            model,
+            grouped_mode=grouped_mode,
+        )
+        eta_low = prepare_seconds + (request_count * per_req_low)
+        eta_high = prepare_seconds + (request_count * per_req_high)
+
+        return {
+            "ok": True,
+            "estimation": {
+                "source_kind": "docx",
+                "source_name": source_path.name,
+                "segments_total": len(segments),
+                "skip_no_latin_estimate": skip_non_latin,
+                "toc_in_place_estimate": toc_in_place,
+                "complex_in_place_estimate": complex_in_place,
+                "llm_segments_estimate": llm_segments,
+                "grouping_mode": translation_grouping_mode,
+                "grouped_mode_effective": grouped_mode,
+                "auto_model_sizing_effective": auto_model_sizing,
+                "effective_batch_segments": int(effective_batch_segments),
+                "effective_batch_max_chars": int(effective_batch_max_chars),
+                "effective_max_output_tokens": int(effective_max_output_tokens),
+                "batch_fallback_warn_ratio": float(batch_fallback_warn_ratio),
+                "request_count_estimate": int(request_count),
+                "eta_seconds_low": float(eta_low),
+                "eta_seconds_high": float(eta_high),
+                "notes": sizing_notes,
+                "note": (
+                    "Rough estimate before TM hits/resume/checker edits; real runtime depends on API latency."
+                ),
+            },
+        }
 
     def start_from_form(self, form: cgi.FieldStorage) -> dict[str, Any]:
         src = self._read_file_field(form, "input_file", "input.docx")
@@ -779,6 +1092,7 @@ class StudioRunManager:
         temperature = _to_float(self._read_text_value(form, "temperature", "0.1"), 0.1)
         max_output_tokens = max(64, _to_int(self._read_text_value(form, "max_output_tokens", "2000"), 2000))
         concurrency = max(1, _to_int(self._read_text_value(form, "concurrency", "4"), 4))
+        translation_grouping_mode = self._read_text_value(form, "translation_grouping_mode", "grouped_fast")
 
         checker_enabled = _to_bool(self._read_text_value(form, "checker_enabled", "0"))
         checker_provider_raw = self._read_text_value(form, "checker_provider", "")
@@ -816,6 +1130,7 @@ class StudioRunManager:
             temperature=temperature,
             max_output_tokens=max_output_tokens,
             concurrency=concurrency,
+            translation_grouping_mode=translation_grouping_mode,
             prompt_path=prompt_path,
             glossary_path=glossary_path,
             checker_enabled=checker_enabled,
@@ -998,6 +1313,27 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
                     api_key = str(payload.get("api_key") or "").strip()
             models = _list_openai_models(api_key)
             self._write_json(HTTPStatus.OK, {"ok": True, "models": models})
+            return
+
+        if parsed.path == "/api/estimate":
+            content_type = self.headers.get("Content-Type", "")
+            if "multipart/form-data" not in content_type:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "multipart/form-data expected"})
+                return
+            try:
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": content_type,
+                    },
+                )
+                payload = self._manager.estimate_from_form(form)
+            except Exception as exc:
+                self._write_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                return
+            self._write_json(HTTPStatus.OK, payload)
             return
 
         if parsed.path == "/api/start":

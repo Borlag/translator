@@ -1659,6 +1659,9 @@ def translate_docx(
     processed_segments = 0
     document_glossary: dict[str, str] = {}
     progress_cache: dict[str, dict[str, Any]] = {}
+    batch_attempted_segments = 0
+    batch_fallback_segments = 0
+    batch_json_schema_violations = 0
 
     def _flush_status(phase: str, *, force: bool = False) -> None:
         nonlocal processed_segments
@@ -1667,9 +1670,15 @@ def translate_docx(
         nonlocal checker_requests_succeeded
         nonlocal checker_requests_failed
         nonlocal checker_chunks_failed
+        nonlocal batch_attempted_segments
+        nonlocal batch_fallback_segments
+        nonlocal batch_json_schema_violations
         step = max(1, int(cfg.run.status_flush_every_n_segments))
         if not force and processed_segments % step != 0:
             return
+        batch_fallback_ratio = (
+            float(batch_fallback_segments / batch_attempted_segments) if batch_attempted_segments > 0 else 0.0
+        )
         status_writer.set_phase(phase)
         status_writer.set_done(processed_segments)
         status_writer.set_usage(usage_totals.snapshot())
@@ -1687,10 +1696,42 @@ def translate_docx(
                 "checker_requests_succeeded": checker_requests_succeeded,
                 "checker_requests_failed": checker_requests_failed,
                 "checker_chunks_failed": checker_chunks_failed,
+                "batch_attempted_segments": batch_attempted_segments,
+                "batch_fallback_segments": batch_fallback_segments,
+                "batch_json_schema_violations": batch_json_schema_violations,
+                "batch_fallback_ratio": batch_fallback_ratio,
+                "batch_fallback_warn_ratio": float(cfg.run.batch_fallback_warn_ratio),
                 "issues_total": sum(len(seg.issues) for seg in segments),
             }
         )
         status_writer.write(force=force)
+
+    def _ingest_batch_issue_metrics(issues: list[Issue]) -> None:
+        nonlocal batch_attempted_segments
+        nonlocal batch_fallback_segments
+        nonlocal batch_json_schema_violations
+        if not issues:
+            return
+        codes = {issue.code for issue in issues}
+        attempted_codes = {
+            "batch_ok",
+            "batch_fallback_single",
+            "batch_missing_segment",
+            "batch_validation_fallback",
+            "batch_worker_crash_fallback",
+        }
+        fallback_codes = {
+            "batch_fallback_single",
+            "batch_missing_segment",
+            "batch_validation_fallback",
+            "batch_worker_crash_fallback",
+        }
+        if codes.intersection(attempted_codes):
+            batch_attempted_segments += 1
+        if codes.intersection(fallback_codes):
+            batch_fallback_segments += 1
+        if "batch_json_schema_violation" in codes:
+            batch_json_schema_violations += 1
     if resume and segments:
         try:
             progress_cache = tm.get_progress_bulk([seg.segment_id for seg in segments])
@@ -1892,7 +1933,7 @@ def translate_docx(
     logger.info(f"LLM segments: {len(to_translate)}")
     _flush_status("prepare", force=True)
 
-    # Stage 2: LLM translate (single-segment or grouped batches)
+    # Stage 2: LLM translate (single-segment or grouped translation requests)
     _flush_status("translate", force=True)
     if to_translate:
         provider_norm = cfg.llm.provider.strip().lower()
@@ -1900,7 +1941,7 @@ def translate_docx(
         context_window_enabled = context_window_chars > 0
         if context_window_enabled:
             logger.info(
-                "Context window is enabled (context_window_chars=%d): grouped batches disabled; "
+                "Context window is enabled (context_window_chars=%d): grouped translation requests disabled; "
                 "running sequential translation with recent translations context.",
                 context_window_chars,
             )
@@ -1929,6 +1970,7 @@ def translate_docx(
                     processed_segments += 1
                     _flush_status("translate")
                     continue
+                _ingest_batch_issue_metrics(issues)
                 complex_translated += _finalize_translation_result(
                     seg=seg,
                     source_hash=source_hash,
@@ -1963,13 +2005,13 @@ def translate_docx(
                         batch_eligible.append(job)
 
                 logger.info(
-                    f"Batch-eligible segments: {len(batch_eligible)}; "
+                    f"Grouped-request eligible segments: {len(batch_eligible)}; "
                     f"forced single by eligibility filter: {len(single_only)}"
                 )
                 if single_only:
                     reason_counts = Counter(reason for _, reasons in single_only for reason in reasons)
                     logger.info(
-                        "Batch ineligibility reasons: "
+                        "Grouped-request ineligibility reasons: "
                         + ", ".join(f"{reason}={count}" for reason, count in reason_counts.most_common())
                     )
 
@@ -2025,6 +2067,7 @@ def translate_docx(
                                         ),
                                         *issues,
                                     ]
+                                    _ingest_batch_issue_metrics(issues)
                                     complex_translated += _finalize_translation_result(
                                         seg=seg,
                                         source_hash=source_hash,
@@ -2043,6 +2086,7 @@ def translate_docx(
                                 continue
 
                             for seg, source_hash, source_norm, out, issues in batch_results:
+                                _ingest_batch_issue_metrics(issues)
                                 complex_translated += _finalize_translation_result(
                                     seg=seg,
                                     source_hash=source_hash,
@@ -2106,6 +2150,7 @@ def translate_docx(
                                 ),
                                 *issues,
                             ]
+                            _ingest_batch_issue_metrics(issues)
                             complex_translated += _finalize_translation_result(
                                 seg=seg,
                                 source_hash=source_hash,
@@ -2145,6 +2190,7 @@ def translate_docx(
                             _flush_status("translate")
                             continue
 
+                        _ingest_batch_issue_metrics(issues)
                         complex_translated += _finalize_translation_result(
                             seg=seg,
                             source_hash=source_hash,
@@ -2162,6 +2208,22 @@ def translate_docx(
                         _flush_status("translate")
 
     _flush_status("translate", force=True)
+    if batch_attempted_segments > 0:
+        batch_fallback_ratio = float(batch_fallback_segments / batch_attempted_segments)
+        logger.info(
+            "Batch fallback monitoring: attempted=%d; fallback=%d; ratio=%.2f%%; warn_threshold=%.2f%%",
+            int(batch_attempted_segments),
+            int(batch_fallback_segments),
+            float(batch_fallback_ratio * 100.0),
+            float(cfg.run.batch_fallback_warn_ratio * 100.0),
+        )
+        if batch_attempted_segments >= 20 and batch_fallback_ratio > float(cfg.run.batch_fallback_warn_ratio):
+            logger.warning(
+                "Batch fallback ratio exceeded threshold (%.2f%% > %.2f%%). "
+                "Consider switching to grouped_fast/sequential_context or lowering batch density.",
+                float(batch_fallback_ratio * 100.0),
+                float(cfg.run.batch_fallback_warn_ratio * 100.0),
+            )
 
     # Stage 3: Unshield + write back to DOCX
     status_writer.set_phase("writeback")

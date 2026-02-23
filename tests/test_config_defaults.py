@@ -66,6 +66,7 @@ def test_pipeline_config_checker_and_pricing_defaults():
     assert cfg.pricing.enabled is False
     assert cfg.pricing.currency == "USD"
     assert cfg.run.status_flush_every_n_segments == 10
+    assert cfg.run.batch_fallback_warn_ratio == 0.08
 
 
 def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
@@ -97,7 +98,8 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
         "  run_dir: runs\n"
         "  status_path: run_status.json\n"
         "  dashboard_html_path: dashboard.html\n"
-        "  status_flush_every_n_segments: 5\n",
+        "  status_flush_every_n_segments: 5\n"
+        "  batch_fallback_warn_ratio: 0.12\n",
         encoding="utf-8",
     )
 
@@ -120,6 +122,7 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
     assert cfg.run.status_path == str((tmp_path / "run_status.json").resolve())
     assert cfg.run.dashboard_html_path == str((tmp_path / "dashboard.html").resolve())
     assert cfg.run.status_flush_every_n_segments == 5
+    assert cfg.run.batch_fallback_warn_ratio == 0.12
 
 
 def test_load_config_reads_auto_model_sizing_flag(tmp_path):

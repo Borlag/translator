@@ -6,6 +6,8 @@ from docxru.studio_server import (
     StudioRunManager,
     _build_studio_html,
     _default_model_for_provider,
+    _estimate_grouped_request_count,
+    _estimate_request_latency_bounds_seconds,
     _infer_translation_cmd,
     _list_openai_models,
 )
@@ -30,6 +32,7 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
         temperature=0.1,
         max_output_tokens=2000,
         concurrency=3,
+        translation_grouping_mode="grouped_fast",
         prompt_path=tmp_path / "prompt.md",
         glossary_path=tmp_path / "glossary.md",
         checker_enabled=True,
@@ -47,6 +50,9 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
     assert payload["llm"]["provider"] == "openai"
     assert payload["llm"]["model"] == "gpt-4o-mini"
     assert payload["llm"]["auto_model_sizing"] is True
+    assert payload["llm"]["batch_segments"] == 6
+    assert payload["llm"]["batch_max_chars"] == 14000
+    assert payload["llm"]["context_window_chars"] == 0
     assert payload["checker"]["enabled"] is True
     assert payload["checker"]["provider"] == "openai"
     assert payload["checker"]["model"] == "gpt-4o-mini"
@@ -54,7 +60,67 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
     assert payload["checker"]["fallback_segments_per_chunk"] == 80
     assert payload["checker"]["openai_batch_enabled"] is True
     assert payload["run"]["run_id"] == run_id
+    assert payload["run"]["batch_fallback_warn_ratio"] == 0.08
     assert payload["concurrency"] == 3
+
+
+def test_studio_build_config_payload_can_enable_sequential_context_mode(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+    payload = manager._build_config_payload(  # noqa: SLF001 - intentional for unit-level validation
+        provider="openai",
+        model="gpt-5-mini",
+        temperature=0.1,
+        max_output_tokens=2000,
+        concurrency=2,
+        translation_grouping_mode="sequential_context",
+        prompt_path=None,
+        glossary_path=None,
+        checker_enabled=False,
+        checker_provider=None,
+        checker_model=None,
+        checker_pages_per_chunk=3,
+        checker_fallback_segments_per_chunk=120,
+        checker_temperature=0.0,
+        checker_max_output_tokens=2000,
+        checker_openai_batch_enabled=False,
+        run_base_dir=tmp_path / "runs",
+        run_id="run_seq",
+        run_dir=tmp_path / "runs" / "run_seq",
+    )
+    assert payload["llm"]["batch_segments"] == 1
+    assert payload["llm"]["batch_max_chars"] == 12000
+    assert payload["llm"]["context_window_chars"] == 600
+    assert payload["run"]["batch_fallback_warn_ratio"] == 0.03
+
+
+def test_studio_build_config_payload_can_enable_grouped_aggressive_mode(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+    payload = manager._build_config_payload(  # noqa: SLF001 - intentional for unit-level validation
+        provider="openai",
+        model="gpt-5-mini",
+        temperature=0.1,
+        max_output_tokens=2000,
+        concurrency=2,
+        translation_grouping_mode="grouped_aggressive",
+        prompt_path=None,
+        glossary_path=None,
+        checker_enabled=False,
+        checker_provider=None,
+        checker_model=None,
+        checker_pages_per_chunk=3,
+        checker_fallback_segments_per_chunk=120,
+        checker_temperature=0.0,
+        checker_max_output_tokens=2000,
+        checker_openai_batch_enabled=False,
+        run_base_dir=tmp_path / "runs",
+        run_id="run_agg",
+        run_dir=tmp_path / "runs" / "run_agg",
+    )
+    assert payload["llm"]["batch_segments"] == 20
+    assert payload["llm"]["batch_max_chars"] == 36000
+    assert payload["llm"]["context_window_chars"] == 0
+    assert payload["llm"]["auto_model_sizing"] is False
+    assert payload["run"]["batch_fallback_warn_ratio"] == 0.12
 
 
 def test_default_model_for_provider():
@@ -74,3 +140,41 @@ def test_studio_html_contains_checker_trace_widgets():
     assert "checkerTraceLink" in html
     assert "checkerTraceTail" in html
     assert "checkerOpenaiBatch" in html
+    assert "grouped_aggressive" in html
+    assert "estimateBtn" in html
+    assert "estimateHint" in html
+
+
+def test_estimate_grouped_request_count_respects_segment_and_char_limits():
+    lengths = [100, 100, 100, 100, 100]
+    assert _estimate_grouped_request_count(lengths, max_segments=2, max_chars=10_000) == 3
+    assert _estimate_grouped_request_count(lengths, max_segments=10, max_chars=260) == 5
+
+
+def test_estimate_request_latency_bounds_openai_gpt5_grouped_is_higher_than_seq():
+    seq_low, seq_high = _estimate_request_latency_bounds_seconds("openai", "gpt-5-mini", grouped_mode=False)
+    grp_low, grp_high = _estimate_request_latency_bounds_seconds("openai", "gpt-5-mini", grouped_mode=True)
+    assert grp_low > seq_low
+    assert grp_high > seq_high
+
+
+def test_studio_field_readers_do_not_require_mapping_get(tmp_path):
+    manager = StudioRunManager(base_dir=tmp_path)
+
+    class _FakeField:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+    class _FakeForm:
+        def __init__(self) -> None:
+            self._data = {"provider": _FakeField("openai")}
+
+        def __contains__(self, key: str) -> bool:
+            return key in self._data
+
+        def __getitem__(self, key: str):
+            return self._data[key]
+
+    form = _FakeForm()
+    assert manager._read_text_value(form, "provider", "mock") == "openai"  # noqa: SLF001
+    assert manager._read_text_value(form, "missing", "mock") == "mock"  # noqa: SLF001

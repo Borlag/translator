@@ -128,7 +128,7 @@ Notes:
 - `checker.openai_batch_enabled: true` enables async overnight checker via OpenAI Batch API
   (keeps normal sync translation path unchanged; checker falls back to sync mode if batch fails).
   CLI shortcut: `--checker-openai-batch`.
-- Grouped translation mode is available for `openai` and `ollama`:
+- Grouped translation mode (docxru internal request grouping, not OpenAI Batch API) is available for `openai` and `ollama`:
   - `llm.batch_segments` (default `1`) controls how many nearby segments are translated in one LLM request.
   - `llm.batch_max_chars` (default `12000`) is a soft per-request payload cap.
   - `llm.auto_model_sizing` (default `false`) auto-tunes grouped batch limits and checker chunk sizes by model context window.
@@ -150,7 +150,8 @@ Reliability and terminology controls:
 - Batch guardrails:
   - `llm.batch_skip_on_brline: true`
   - `llm.batch_max_style_tokens: 16`
-  - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped batch mode.
+  - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped request mode.
+  - `run.batch_fallback_warn_ratio: 0.08` warns when grouped-batch fallback share exceeds threshold.
   - With `llm.auto_model_sizing: true`, runtime limits are tuned for selected model:
     - translation: `batch_segments`, `batch_max_chars`, `llm.max_output_tokens`
     - checker: `checker.pages_per_chunk`, `checker.fallback_segments_per_chunk`, `checker.max_output_tokens`

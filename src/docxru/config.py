@@ -116,6 +116,8 @@ class RunConfig:
     dashboard_html_path: str | None = None
     # How often pipelines should flush run status to disk.
     status_flush_every_n_segments: int = 10
+    # Warn when fallback share among grouped batch attempts exceeds this ratio.
+    batch_fallback_warn_ratio: float = 0.08
 
 
 @dataclass(frozen=True)
@@ -328,6 +330,10 @@ def load_config(path: str | Path) -> PipelineConfig:
         status_path=_resolve_optional_path(cfg_path.parent, run_data.get("status_path")),
         dashboard_html_path=_resolve_optional_path(cfg_path.parent, run_data.get("dashboard_html_path")),
         status_flush_every_n_segments=max(1, int(run_data.get("status_flush_every_n_segments", 10))),
+        batch_fallback_warn_ratio=max(
+            0.0,
+            min(1.0, float(run_data.get("batch_fallback_warn_ratio", 0.08))),
+        ),
     )
 
     include_headers = bool(data.get("include_headers", False))

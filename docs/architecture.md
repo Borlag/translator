@@ -19,7 +19,7 @@ Pipeline stages:
 2. Each segment is transformed into tagged text with style markers and placeholder shielding.
 3. Exact TM is checked first; optional fuzzy TM references are added to prompt context.
 4. LLM translation runs in:
-   - grouped mode (`batch_segments > 1`) for supported providers, or
+   - docxru grouped-request mode (`batch_segments > 1`, internal batching by nearby segments) for supported providers, or
    - sequential context-window mode (`context_window_chars > 0`) with `recent_translations`.
 5. Output is validated (placeholders/tags/numbers + optional glossary-lemma checks), repaired if supported.
 6. Successful output is written back to runs, then QA reports (`qa_report.html`, `qa.jsonl`) are generated.

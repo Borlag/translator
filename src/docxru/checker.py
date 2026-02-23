@@ -155,6 +155,25 @@ def _is_timeout_error(exc: Exception) -> bool:
     return "timed out" in text or "timeout" in text
 
 
+def _is_output_limit_error(exc: Exception) -> bool:
+    text = str(exc or "").strip().lower()
+    if not text:
+        return False
+    markers = (
+        "finish_reason=length",
+        "finish_reason = length",
+        "max token",
+        "max_tokens",
+        "max completion tokens",
+        "max_completion_tokens",
+        "context length",
+        "token limit",
+        "too many tokens",
+        "output too long",
+    )
+    return any(marker in text for marker in markers)
+
+
 def _evaluate_checker_edit(
     *,
     edit: dict[str, Any],
@@ -709,6 +728,7 @@ def run_llm_checker(
             edits: list[dict[str, Any]] | None = None
             last_exc: Exception | None = None
             split_due_to_timeout = False
+            split_due_to_output_limit = False
             for attempt in range(1, retry_attempts + 1):
                 requests_total += 1
                 logger.info(
@@ -755,25 +775,34 @@ def run_llm_checker(
                     requests_failed += 1
                     last_exc = exc
                     timeout_like = _is_timeout_error(exc)
-                    can_split_timeout = timeout_like and len(current_candidates) > 1 and split_depth < max_split_depth
+                    output_limit_like = _is_output_limit_error(exc)
+                    can_split_immediately = (
+                        (timeout_like or output_limit_like)
+                        and len(current_candidates) > 1
+                        and split_depth < max_split_depth
+                    )
                     _emit_trace(
                         "error",
                         chunk_id=current_chunk_id,
                         attempt=attempt,
                         split_depth=split_depth,
                         segments_sent=len(input_items),
-                        will_retry=(attempt < retry_attempts) and not can_split_timeout,
+                        will_retry=(attempt < retry_attempts) and not can_split_immediately,
                         timeout_like=timeout_like,
-                        will_split=can_split_timeout,
+                        output_limit_like=output_limit_like,
+                        will_split=can_split_immediately,
                         error=str(exc),
                     )
-                    if can_split_timeout:
-                        split_due_to_timeout = True
+                    if can_split_immediately:
+                        split_due_to_timeout = timeout_like
+                        split_due_to_output_limit = output_limit_like
+                        split_reason = "timeout" if timeout_like else "output_limit"
                         logger.warning(
-                            "LLM checker timeout (%s) attempt %d/%d; splitting without further same-size retries: %s",
+                            "LLM checker chunk (%s) attempt %d/%d hit %s; splitting without further same-size retries: %s",
                             current_chunk_id,
                             attempt,
                             retry_attempts,
+                            split_reason,
                             exc,
                         )
                         break
@@ -806,7 +835,11 @@ def run_llm_checker(
                             split_depth=split_depth,
                             left_segments=len(left_candidates),
                             right_segments=len(right_candidates),
-                            reason=("timeout" if split_due_to_timeout else "retry_exhausted"),
+                            reason=(
+                                "timeout"
+                                if split_due_to_timeout
+                                else ("output_limit" if split_due_to_output_limit else "retry_exhausted")
+                            ),
                             error=str(last_exc or "unknown error"),
                         )
                         subchunks.insert(0, (f"{current_chunk_id}.b", right_candidates, split_depth + 1))

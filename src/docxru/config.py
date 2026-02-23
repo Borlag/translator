@@ -84,7 +84,7 @@ class CheckerConfig:
     temperature: float = 0.0
     max_output_tokens: int = 6000
     timeout_s: float = 60.0
-    retries: int = 1
+    retries: int = 0
     system_prompt_path: str | None = None
     glossary_path: str | None = None
     pages_per_chunk: int = 3
@@ -96,7 +96,8 @@ class CheckerConfig:
     auto_apply_safe: bool = False
     auto_apply_min_confidence: float = 0.7
     # DOCX does not expose real page numbers; fallback to fixed-size segment windows.
-    fallback_segments_per_chunk: int = 120
+    # Keep this conservative to reduce checker latency and output-limit failures.
+    fallback_segments_per_chunk: int = 80
     # Optional async OpenAI Batch API mode for checker (cost-saving, high-latency path).
     openai_batch_enabled: bool = False
     openai_batch_completion_window: str = "24h"
@@ -301,7 +302,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         temperature=float(checker_data.get("temperature", 0.0)),
         max_output_tokens=int(checker_data.get("max_output_tokens", 6000)),
         timeout_s=float(checker_data.get("timeout_s", 60.0)),
-        retries=max(0, int(checker_data.get("retries", 1))),
+        retries=max(0, int(checker_data.get("retries", 0))),
         system_prompt_path=_resolve_optional_path(cfg_path.parent, checker_data.get("system_prompt_path")),
         glossary_path=_resolve_optional_path(cfg_path.parent, checker_data.get("glossary_path")),
         pages_per_chunk=max(1, int(checker_data.get("pages_per_chunk", 3))),
@@ -318,7 +319,7 @@ def load_config(path: str | Path) -> PipelineConfig:
             0.0,
             min(1.0, float(checker_data.get("auto_apply_min_confidence", 0.7))),
         ),
-        fallback_segments_per_chunk=max(1, int(checker_data.get("fallback_segments_per_chunk", 120))),
+        fallback_segments_per_chunk=max(1, int(checker_data.get("fallback_segments_per_chunk", 80))),
         openai_batch_enabled=bool(checker_data.get("openai_batch_enabled", False)),
         openai_batch_completion_window=(
             str(checker_data.get("openai_batch_completion_window", "24h")).strip() or "24h"

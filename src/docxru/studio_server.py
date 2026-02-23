@@ -500,7 +500,7 @@ def _build_studio_html() -> str:
           <div class="grid3">
             <div class="row">
               <label>DOCX Fallback Segments Per Chunk</label>
-              <input type="number" name="checker_fallback_segments_per_chunk" value="120" min="1" />
+              <input type="number" name="checker_fallback_segments_per_chunk" value="80" min="1" />
             </div>
             <div class="row">
               <label>Checker Temperature</label>
@@ -1152,7 +1152,7 @@ class StudioRunManager:
         checker_pages_per_chunk = max(1, _to_int(self._read_text_value(form, "checker_pages_per_chunk", "3"), 3))
         checker_fallback_segments = max(
             1,
-            _to_int(self._read_text_value(form, "checker_fallback_segments_per_chunk", "120"), 120),
+            _to_int(self._read_text_value(form, "checker_fallback_segments_per_chunk", "80"), 80),
         )
         checker_max_output_tokens = max(
             64,
@@ -1303,7 +1303,7 @@ class StudioRunManager:
         checker_pages_per_chunk = max(1, _to_int(self._read_text_value(form, "checker_pages_per_chunk", "3"), 3))
         checker_fallback_segments = max(
             1,
-            _to_int(self._read_text_value(form, "checker_fallback_segments_per_chunk", "120"), 120),
+            _to_int(self._read_text_value(form, "checker_fallback_segments_per_chunk", "80"), 80),
         )
         checker_temperature = _to_float(self._read_text_value(form, "checker_temperature", "0.0"), 0.0)
         checker_max_output_tokens = max(

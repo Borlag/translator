@@ -54,11 +54,11 @@ checker:
   temperature: 0.0
   max_output_tokens: 6000  # higher default helps avoid checker finish_reason=length on large chunks
   timeout_s: 60.0
-  retries: 1
+  retries: 0
   system_prompt_path: null # optional checker-specific instructions
   glossary_path: null      # optional checker-specific glossary file (not required for chunk mode)
   pages_per_chunk: 3       # check translation by 3-page windows when page numbers are available
-  fallback_segments_per_chunk: 120 # used when true page numbers are unavailable (DOCX)
+  fallback_segments_per_chunk: 80 # used when true page numbers are unavailable (DOCX)
   max_segments: 0          # 0 = no limit
   only_on_issue_severities: ["warn", "error"] # if empty, checker audits all translated segments
   only_on_issue_codes: []  # optional deterministic issue-code filter

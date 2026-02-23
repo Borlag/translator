@@ -59,7 +59,8 @@ def test_pipeline_config_checker_and_pricing_defaults():
     assert cfg.checker.enabled is False
     assert cfg.checker.max_output_tokens == 6000
     assert cfg.checker.pages_per_chunk == 3
-    assert cfg.checker.fallback_segments_per_chunk == 120
+    assert cfg.checker.fallback_segments_per_chunk == 80
+    assert cfg.checker.retries == 0
     assert cfg.checker.safe_output_path == "checker_suggestions_safe.json"
     assert cfg.checker.auto_apply_safe is False
     assert cfg.checker.auto_apply_min_confidence == 0.7

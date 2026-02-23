@@ -244,7 +244,7 @@ This version adds a second-pass LLM checker and a lightweight local dashboard.
 
 - Checks translation in chunks of `checker.pages_per_chunk` (default: 3 pages, when page numbers are available).
 - For DOCX where real page numbers are not available from `python-docx`, it falls back to
-  `checker.fallback_segments_per_chunk` (default: 120 segments).
+  `checker.fallback_segments_per_chunk` (default: 80 segments).
 - Uses glossary terms that were actually used in the chunk (`matched_glossary_terms` / rolling glossary context).
 - Produces machine-readable edits in `checker_suggestions.json`:
   - `segment_id`

@@ -74,6 +74,24 @@ def recommend_grouped_timeout_s(
         return max(out, 180.0)
     return out
 
+
+def recommend_checker_timeout_s(
+    *,
+    timeout_s: float,
+    fallback_segments_per_chunk: int,
+) -> float:
+    out = max(30.0, float(timeout_s))
+    segments = max(1, int(fallback_segments_per_chunk))
+    if segments >= 160:
+        return max(out, 300.0)
+    if segments >= 120:
+        return max(out, 240.0)
+    if segments >= 80:
+        return max(out, 180.0)
+    if segments >= 40:
+        return max(out, 120.0)
+    return out
+
 _TIER_LIMITS: dict[str, TierLimits] = {
     "economy": TierLimits(
         batch_chars_cap=12000,

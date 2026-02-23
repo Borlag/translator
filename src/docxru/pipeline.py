@@ -36,7 +36,12 @@ from .llm import (
     supports_repair,
 )
 from .logging_utils import setup_logging
-from .model_sizing import _median_source_chars, recommend_grouped_timeout_s, recommend_runtime_model_sizing
+from .model_sizing import (
+    _median_source_chars,
+    recommend_checker_timeout_s,
+    recommend_grouped_timeout_s,
+    recommend_runtime_model_sizing,
+)
 from .models import Issue, Segment, Severity
 from .oxml_table_fix import normalize_abbyy_oxml
 from .pricing import PricingTable, load_pricing_table
@@ -1634,6 +1639,7 @@ def translate_docx(
     effective_llm_max_output_tokens = cfg.llm.max_output_tokens
     effective_llm_timeout_s = float(cfg.llm.timeout_s)
     effective_checker_cfg = cfg.checker
+    effective_checker_timeout_s = float(cfg.checker.timeout_s)
     if cfg.llm.auto_model_sizing:
         checker_provider_for_sizing = (cfg.checker.provider or cfg.llm.provider).strip()
         checker_model_for_sizing = (cfg.checker.model or cfg.llm.model).strip()
@@ -1719,6 +1725,18 @@ def translate_docx(
             float(timeout_before),
             int(effective_batch_segments),
             int(effective_batch_max_chars),
+        )
+    checker_timeout_before = float(effective_checker_cfg.timeout_s)
+    effective_checker_timeout_s = recommend_checker_timeout_s(
+        timeout_s=checker_timeout_before,
+        fallback_segments_per_chunk=int(effective_checker_cfg.fallback_segments_per_chunk),
+    )
+    if float(effective_checker_timeout_s) > checker_timeout_before:
+        logger.info(
+            "Auto-raised checker timeout_s to %.1f (prev=%.1f; fallback_segments_per_chunk=%d)",
+            float(effective_checker_timeout_s),
+            float(checker_timeout_before),
+            int(effective_checker_cfg.fallback_segments_per_chunk),
         )
     tm_profile_key = _build_tm_profile_key(
         cfg,
@@ -2514,7 +2532,7 @@ def translate_docx(
             provider=checker_provider,
             model=checker_model,
             temperature=effective_checker_cfg.temperature,
-            timeout_s=effective_checker_cfg.timeout_s,
+            timeout_s=effective_checker_timeout_s,
             max_output_tokens=effective_checker_cfg.max_output_tokens,
             source_lang=cfg.llm.source_lang,
             target_lang=cfg.llm.target_lang,

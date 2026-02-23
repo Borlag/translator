@@ -271,6 +271,74 @@ def test_run_llm_checker_splits_chunk_after_retries_exhausted():
     assert "llm_check_terminology" in codes
 
 
+def test_run_llm_checker_splits_immediately_on_timeout_without_retrying_same_size(tmp_path):
+    segments = [_seg("s1", 1), _seg("s2", 1)]
+    for seg in segments:
+        seg.issues.append(
+            Issue(code="length_ratio_high", severity=Severity.WARN, message="warn", details={})
+        )
+    client = _FakeCheckerClient(
+        [
+            RuntimeError("OpenAI request failed: The read operation timed out"),
+            {
+                "chunk_id": "pages_1_1.a",
+                "edits": [
+                    {
+                        "segment_id": "s1",
+                        "location": "pdf/p1/s1",
+                        "severity": "warn",
+                        "issue_type": "meaning",
+                        "source_excerpt": "SOURCE s1",
+                        "current_target": "TARGET s1",
+                        "suggested_target": "TARGET s1 FIXED",
+                        "instruction": "replace s1",
+                        "confidence": 0.9,
+                    }
+                ],
+            },
+            {
+                "chunk_id": "pages_1_1.b",
+                "edits": [
+                    {
+                        "segment_id": "s2",
+                        "location": "pdf/p1/s2",
+                        "severity": "warn",
+                        "issue_type": "terminology",
+                        "source_excerpt": "SOURCE s2",
+                        "current_target": "TARGET s2",
+                        "suggested_target": "TARGET s2 FIXED",
+                        "instruction": "replace s2",
+                        "confidence": 0.8,
+                    }
+                ],
+            },
+        ]
+    )
+    trace_path = tmp_path / "checker_trace_timeout_split.jsonl"
+    cfg = CheckerConfig(
+        enabled=True,
+        pages_per_chunk=3,
+        retries=2,
+        only_on_issue_severities=("warn", "error"),
+    )
+
+    edits = run_llm_checker(
+        segments=segments,
+        checker_cfg=cfg,
+        checker_client=client,
+        logger=logging.getLogger("test_checker"),
+        trace_path=trace_path,
+    )
+
+    assert len(edits) == 2
+    assert client.calls == 3
+    events = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line]
+    request_chunk_ids = [str(item.get("chunk_id") or "") for item in events if item.get("event") == "request"]
+    assert request_chunk_ids.count("pages_1_1") == 1
+    assert "pages_1_1.a" in request_chunk_ids
+    assert "pages_1_1.b" in request_chunk_ids
+
+
 def test_run_llm_checker_writes_trace_and_stats(tmp_path):
     segments = [_seg("s1", 1)]
     client = _FakeCheckerClient(

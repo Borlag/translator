@@ -146,6 +146,15 @@ def _coerce_confidence(value: Any) -> float:
     return max(0.0, min(1.0, confidence))
 
 
+def _is_timeout_error(exc: Exception) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    text = str(exc or "").strip().lower()
+    if not text:
+        return False
+    return "timed out" in text or "timeout" in text
+
+
 def _evaluate_checker_edit(
     *,
     edit: dict[str, Any],
@@ -699,6 +708,7 @@ def run_llm_checker(
             glossary_terms = _collect_used_glossary_terms(current_candidates)
             edits: list[dict[str, Any]] | None = None
             last_exc: Exception | None = None
+            split_due_to_timeout = False
             for attempt in range(1, retry_attempts + 1):
                 requests_total += 1
                 logger.info(
@@ -744,15 +754,29 @@ def run_llm_checker(
                 except Exception as exc:
                     requests_failed += 1
                     last_exc = exc
+                    timeout_like = _is_timeout_error(exc)
+                    can_split_timeout = timeout_like and len(current_candidates) > 1 and split_depth < max_split_depth
                     _emit_trace(
                         "error",
                         chunk_id=current_chunk_id,
                         attempt=attempt,
                         split_depth=split_depth,
                         segments_sent=len(input_items),
-                        will_retry=(attempt < retry_attempts),
+                        will_retry=(attempt < retry_attempts) and not can_split_timeout,
+                        timeout_like=timeout_like,
+                        will_split=can_split_timeout,
                         error=str(exc),
                     )
+                    if can_split_timeout:
+                        split_due_to_timeout = True
+                        logger.warning(
+                            "LLM checker timeout (%s) attempt %d/%d; splitting without further same-size retries: %s",
+                            current_chunk_id,
+                            attempt,
+                            retry_attempts,
+                            exc,
+                        )
+                        break
                     if attempt < retry_attempts:
                         logger.warning(
                             "LLM checker chunk retry (%s) %d/%d after failure: %s",
@@ -782,6 +806,7 @@ def run_llm_checker(
                             split_depth=split_depth,
                             left_segments=len(left_candidates),
                             right_segments=len(right_candidates),
+                            reason=("timeout" if split_due_to_timeout else "retry_exhausted"),
                             error=str(last_exc or "unknown error"),
                         )
                         subchunks.insert(0, (f"{current_chunk_id}.b", right_candidates, split_depth + 1))

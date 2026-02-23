@@ -25,7 +25,7 @@ from .llm import (
     supports_repair,
 )
 from .logging_utils import setup_logging
-from .model_sizing import recommend_runtime_model_sizing
+from .model_sizing import recommend_checker_timeout_s, recommend_runtime_model_sizing
 from .models import Issue, Segment, Severity
 from .pdf_font_map import select_font_for_style
 from .pdf_layout import group_all_pages
@@ -463,6 +463,7 @@ def _translate_and_write_pdf(
         effective_glossary_text = glossary_text
     effective_llm_max_output_tokens = cfg.llm.max_output_tokens
     effective_checker_cfg = cfg.checker
+    effective_checker_timeout_s = float(cfg.checker.timeout_s)
     if cfg.llm.auto_model_sizing:
         checker_provider_for_sizing = (cfg.checker.provider or cfg.llm.provider).strip()
         checker_model_for_sizing = (cfg.checker.model or cfg.llm.model).strip()
@@ -503,6 +504,18 @@ def _translate_and_write_pdf(
             int(effective_checker_cfg.pages_per_chunk),
             int(effective_checker_cfg.fallback_segments_per_chunk),
             int(effective_checker_cfg.max_output_tokens),
+        )
+    checker_timeout_before = float(effective_checker_cfg.timeout_s)
+    effective_checker_timeout_s = recommend_checker_timeout_s(
+        timeout_s=checker_timeout_before,
+        fallback_segments_per_chunk=int(effective_checker_cfg.fallback_segments_per_chunk),
+    )
+    if float(effective_checker_timeout_s) > checker_timeout_before:
+        logger.info(
+            "Auto-raised checker timeout_s to %.1f (prev=%.1f; fallback_segments_per_chunk=%d)",
+            float(effective_checker_timeout_s),
+            float(checker_timeout_before),
+            int(effective_checker_cfg.fallback_segments_per_chunk),
         )
 
     llm_client = build_llm_client(
@@ -667,7 +680,7 @@ def _translate_and_write_pdf(
             provider=checker_provider,
             model=checker_model,
             temperature=effective_checker_cfg.temperature,
-            timeout_s=effective_checker_cfg.timeout_s,
+            timeout_s=effective_checker_timeout_s,
             max_output_tokens=effective_checker_cfg.max_output_tokens,
             source_lang=cfg.llm.source_lang,
             target_lang=cfg.llm.target_lang,

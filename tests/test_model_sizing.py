@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from docxru.model_sizing import (
     _translate_input_utilization,
+    recommend_checker_timeout_s,
     recommend_grouped_timeout_s,
     recommend_runtime_model_sizing,
     resolve_model_profile,
@@ -136,6 +137,17 @@ def test_recommend_grouped_timeout_s_scales_with_batch_size():
 
 def test_recommend_grouped_timeout_s_keeps_single_segment_timeout():
     assert recommend_grouped_timeout_s(timeout_s=75.0, batch_segments=1, batch_max_chars=200_000) == 75.0
+
+
+def test_recommend_checker_timeout_s_scales_with_checker_chunk_size():
+    assert recommend_checker_timeout_s(timeout_s=60.0, fallback_segments_per_chunk=40) == 120.0
+    assert recommend_checker_timeout_s(timeout_s=60.0, fallback_segments_per_chunk=80) == 180.0
+    assert recommend_checker_timeout_s(timeout_s=60.0, fallback_segments_per_chunk=120) == 240.0
+    assert recommend_checker_timeout_s(timeout_s=60.0, fallback_segments_per_chunk=160) == 300.0
+
+
+def test_recommend_checker_timeout_s_keeps_higher_user_timeout():
+    assert recommend_checker_timeout_s(timeout_s=360.0, fallback_segments_per_chunk=160) == 360.0
 
 
 def test_recommend_runtime_model_sizing_unknown_model_keeps_translate_limits():

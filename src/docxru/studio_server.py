@@ -1062,6 +1062,7 @@ class StudioRunManager:
                 "enabled": checker_enabled,
                 "provider": (checker_provider or None),
                 "model": (checker_model or None),
+                "timeout_s": 900.0,
                 "pages_per_chunk": max(1, checker_pages_per_chunk),
                 "fallback_segments_per_chunk": max(1, checker_fallback_segments_per_chunk),
                 "temperature": checker_temperature,

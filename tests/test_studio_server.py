@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import subprocess
 import sys
 from contextlib import suppress
@@ -405,3 +406,54 @@ def test_studio_run_manager_can_start_checker_only_for_finished_run(tmp_path, mo
     env = captured["env"]
     assert isinstance(env, dict)
     assert env["OPENAI_API_KEY"] == "sk-test"
+
+
+def test_studio_start_from_form_runs_translation_with_resume_flag(tmp_path, monkeypatch):
+    manager = StudioRunManager(base_dir=tmp_path)
+    captured: dict[str, object] = {}
+
+    class _FakeProc:
+        def poll(self):
+            return None
+
+    def _fake_popen(command, **kwargs):  # noqa: ANN001
+        captured["command"] = command
+        captured["env"] = kwargs.get("env")
+        return _FakeProc()
+
+    class _FakeUploadField:
+        def __init__(self, filename: str, payload: bytes) -> None:
+            self.filename = filename
+            self.file = io.BytesIO(payload)
+
+    class _FakeTextField:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+    class _FakeForm:
+        def __init__(self, values: dict[str, object]) -> None:
+            self._values = values
+
+        def __contains__(self, key: str) -> bool:
+            return key in self._values
+
+        def __getitem__(self, key: str) -> object:
+            return self._values[key]
+
+    monkeypatch.setattr("docxru.studio_server.subprocess.Popen", _fake_popen)
+
+    form = _FakeForm(
+        {
+            "input_file": _FakeUploadField("input.docx", b"placeholder-docx"),
+            "provider": _FakeTextField("mock"),
+            "model": _FakeTextField("mock"),
+        }
+    )
+    payload = manager.start_from_form(form)  # type: ignore[arg-type]
+
+    command = captured.get("command")
+    assert isinstance(command, list)
+    assert command[2:5] == ["docxru", "translate", "--input"]
+    assert "--resume" in command
+    assert payload["ok"] is True
+    assert payload["state"] == "running"

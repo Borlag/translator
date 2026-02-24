@@ -1467,6 +1467,7 @@ class StudioRunManager:
             str(output_path),
             "--config",
             str(config_path),
+            "--resume",
         ]
 
         env = os.environ.copy()

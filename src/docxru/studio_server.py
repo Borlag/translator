@@ -262,8 +262,8 @@ def _translation_grouping_profile(mode: str) -> tuple[str, dict[str, Any], float
         return (
             "grouped_turbo",
             {
-                "batch_segments": 80,
-                "batch_max_chars": 120_000,
+                "batch_segments": 24,
+                "batch_max_chars": 48_000,
                 "context_window_chars": 0,
                 "auto_model_sizing": True,
             },

@@ -118,8 +118,10 @@ _TIER_LIMITS: dict[str, TierLimits] = {
         checker_pages_per_chunk=4,
     ),
     "turbo": TierLimits(
-        batch_chars_cap=120_000,
-        batch_segments_cap=80,
+        # Keep turbo meaningfully faster than balanced/premium, but avoid
+        # oversized grouped requests that can stall for long periods.
+        batch_chars_cap=48_000,
+        batch_segments_cap=24,
         translate_output_cap=64_000,
         checker_segments_cap=120,
         checker_output_cap=8000,

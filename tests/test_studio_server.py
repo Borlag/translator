@@ -163,11 +163,11 @@ def test_studio_build_config_payload_can_enable_grouped_turbo_mode(tmp_path):
         run_id="run_turbo",
         run_dir=tmp_path / "runs" / "run_turbo",
     )
-    assert payload["llm"]["batch_segments"] == 80
-    assert payload["llm"]["batch_max_chars"] == 120_000
+    assert payload["llm"]["batch_segments"] == 24
+    assert payload["llm"]["batch_max_chars"] == 48_000
     assert payload["llm"]["context_window_chars"] == 0
     assert payload["llm"]["auto_model_sizing"] is True
-    assert payload["llm"]["timeout_s"] == 360.0
+    assert payload["llm"]["timeout_s"] == 180.0
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.20
 
 

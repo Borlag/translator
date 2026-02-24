@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,150 @@ def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(payload, ensure_ascii=False))
         f.write("\n")
+
+
+def read_checker_trace_resume_state(path: Path) -> dict[str, Any]:
+    requested_roots: set[str] = set()
+    terminal_chunks: set[str] = set()
+    split_children: dict[str, tuple[str, str]] = {}
+    requests_total = 0
+    requests_succeeded = 0
+    requests_failed = 0
+    chunks_failed = 0
+    split_events = 0
+    suggestions_total = 0
+    summary_present = False
+    chunks_total = 0
+    segments_checked = 0
+    translatable_segments = 0
+
+    if not path.exists():
+        return {
+            "completed_chunk_ids": [],
+            "requests_total": 0,
+            "requests_succeeded": 0,
+            "requests_failed": 0,
+            "chunks_failed": 0,
+            "split_events": 0,
+            "suggestions_total": 0,
+            "summary_present": False,
+            "chunks_total": 0,
+            "segments_checked": 0,
+            "translatable_segments": 0,
+        }
+
+    with path.open("r", encoding="utf-8", errors="replace") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            event = str(payload.get("event") or "").strip()
+            chunk_id = str(payload.get("chunk_id") or "").strip()
+            if event == "request":
+                requests_total += 1
+                if chunk_id and "." not in chunk_id:
+                    requested_roots.add(chunk_id)
+            elif event == "response":
+                requests_succeeded += 1
+                if chunk_id:
+                    terminal_chunks.add(chunk_id)
+                try:
+                    suggestions_total += max(0, int(payload.get("edits_count") or 0))
+                except Exception:
+                    pass
+            elif event == "error":
+                requests_failed += 1
+            elif event == "failed_chunk":
+                chunks_failed += 1
+                if chunk_id:
+                    terminal_chunks.add(chunk_id)
+            elif event == "split":
+                split_events += 1
+                if chunk_id:
+                    split_children[chunk_id] = (f"{chunk_id}.a", f"{chunk_id}.b")
+            elif event == "summary":
+                summary_present = True
+                # Prefer summary counters if present.
+                for key in (
+                    "chunks_total",
+                    "segments_checked",
+                    "translatable_segments",
+                    "requests_total",
+                    "requests_succeeded",
+                    "requests_failed",
+                    "chunks_failed",
+                    "split_events",
+                    "suggestions_total",
+                ):
+                    try:
+                        if key in payload:
+                            value = int(payload.get(key) or 0)
+                            if key == "chunks_total":
+                                chunks_total = max(0, value)
+                            elif key == "segments_checked":
+                                segments_checked = max(0, value)
+                            elif key == "translatable_segments":
+                                translatable_segments = max(0, value)
+                            elif key == "requests_total":
+                                requests_total = max(0, value)
+                            elif key == "requests_succeeded":
+                                requests_succeeded = max(0, value)
+                            elif key == "requests_failed":
+                                requests_failed = max(0, value)
+                            elif key == "chunks_failed":
+                                chunks_failed = max(0, value)
+                            elif key == "split_events":
+                                split_events = max(0, value)
+                            elif key == "suggestions_total":
+                                suggestions_total = max(0, value)
+                    except Exception:
+                        continue
+
+    memo: dict[str, bool] = {}
+
+    def _is_complete(chunk_id: str, trail: set[str] | None = None) -> bool:
+        cached = memo.get(chunk_id)
+        if cached is not None:
+            return cached
+        if chunk_id in terminal_chunks:
+            memo[chunk_id] = True
+            return True
+        children = split_children.get(chunk_id)
+        if not children:
+            memo[chunk_id] = False
+            return False
+        if trail is None:
+            trail = set()
+        if chunk_id in trail:
+            memo[chunk_id] = False
+            return False
+        left, right = children
+        child_trail = set(trail)
+        child_trail.add(chunk_id)
+        done = _is_complete(left, child_trail) and _is_complete(right, child_trail)
+        memo[chunk_id] = done
+        return done
+
+    completed_root_chunks = sorted(chunk_id for chunk_id in requested_roots if _is_complete(chunk_id))
+    return {
+        "completed_chunk_ids": completed_root_chunks,
+        "requests_total": requests_total,
+        "requests_succeeded": requests_succeeded,
+        "requests_failed": requests_failed,
+        "chunks_failed": chunks_failed,
+        "split_events": split_events,
+        "suggestions_total": suggestions_total,
+        "summary_present": summary_present,
+        "chunks_total": chunks_total,
+        "segments_checked": segments_checked,
+        "translatable_segments": translatable_segments,
+    }
 
 
 def _extract_json_payload(raw: str) -> Any:
@@ -396,13 +541,21 @@ def _run_llm_checker_openai_batch(
     logger: logging.Logger,
     trace_path: Path | None = None,
     stats_out: dict[str, Any] | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    chunk_complete_callback: Callable[[str, list[dict[str, Any]]], None] | None = None,
+    initial_checked_segments: int = 0,
 ) -> list[dict[str, Any]]:
     run_batch = getattr(checker_client, "run_checker_batch", None)
     if not callable(run_batch):
         raise RuntimeError("Checker client does not support run_checker_batch()")
 
     max_segments = max(0, int(checker_cfg.max_segments))
-    checked_segments = 0
+    queued_segments = 0
+    checked_segments = max(0, int(initial_checked_segments))
+    requests_total = 0
+    requests_succeeded = 0
+    requests_failed = 0
+    chunks_failed = 0
     requests: list[tuple[str, str]] = []
     payload_by_chunk: dict[str, dict[str, Any]] = {}
     seg_by_id = {seg.segment_id: seg for seg in translatable}
@@ -422,6 +575,28 @@ def _run_llm_checker_openai_batch(
         except Exception:
             logger.debug("Failed to append checker trace event", exc_info=True)
 
+    def _emit_progress(event: str, **fields: Any) -> None:
+        if progress_callback is None:
+            return
+        payload = {
+            "mode": "openai_batch",
+            "event": event,
+            "chunks_total": len(chunks),
+            "translatable_segments": len(translatable),
+            "segments_queued": queued_segments,
+            "segments_checked": checked_segments,
+            "requests_total": requests_total,
+            "requests_succeeded": requests_succeeded,
+            "requests_failed": requests_failed,
+            "chunks_failed": chunks_failed,
+            "suggestions_total": len(all_edits),
+            **fields,
+        }
+        try:
+            progress_callback(payload)
+        except Exception:
+            logger.debug("Failed to emit checker progress event", exc_info=True)
+
     _emit_trace(
         "start",
         mode="openai_batch",
@@ -429,6 +604,7 @@ def _run_llm_checker_openai_batch(
         translatable_segments=len(translatable),
         max_segments=max_segments,
     )
+    _emit_progress("start", max_segments=max_segments, stopped_due_to_limit=False)
 
     for chunk_id, chunk in chunks:
         candidates = [seg for seg in chunk if _should_include_by_issue_filters(seg, checker_cfg)]
@@ -437,7 +613,7 @@ def _run_llm_checker_openai_batch(
         if not candidates:
             continue
         if max_segments > 0:
-            left = max_segments - checked_segments
+            left = max_segments - queued_segments
             if left <= 0:
                 stop_due_to_limit = True
                 break
@@ -470,10 +646,17 @@ def _run_llm_checker_openai_batch(
             "allowed_ids": allowed_ids,
             "segments_sent": len(input_items),
         }
-        checked_segments += len(input_items)
+        queued_segments += len(input_items)
+        requests_total += 1
         _emit_trace(
             "request",
             mode="openai_batch",
+            chunk_id=chunk_id,
+            segments_sent=len(input_items),
+            glossary_terms_count=len(glossary_terms),
+        )
+        _emit_progress(
+            "request",
             chunk_id=chunk_id,
             segments_sent=len(input_items),
             glossary_terms_count=len(glossary_terms),
@@ -482,19 +665,20 @@ def _run_llm_checker_openai_batch(
     if not requests:
         summary = {
             "chunks_total": len(chunks),
-            "segments_checked": 0,
-            "requests_total": 0,
-            "requests_succeeded": 0,
-            "requests_failed": 0,
-            "chunks_failed": 0,
+            "segments_checked": checked_segments,
+            "requests_total": requests_total,
+            "requests_succeeded": requests_succeeded,
+            "requests_failed": requests_failed,
+            "chunks_failed": chunks_failed,
             "split_events": 0,
-            "suggestions_total": 0,
+            "suggestions_total": len(all_edits),
             "stopped_due_to_limit": stop_due_to_limit,
             "checker_mode": "openai_batch",
         }
         if stats_out is not None:
             stats_out.update(summary)
         _emit_trace("summary", **summary)
+        _emit_progress("summary", **summary)
         return []
 
     batch_results = run_batch(
@@ -510,6 +694,13 @@ def _run_llm_checker_openai_batch(
     for chunk_id, _ in requests:
         result = batch_results.get(chunk_id)
         if result is None:
+            requests_failed += 1
+            chunks_failed += 1
+            _emit_progress(
+                "error",
+                chunk_id=chunk_id,
+                error=f"OpenAI batch checker missing result for chunk: {chunk_id}",
+            )
             raise RuntimeError(f"OpenAI batch checker missing result for chunk: {chunk_id}")
         content = getattr(result, "content", None)
         error_text = getattr(result, "error", None)
@@ -517,21 +708,46 @@ def _run_llm_checker_openai_batch(
             content = result.get("content")
             error_text = result.get("error")
         if error_text:
+            requests_failed += 1
+            chunks_failed += 1
+            _emit_progress(
+                "error",
+                chunk_id=chunk_id,
+                error=f"OpenAI batch checker chunk failed ({chunk_id}): {error_text}",
+            )
             raise RuntimeError(f"OpenAI batch checker chunk failed ({chunk_id}): {error_text}")
         if not isinstance(content, str) or not content.strip():
+            requests_failed += 1
+            chunks_failed += 1
+            _emit_progress(
+                "error",
+                chunk_id=chunk_id,
+                error=f"OpenAI batch checker returned empty content for chunk: {chunk_id}",
+            )
             raise RuntimeError(f"OpenAI batch checker returned empty content for chunk: {chunk_id}")
 
         allowed_ids = payload_by_chunk.get(chunk_id, {}).get("allowed_ids", set())
         if not isinstance(allowed_ids, set):
             allowed_ids = set()
         edits = _parse_checker_edits(content, allowed_ids=allowed_ids)
+        requests_succeeded += 1
+        segments_sent = int(payload_by_chunk.get(chunk_id, {}).get("segments_sent", 0))
+        checked_segments += segments_sent
         _emit_trace(
             "response",
             mode="openai_batch",
             chunk_id=chunk_id,
-            segments_sent=int(payload_by_chunk.get(chunk_id, {}).get("segments_sent", 0)),
+            segments_sent=segments_sent,
             edits_count=len(edits),
         )
+        _emit_progress(
+            "response",
+            chunk_id=chunk_id,
+            segments_sent=segments_sent,
+            edits_count=len(edits),
+            suggestions_total=len(all_edits) + len(edits),
+        )
+        chunk_attached_edits: list[dict[str, Any]] = []
         for idx, edit in enumerate(edits, start=1):
             seg = seg_by_id.get(edit["segment_id"])
             if seg is None:
@@ -558,22 +774,27 @@ def _run_llm_checker_openai_batch(
                     },
                 )
             )
-            all_edits.append(
-                {
-                    "chunk_id": chunk_id,
-                    "segment_id": seg.segment_id,
-                    "location": location,
-                    **edit,
-                }
-            )
+            normalized_edit = {
+                "chunk_id": chunk_id,
+                "segment_id": seg.segment_id,
+                "location": location,
+                **edit,
+            }
+            all_edits.append(normalized_edit)
+            chunk_attached_edits.append(normalized_edit)
+        if chunk_complete_callback is not None:
+            try:
+                chunk_complete_callback(chunk_id, chunk_attached_edits)
+            except Exception:
+                logger.debug("Failed to run checker chunk completion callback", exc_info=True)
 
     summary = {
         "chunks_total": len(chunks),
         "segments_checked": checked_segments,
-        "requests_total": len(requests),
-        "requests_succeeded": len(requests),
-        "requests_failed": 0,
-        "chunks_failed": 0,
+        "requests_total": requests_total,
+        "requests_succeeded": requests_succeeded,
+        "requests_failed": requests_failed,
+        "chunks_failed": chunks_failed,
         "split_events": 0,
         "suggestions_total": len(all_edits),
         "stopped_due_to_limit": stop_due_to_limit,
@@ -582,6 +803,7 @@ def _run_llm_checker_openai_batch(
     if stats_out is not None:
         stats_out.update(summary)
     _emit_trace("summary", **summary)
+    _emit_progress("summary", **summary)
     logger.info("LLM checker (openai batch): %d suggestions across %d chunks", len(all_edits), len(chunks))
     return all_edits
 
@@ -594,6 +816,9 @@ def run_llm_checker(
     logger: logging.Logger,
     trace_path: Path | None = None,
     stats_out: dict[str, Any] | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    skip_chunk_ids: set[str] | None = None,
+    chunk_complete_callback: Callable[[str, list[dict[str, Any]]], None] | None = None,
 ) -> list[dict[str, Any]]:
     if not checker_cfg.enabled:
         return []
@@ -612,6 +837,28 @@ def run_llm_checker(
     if not chunks:
         return []
 
+    skip_ids = {str(item).strip() for item in (skip_chunk_ids or set()) if str(item).strip()}
+    skipped_chunks = 0
+    skipped_segments = 0
+    if skip_ids:
+        filtered_chunks: list[tuple[str, list[Segment]]] = []
+        for chunk_id, chunk in chunks:
+            if chunk_id not in skip_ids:
+                filtered_chunks.append((chunk_id, chunk))
+                continue
+            candidates = [seg for seg in chunk if _should_include_by_issue_filters(seg, checker_cfg)]
+            if not candidates:
+                candidates = list(chunk)
+            skipped_chunks += 1
+            skipped_segments += len(candidates)
+        if skipped_chunks > 0:
+            logger.info(
+                "LLM checker resume: skipping %d completed chunks (%d segments).",
+                skipped_chunks,
+                skipped_segments,
+            )
+        chunks = filtered_chunks
+
     if checker_cfg.openai_batch_enabled:
         try:
             return _run_llm_checker_openai_batch(
@@ -622,6 +869,9 @@ def run_llm_checker(
                 logger=logger,
                 trace_path=trace_path,
                 stats_out=stats_out,
+                progress_callback=progress_callback,
+                chunk_complete_callback=chunk_complete_callback,
+                initial_checked_segments=skipped_segments,
             )
         except Exception as exc:
             logger.warning("LLM checker OpenAI batch mode failed, fallback to sync mode: %s", exc)
@@ -646,6 +896,9 @@ def run_llm_checker(
                 logger=logger,
                 trace_path=trace_path,
                 stats_out=fallback_stats,
+                progress_callback=progress_callback,
+                skip_chunk_ids=skip_ids,
+                chunk_complete_callback=chunk_complete_callback,
             )
             if stats_out is not None:
                 stats_out.update(fallback_stats)
@@ -656,7 +909,7 @@ def run_llm_checker(
     max_segments = max(0, int(checker_cfg.max_segments))
     retry_attempts = max(1, int(checker_cfg.retries) + 1)
     max_split_depth = 2
-    checked_segments = 0
+    checked_segments = skipped_segments
     all_edits: list[dict[str, Any]] = []
     seg_by_id = {seg.segment_id: seg for seg in translatable}
     stop_due_to_limit = False
@@ -679,6 +932,28 @@ def run_llm_checker(
         except Exception:
             logger.debug("Failed to append checker trace event", exc_info=True)
 
+    def _emit_progress(event: str, **fields: Any) -> None:
+        if progress_callback is None:
+            return
+        payload = {
+            "mode": "sync",
+            "event": event,
+            "chunks_total": len(chunks),
+            "translatable_segments": len(translatable),
+            "segments_checked": checked_segments,
+            "requests_total": requests_total,
+            "requests_succeeded": requests_succeeded,
+            "requests_failed": requests_failed,
+            "chunks_failed": chunks_failed,
+            "split_events": split_events,
+            "suggestions_total": len(all_edits),
+            **fields,
+        }
+        try:
+            progress_callback(payload)
+        except Exception:
+            logger.debug("Failed to emit checker progress event", exc_info=True)
+
     _emit_trace(
         "start",
         chunks_total=len(chunks),
@@ -686,6 +961,7 @@ def run_llm_checker(
         retry_attempts=retry_attempts,
         max_segments=max_segments,
     )
+    _emit_progress("start", retry_attempts=retry_attempts, max_segments=max_segments, stopped_due_to_limit=False)
 
     for chunk_id, chunk in chunks:
         candidates = [seg for seg in chunk if _should_include_by_issue_filters(seg, checker_cfg)]
@@ -747,6 +1023,15 @@ def run_llm_checker(
                     segments_sent=len(input_items),
                     glossary_terms_count=len(glossary_terms),
                 )
+                _emit_progress(
+                    "request",
+                    chunk_id=current_chunk_id,
+                    attempt=attempt,
+                    retry_attempts=retry_attempts,
+                    split_depth=split_depth,
+                    segments_sent=len(input_items),
+                    glossary_terms_count=len(glossary_terms),
+                )
                 prompt = _build_checker_prompt(
                     chunk_id=current_chunk_id,
                     source_target_items=input_items,
@@ -770,6 +1055,15 @@ def run_llm_checker(
                         segments_sent=len(input_items),
                         edits_count=len(edits),
                     )
+                    _emit_progress(
+                        "response",
+                        chunk_id=current_chunk_id,
+                        attempt=attempt,
+                        split_depth=split_depth,
+                        segments_sent=len(input_items),
+                        edits_count=len(edits),
+                        suggestions_total=len(all_edits) + len(edits),
+                    )
                     break
                 except Exception as exc:
                     requests_failed += 1
@@ -782,6 +1076,18 @@ def run_llm_checker(
                         and split_depth < max_split_depth
                     )
                     _emit_trace(
+                        "error",
+                        chunk_id=current_chunk_id,
+                        attempt=attempt,
+                        split_depth=split_depth,
+                        segments_sent=len(input_items),
+                        will_retry=(attempt < retry_attempts) and not can_split_immediately,
+                        timeout_like=timeout_like,
+                        output_limit_like=output_limit_like,
+                        will_split=can_split_immediately,
+                        error=str(exc),
+                    )
+                    _emit_progress(
                         "error",
                         chunk_id=current_chunk_id,
                         attempt=attempt,
@@ -842,6 +1148,19 @@ def run_llm_checker(
                             ),
                             error=str(last_exc or "unknown error"),
                         )
+                        _emit_progress(
+                            "split",
+                            chunk_id=current_chunk_id,
+                            split_depth=split_depth,
+                            left_segments=len(left_candidates),
+                            right_segments=len(right_candidates),
+                            reason=(
+                                "timeout"
+                                if split_due_to_timeout
+                                else ("output_limit" if split_due_to_output_limit else "retry_exhausted")
+                            ),
+                            error=str(last_exc or "unknown error"),
+                        )
                         subchunks.insert(0, (f"{current_chunk_id}.b", right_candidates, split_depth + 1))
                         subchunks.insert(0, (f"{current_chunk_id}.a", left_candidates, split_depth + 1))
                         continue
@@ -854,9 +1173,17 @@ def run_llm_checker(
                     segments_sent=len(input_items),
                     error=str(last_exc or "unknown error"),
                 )
+                _emit_progress(
+                    "failed_chunk",
+                    chunk_id=current_chunk_id,
+                    split_depth=split_depth,
+                    segments_sent=len(input_items),
+                    error=str(last_exc or "unknown error"),
+                )
                 continue
 
             checked_segments += len(input_items)
+            chunk_attached_edits: list[dict[str, Any]] = []
             for idx, edit in enumerate(edits, start=1):
                 seg = seg_by_id.get(edit["segment_id"])
                 if seg is None:
@@ -883,14 +1210,19 @@ def run_llm_checker(
                         },
                     )
                 )
-                all_edits.append(
-                    {
-                        "chunk_id": current_chunk_id,
-                        "segment_id": seg.segment_id,
-                        "location": location,
-                        **edit,
-                    }
-                )
+                normalized_edit = {
+                    "chunk_id": current_chunk_id,
+                    "segment_id": seg.segment_id,
+                    "location": location,
+                    **edit,
+                }
+                all_edits.append(normalized_edit)
+                chunk_attached_edits.append(normalized_edit)
+            if chunk_complete_callback is not None:
+                try:
+                    chunk_complete_callback(current_chunk_id, chunk_attached_edits)
+                except Exception:
+                    logger.debug("Failed to run checker chunk completion callback", exc_info=True)
 
         if stop_due_to_limit:
             break
@@ -898,6 +1230,8 @@ def run_llm_checker(
     summary = {
         "chunks_total": len(chunks),
         "segments_checked": checked_segments,
+        "skipped_chunks": skipped_chunks,
+        "skipped_segments": skipped_segments,
         "requests_total": requests_total,
         "requests_succeeded": requests_succeeded,
         "requests_failed": requests_failed,
@@ -909,6 +1243,7 @@ def run_llm_checker(
     if stats_out is not None:
         stats_out.update(summary)
     _emit_trace("summary", **summary)
+    _emit_progress("summary", **summary)
 
     logger.info("LLM checker: %d suggestions across %d chunks", len(all_edits), len(chunks))
     return all_edits
@@ -937,6 +1272,90 @@ def read_checker_suggestions(path: Path) -> list[dict[str, Any]]:
         if isinstance(item, dict):
             out.append(item)
     return out
+
+
+def attach_checker_edits_to_segments(
+    *,
+    segments: list[Segment],
+    edits: list[dict[str, Any]],
+    logger: logging.Logger | None = None,
+) -> list[dict[str, Any]]:
+    seg_by_id = {seg.segment_id: seg for seg in segments}
+    attached: list[dict[str, Any]] = []
+    skipped = 0
+    seen_keys: set[tuple[str, str, str, str, str]] = set()
+
+    for idx, raw_edit in enumerate(edits, start=1):
+        if not isinstance(raw_edit, dict):
+            skipped += 1
+            continue
+        seg_id = str(raw_edit.get("segment_id") or "").strip()
+        if not seg_id:
+            skipped += 1
+            continue
+        seg = seg_by_id.get(seg_id)
+        if seg is None:
+            skipped += 1
+            continue
+        chunk_id = str(raw_edit.get("chunk_id") or "resume").strip() or "resume"
+        issue_type = str(raw_edit.get("issue_type") or "other").strip().lower() or "other"
+        location = str(raw_edit.get("location") or seg.location or "").strip() or seg.location
+        instruction = str(raw_edit.get("instruction") or "LLM checker suggested translation correction.").strip()
+        suggested_target = str(raw_edit.get("suggested_target") or "").strip()
+        dedupe_key = (
+            chunk_id,
+            seg.segment_id,
+            issue_type,
+            _normalize_text_for_compare(suggested_target),
+            _normalize_text_for_compare(instruction),
+        )
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+        severity = _normalize_severity(raw_edit.get("severity"))
+        issue_code = f"llm_check_{issue_type}"
+        seg.issues.append(
+            Issue(
+                code=issue_code,
+                severity=severity,
+                message=instruction or "LLM checker suggested translation correction.",
+                details={
+                    "action": "replace_segment_text",
+                    "segment_id": seg.segment_id,
+                    "location": location,
+                    "suggested_target": raw_edit.get("suggested_target"),
+                    "current_target": raw_edit.get("current_target"),
+                    "source_excerpt": raw_edit.get("source_excerpt"),
+                    "confidence": raw_edit.get("confidence"),
+                    "chunk_id": chunk_id,
+                    "patch_id": f"{chunk_id}:resume:{idx}:{seg.segment_id}",
+                    "resume_attached": True,
+                },
+            )
+        )
+        attached.append(
+            {
+                "chunk_id": chunk_id,
+                "segment_id": seg.segment_id,
+                "location": location,
+                "severity": severity.value,
+                "issue_type": issue_type,
+                "source_excerpt": str(raw_edit.get("source_excerpt") or ""),
+                "current_target": str(raw_edit.get("current_target") or ""),
+                "suggested_target": str(raw_edit.get("suggested_target") or ""),
+                "instruction": instruction,
+                "confidence": _coerce_confidence(raw_edit.get("confidence")),
+            }
+        )
+
+    if logger is not None and edits:
+        logger.info(
+            "Checker resume attach: loaded=%d; attached=%d; skipped=%d",
+            len(edits),
+            len(attached),
+            skipped,
+        )
+    return attached
 
 
 def filter_checker_suggestions(

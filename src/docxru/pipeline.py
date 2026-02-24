@@ -15,8 +15,11 @@ from tqdm import tqdm
 
 from .checker import (
     CHECKER_SYSTEM_PROMPT,
+    attach_checker_edits_to_segments,
     apply_checker_suggestions_to_segments,
     filter_checker_suggestions,
+    read_checker_suggestions,
+    read_checker_trace_resume_state,
     run_llm_checker,
     write_checker_safe_suggestions,
     write_checker_suggestions,
@@ -462,6 +465,8 @@ def _recommended_grouped_batch_workers(
     if chars >= 100_000:
         return min(workers, 2)
     if chars >= 60_000:
+        return min(workers, 2)
+    if chars >= 36_000:
         return min(workers, 3)
     return workers
 
@@ -1234,6 +1239,22 @@ def _is_batch_json_contract_error(error: Exception) -> bool:
     )
 
 
+def _is_timeout_error(error: Exception) -> bool:
+    message = str(error).strip().lower()
+    if not message:
+        return False
+    return any(
+        token in message
+        for token in (
+            "timed out",
+            "timeout",
+            "time out",
+            "deadline exceeded",
+            "read operation timed out",
+        )
+    )
+
+
 def _translate_batch_group(
     jobs: list[tuple[Segment, str, str]],
     cfg: PipelineConfig,
@@ -1246,9 +1267,22 @@ def _translate_batch_group(
         out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
         return [(seg, source_hash, source_norm, out, issues)]
 
+    batch_map: dict[str, str] | None = None
+    batch_error: Exception | None = None
     try:
         batch_map = _translate_batch_once(llm_client, jobs)
     except Exception as e:
+        batch_error = e
+        if _is_timeout_error(e):
+            logger.warning("Batch translate timed out (size=%d), retrying grouped request once.", len(jobs))
+            try:
+                batch_map = _translate_batch_once(llm_client, jobs)
+                batch_error = None
+            except Exception as retry_err:
+                batch_error = retry_err
+
+    if batch_map is None:
+        e = batch_error if batch_error is not None else RuntimeError("unknown batch error")
         if fail_fast:
             raise RuntimeError(f"Batch translate failed (size={len(jobs)}): {e}") from e
         logger.warning(f"Batch translate failed (size={len(jobs)}), fallback to single-segment: {e}")
@@ -1785,6 +1819,16 @@ def translate_docx(
     checker_requests_succeeded = 0
     checker_requests_failed = 0
     checker_chunks_failed = 0
+    checker_chunks_total = 0
+    checker_translatable_segments = 0
+    checker_segments_checked = 0
+    checker_split_events = 0
+    checker_active_chunk_id = ""
+    checker_active_attempt = 0
+    checker_last_event = ""
+    checker_last_error = ""
+    checker_started_at_utc = ""
+    checker_updated_at_utc = ""
     processed_segments = 0
     document_glossary: dict[str, str] = {}
     progress_cache: dict[str, dict[str, Any]] = {}
@@ -1802,6 +1846,16 @@ def translate_docx(
         nonlocal checker_requests_succeeded
         nonlocal checker_requests_failed
         nonlocal checker_chunks_failed
+        nonlocal checker_chunks_total
+        nonlocal checker_translatable_segments
+        nonlocal checker_segments_checked
+        nonlocal checker_split_events
+        nonlocal checker_active_chunk_id
+        nonlocal checker_active_attempt
+        nonlocal checker_last_event
+        nonlocal checker_last_error
+        nonlocal checker_started_at_utc
+        nonlocal checker_updated_at_utc
         nonlocal batch_attempted_segments
         nonlocal batch_fallback_segments
         nonlocal batch_json_schema_violations
@@ -1810,6 +1864,11 @@ def translate_docx(
             return
         batch_fallback_ratio = (
             float(batch_fallback_segments / batch_attempted_segments) if batch_attempted_segments > 0 else 0.0
+        )
+        checker_progress_pct = (
+            float(100.0 * checker_segments_checked / checker_translatable_segments)
+            if checker_translatable_segments > 0
+            else 0.0
         )
         status_writer.set_phase(phase)
         status_writer.set_done(processed_segments)
@@ -1830,6 +1889,17 @@ def translate_docx(
                 "checker_requests_succeeded": checker_requests_succeeded,
                 "checker_requests_failed": checker_requests_failed,
                 "checker_chunks_failed": checker_chunks_failed,
+                "checker_chunks_total": checker_chunks_total,
+                "checker_translatable_segments": checker_translatable_segments,
+                "checker_segments_checked": checker_segments_checked,
+                "checker_split_events": checker_split_events,
+                "checker_progress_pct": checker_progress_pct,
+                "checker_active_chunk": checker_active_chunk_id,
+                "checker_active_attempt": checker_active_attempt,
+                "checker_last_event": checker_last_event,
+                "checker_last_error": checker_last_error,
+                "checker_started_at": checker_started_at_utc,
+                "checker_updated_at": checker_updated_at_utc,
                 "batch_attempted_segments": batch_attempted_segments,
                 "batch_fallback_segments": batch_fallback_segments,
                 "batch_json_schema_violations": batch_json_schema_violations,
@@ -2508,10 +2578,183 @@ def translate_docx(
     checker_edits: list[dict[str, Any]] = []
     if effective_checker_cfg.enabled:
         status_writer.set_phase("checker")
+        checker_started_at_utc = datetime.now(timezone.utc).isoformat()
+        checker_updated_at_utc = checker_started_at_utc
+        checker_last_event = "start"
+        checker_last_error = ""
+        checker_active_chunk_id = ""
+        checker_active_attempt = 0
+        checker_resume_skip_chunks: set[str] = set()
+        checker_resume_base_requests_total = 0
+        checker_resume_base_requests_succeeded = 0
+        checker_resume_base_requests_failed = 0
+        checker_resume_base_chunks_failed = 0
+        checker_resume_base_split_events = 0
+        checker_resume_base_suggestions = 0
+        checker_resume_base_chunks_total = 0
+        checker_resume_base_segments_checked = 0
+        checker_resume_state: dict[str, Any] = {}
+        existing_checker_edits: list[dict[str, Any]] = []
+
+        if resume:
+            if run_paths.checker_suggestions_path.exists():
+                try:
+                    existing_checker_edits = read_checker_suggestions(run_paths.checker_suggestions_path)
+                except Exception as exc:
+                    logger.warning("Checker resume: failed to read existing suggestions: %s", exc)
+                    existing_checker_edits = []
+            if run_paths.checker_trace_path.exists():
+                try:
+                    checker_resume_state = read_checker_trace_resume_state(run_paths.checker_trace_path)
+                except Exception as exc:
+                    logger.warning("Checker resume: failed to read checker trace state: %s", exc)
+                    checker_resume_state = {}
+                completed_chunks_raw = checker_resume_state.get("completed_chunk_ids") or []
+                if existing_checker_edits and isinstance(completed_chunks_raw, list):
+                    checker_resume_skip_chunks = {
+                        str(item).strip()
+                        for item in completed_chunks_raw
+                        if str(item).strip()
+                    }
+                    if checker_resume_skip_chunks:
+                        checker_resume_base_chunks_total = len(checker_resume_skip_chunks)
+                        logger.info(
+                            "Checker resume: will skip %d completed chunks from previous attempt.",
+                            len(checker_resume_skip_chunks),
+                        )
+                elif completed_chunks_raw:
+                    logger.warning(
+                        "Checker resume: trace has completed chunks, but suggestions checkpoint is missing; "
+                        "rerunning checker from the beginning to avoid losing prior edits."
+                    )
+
+                try:
+                    checker_translatable_segments = max(
+                        checker_translatable_segments,
+                        int(checker_resume_state.get("translatable_segments") or 0),
+                    )
+                    checker_resume_base_requests_total = max(0, int(checker_resume_state.get("requests_total") or 0))
+                    checker_resume_base_requests_succeeded = max(
+                        0,
+                        int(checker_resume_state.get("requests_succeeded") or 0),
+                    )
+                    checker_resume_base_requests_failed = max(
+                        0,
+                        int(checker_resume_state.get("requests_failed") or 0),
+                    )
+                    checker_resume_base_chunks_failed = max(0, int(checker_resume_state.get("chunks_failed") or 0))
+                    checker_resume_base_split_events = max(0, int(checker_resume_state.get("split_events") or 0))
+                    if existing_checker_edits:
+                        checker_resume_base_suggestions = max(
+                            checker_resume_base_suggestions,
+                            int(checker_resume_state.get("suggestions_total") or 0),
+                        )
+                except Exception:
+                    logger.debug("Checker resume: failed to normalize base trace counters", exc_info=True)
+            if existing_checker_edits and checker_resume_skip_chunks:
+                checker_edits = attach_checker_edits_to_segments(
+                    segments=segments,
+                    edits=existing_checker_edits,
+                    logger=logger,
+                )
+                checker_suggestions_count = len(checker_edits)
+                checker_resume_base_suggestions = checker_suggestions_count
+                logger.info(
+                    "Checker resume: loaded %d suggestions checkpoint entries.",
+                    checker_suggestions_count,
+                )
+            elif existing_checker_edits:
+                logger.info(
+                    "Checker resume: suggestions checkpoint exists, but no completed chunk map; "
+                    "checker will rerun from the beginning."
+                )
+
+        _flush_status("checker", force=True)
+
+        def _on_checker_progress(event: dict[str, Any]) -> None:
+            nonlocal checker_suggestions_count
+            nonlocal checker_requests_total
+            nonlocal checker_requests_succeeded
+            nonlocal checker_requests_failed
+            nonlocal checker_chunks_failed
+            nonlocal checker_chunks_total
+            nonlocal checker_translatable_segments
+            nonlocal checker_segments_checked
+            nonlocal checker_split_events
+            nonlocal checker_active_chunk_id
+            nonlocal checker_active_attempt
+            nonlocal checker_last_event
+            nonlocal checker_last_error
+            nonlocal checker_started_at_utc
+            nonlocal checker_updated_at_utc
+
+            def _event_int(key: str) -> int | None:
+                value = event.get(key)
+                if value is None:
+                    return None
+                try:
+                    return max(0, int(value))
+                except Exception:
+                    return None
+
+            event_name = str(event.get("event") or "").strip()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            if not checker_started_at_utc:
+                checker_started_at_utc = now_iso
+            checker_updated_at_utc = now_iso
+            if event_name:
+                checker_last_event = event_name
+
+            chunk_id = str(event.get("chunk_id") or "").strip()
+            if chunk_id:
+                checker_active_chunk_id = chunk_id
+            attempt = _event_int("attempt")
+            if attempt is not None:
+                checker_active_attempt = attempt
+            if event_name in {"response", "failed_chunk", "summary"}:
+                checker_active_attempt = 0
+            if event_name == "summary":
+                checker_active_chunk_id = ""
+
+            err_text = str(event.get("error") or "").strip()
+            if err_text:
+                checker_last_error = err_text
+
+            chunks_total_live = _event_int("chunks_total")
+            if chunks_total_live is not None:
+                checker_chunks_total = checker_resume_base_chunks_total + chunks_total_live
+            translatable_live = _event_int("translatable_segments")
+            if translatable_live is not None:
+                checker_translatable_segments = translatable_live
+            segments_checked_live = _event_int("segments_checked")
+            if segments_checked_live is not None:
+                checker_segments_checked = checker_resume_base_segments_checked + segments_checked_live
+            requests_total_live = _event_int("requests_total")
+            if requests_total_live is not None:
+                checker_requests_total = checker_resume_base_requests_total + requests_total_live
+            requests_ok_live = _event_int("requests_succeeded")
+            if requests_ok_live is not None:
+                checker_requests_succeeded = checker_resume_base_requests_succeeded + requests_ok_live
+            requests_failed_live = _event_int("requests_failed")
+            if requests_failed_live is not None:
+                checker_requests_failed = checker_resume_base_requests_failed + requests_failed_live
+            chunks_failed_live = _event_int("chunks_failed")
+            if chunks_failed_live is not None:
+                checker_chunks_failed = checker_resume_base_chunks_failed + chunks_failed_live
+            split_live = _event_int("split_events")
+            if split_live is not None:
+                checker_split_events = checker_resume_base_split_events + split_live
+            suggestions_live = _event_int("suggestions_total")
+            if suggestions_live is not None:
+                checker_suggestions_count = checker_resume_base_suggestions + suggestions_live
+            _flush_status("checker", force=True)
+
         status_writer.write(force=True)
         checker_trace_stats: dict[str, Any] = {}
         run_paths.checker_trace_path.parent.mkdir(parents=True, exist_ok=True)
-        run_paths.checker_trace_path.write_text("", encoding="utf-8")
+        if not (resume and run_paths.checker_trace_path.exists()):
+            run_paths.checker_trace_path.write_text("", encoding="utf-8")
+        write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
         checker_provider = (effective_checker_cfg.provider or cfg.llm.provider).strip()
         checker_model = (effective_checker_cfg.model or cfg.llm.model).strip()
         checker_custom_prompt = _read_optional_text(
@@ -2552,19 +2795,87 @@ def translate_docx(
         for seg in segments:
             if seg.target_tagged is None and seg.target_shielded_tagged:
                 seg.context["checker_target_text"] = unshield(seg.target_shielded_tagged, seg.token_map or {})
-        checker_edits = run_llm_checker(
+        checker_checkpoint_seen_keys: set[tuple[str, str, str, str]] = set()
+        for item in checker_edits:
+            checker_checkpoint_seen_keys.add(
+                (
+                    str(item.get("chunk_id") or "").strip(),
+                    str(item.get("segment_id") or "").strip(),
+                    str(item.get("suggested_target") or "").strip(),
+                    str(item.get("instruction") or "").strip(),
+                )
+            )
+
+        def _on_checker_chunk_complete(chunk_id: str, chunk_edits: list[dict[str, Any]]) -> None:
+            nonlocal checker_edits
+            if chunk_edits:
+                for item in chunk_edits:
+                    key = (
+                        str(chunk_id).strip(),
+                        str(item.get("segment_id") or "").strip(),
+                        str(item.get("suggested_target") or "").strip(),
+                        str(item.get("instruction") or "").strip(),
+                    )
+                    if key in checker_checkpoint_seen_keys:
+                        continue
+                    checker_checkpoint_seen_keys.add(key)
+                    checker_edits.append(item)
+            # Keep a durable checkpoint even when chunk has 0 edits.
+            write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
+        checker_new_edits = run_llm_checker(
             segments=segments,
             checker_cfg=effective_checker_cfg,
             checker_client=checker_client,
             logger=logger,
             trace_path=run_paths.checker_trace_path,
             stats_out=checker_trace_stats,
+            progress_callback=_on_checker_progress,
+            skip_chunk_ids=checker_resume_skip_chunks,
+            chunk_complete_callback=_on_checker_chunk_complete,
         )
-        checker_requests_total = int(checker_trace_stats.get("requests_total", 0))
-        checker_requests_succeeded = int(checker_trace_stats.get("requests_succeeded", 0))
-        checker_requests_failed = int(checker_trace_stats.get("requests_failed", 0))
-        checker_chunks_failed = int(checker_trace_stats.get("chunks_failed", 0))
+
+        # Safety merge in case callback was interrupted between response and checkpoint write.
+        for item in checker_new_edits:
+            key = (
+                str(item.get("chunk_id") or "").strip(),
+                str(item.get("segment_id") or "").strip(),
+                str(item.get("suggested_target") or "").strip(),
+                str(item.get("instruction") or "").strip(),
+            )
+            if key in checker_checkpoint_seen_keys:
+                continue
+            checker_checkpoint_seen_keys.add(key)
+            checker_edits.append(item)
+
+        checker_chunks_total = checker_resume_base_chunks_total + int(
+            checker_trace_stats.get("chunks_total", checker_chunks_total)
+        )
+        checker_segments_checked = checker_resume_base_segments_checked + int(
+            checker_trace_stats.get("segments_checked", checker_segments_checked)
+        )
+        checker_requests_total = checker_resume_base_requests_total + int(
+            checker_trace_stats.get("requests_total", 0)
+        )
+        checker_requests_succeeded = checker_resume_base_requests_succeeded + int(
+            checker_trace_stats.get("requests_succeeded", 0)
+        )
+        checker_requests_failed = checker_resume_base_requests_failed + int(
+            checker_trace_stats.get("requests_failed", 0)
+        )
+        checker_chunks_failed = checker_resume_base_chunks_failed + int(
+            checker_trace_stats.get("chunks_failed", 0)
+        )
+        checker_split_events = checker_resume_base_split_events + int(
+            checker_trace_stats.get("split_events", checker_split_events)
+        )
         checker_suggestions_count = len(checker_edits)
+        if checker_segments_checked > checker_translatable_segments:
+            checker_translatable_segments = checker_segments_checked
+        checker_last_event = "summary"
+        checker_updated_at_utc = datetime.now(timezone.utc).isoformat()
+        checker_active_chunk_id = ""
+        checker_active_attempt = 0
         checker_safe_edits, checker_safe_skipped = filter_checker_suggestions(
             checker_edits,
             safe_only=True,
@@ -2610,20 +2921,7 @@ def translate_docx(
             checker_requests_failed,
             checker_chunks_failed,
         )
-        status_writer.set_usage(usage_totals.snapshot())
-        status_writer.merge_metrics(
-            {
-                "checker_suggestions": checker_suggestions_count,
-                "checker_safe_suggestions": checker_safe_suggestions_count,
-                "checker_applied_suggestions": checker_applied_suggestions,
-                "checker_requests_total": checker_requests_total,
-                "checker_requests_succeeded": checker_requests_succeeded,
-                "checker_requests_failed": checker_requests_failed,
-                "checker_chunks_failed": checker_chunks_failed,
-                "issues_total": sum(len(seg.issues) for seg in segments),
-            }
-        )
-        status_writer.write(force=True)
+        _flush_status("checker", force=True)
     else:
         if not run_paths.checker_trace_path.exists():
             run_paths.checker_trace_path.write_text("", encoding="utf-8")
@@ -2701,3 +2999,720 @@ def translate_docx(
     status_writer.write(force=True)
 
     tm.close()
+
+
+def _build_checker_only_docx_segments(
+    *,
+    input_path: Path,
+    output_path: Path,
+    include_headers: bool,
+    include_footers: bool,
+    logger: logging.Logger,
+) -> tuple[Document, list[Segment], dict[str, int]]:
+    source_doc = Document(str(input_path))
+    source_segments = collect_segments(
+        source_doc,
+        include_headers=include_headers,
+        include_footers=include_footers,
+    )
+    output_doc = Document(str(output_path))
+    output_segments = collect_segments(
+        output_doc,
+        include_headers=include_headers,
+        include_footers=include_footers,
+    )
+
+    source_by_location = {seg.location: seg for seg in source_segments if seg.location}
+    source_locations = set(source_by_location.keys())
+    output_locations = {seg.location for seg in output_segments if seg.location}
+    missing_source = 0
+    skipped_no_latin = 0
+    checker_candidates = 0
+    untranslated_equal = 0
+
+    for seg in output_segments:
+        target_text = str(seg.source_plain or "")
+        source_seg = source_by_location.get(seg.location)
+        if source_seg is None:
+            missing_source += 1
+            seg.issues.append(
+                Issue(
+                    code="checker_source_missing",
+                    severity=Severity.WARN,
+                    message=(
+                        "Checker-only alignment: source segment is missing by location; "
+                        "segment skipped in checker pass."
+                    ),
+                    details={"location": seg.location},
+                )
+            )
+            seg.target_tagged = ""
+            seg.context["checker_target_text"] = ""
+            continue
+
+        seg.source_plain = source_seg.source_plain
+        seg.context["part"] = source_seg.context.get("part")
+        seg.context["section"] = source_seg.context.get("section")
+        seg.context["section_header"] = source_seg.context.get("section_header")
+        seg.context["paragraph_style"] = source_seg.context.get("paragraph_style")
+        seg.context["in_table"] = bool(source_seg.context.get("in_table"))
+        seg.context["in_textbox"] = bool(source_seg.context.get("in_textbox"))
+        if source_seg.context.get("row_index") is not None:
+            seg.context["row_index"] = source_seg.context.get("row_index")
+        if source_seg.context.get("col_index") is not None:
+            seg.context["col_index"] = source_seg.context.get("col_index")
+        if source_seg.context.get("table_index") is not None:
+            seg.context["table_index"] = source_seg.context.get("table_index")
+        if source_seg.context.get("is_toc_entry") is not None:
+            seg.context["is_toc_entry"] = bool(source_seg.context.get("is_toc_entry"))
+
+        if _should_translate_segment_text(seg.source_plain):
+            seg.target_tagged = target_text
+            seg.context["checker_target_text"] = target_text
+            if target_text.strip():
+                checker_candidates += 1
+            if normalize_text(seg.source_plain) == normalize_text(target_text):
+                untranslated_equal += 1
+        else:
+            seg.target_tagged = ""
+            skipped_no_latin += 1
+            seg.context["checker_target_text"] = ""
+
+    missing_target = max(0, len(source_locations - output_locations))
+    if missing_source > 0 or missing_target > 0:
+        logger.warning(
+            "Checker-only alignment gaps: missing_source=%d; missing_target=%d",
+            int(missing_source),
+            int(missing_target),
+        )
+    logger.info(
+        "Checker-only alignment: source_segments=%d; output_segments=%d; checker_candidates=%d; "
+        "skipped_no_latin=%d; untranslated_equal=%d",
+        len(source_segments),
+        len(output_segments),
+        int(checker_candidates),
+        int(skipped_no_latin),
+        int(untranslated_equal),
+    )
+    return (
+        output_doc,
+        output_segments,
+        {
+            "source_segments": len(source_segments),
+            "output_segments": len(output_segments),
+            "checker_candidates": int(checker_candidates),
+            "skipped_no_latin": int(skipped_no_latin),
+            "untranslated_equal": int(untranslated_equal),
+            "missing_source": int(missing_source),
+            "missing_target": int(missing_target),
+        },
+    )
+
+
+def run_docx_checker_only(
+    input_path: Path,
+    output_path: Path,
+    cfg: PipelineConfig,
+    *,
+    resume: bool = False,
+    max_segments: int | None = None,
+) -> None:
+    logger = setup_logging(Path(cfg.log_path))
+    run_paths = resolve_run_paths(cfg, output_path=output_path)
+    run_paths.run_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dashboard_html(run_paths.dashboard_html_path.parent, filename=run_paths.dashboard_html_path.name)
+
+    logger.info("Input (source): %s", input_path)
+    logger.info("Output (translated DOCX): %s", output_path)
+    logger.info("Run dir: %s", run_paths.run_dir)
+    logger.info("Run status: %s", run_paths.status_path)
+    logger.info("Dashboard HTML: %s", run_paths.dashboard_html_path)
+
+    if output_path.suffix.lower() != ".docx":
+        raise RuntimeError("Checker-only mode is currently supported for DOCX output only.")
+    if not output_path.exists():
+        raise FileNotFoundError(f"Checker-only mode requires existing translated output: {output_path}")
+
+    effective_checker_cfg = cfg.checker
+    if not effective_checker_cfg.enabled:
+        effective_checker_cfg = cfg.checker.__class__(**{**cfg.checker.__dict__, "enabled": True})
+        logger.info("Checker-only mode: checker.enabled was false; enabled in-memory for this run.")
+
+    doc, segments, alignment_stats = _build_checker_only_docx_segments(
+        input_path=input_path,
+        output_path=output_path,
+        include_headers=cfg.include_headers,
+        include_footers=cfg.include_footers,
+        logger=logger,
+    )
+    if max_segments is not None:
+        if max_segments < 0:
+            raise ValueError(f"max_segments must be >= 0, got {max_segments}")
+        segments = segments[:max_segments]
+        logger.info("Segment limit enabled for checker-only mode: %d segments", len(segments))
+    logger.info("Checker-only segments loaded: %d", len(segments))
+
+    usage_totals = UsageTotals()
+    pricing_table = PricingTable.empty(currency=cfg.pricing.currency)
+    if cfg.pricing.enabled:
+        if cfg.pricing.pricing_path:
+            try:
+                pricing_table = load_pricing_table(cfg.pricing.pricing_path, currency=cfg.pricing.currency)
+                logger.info("Pricing table loaded: %s", cfg.pricing.pricing_path)
+            except Exception as exc:
+                logger.warning("Failed to load pricing table (%s): %s", cfg.pricing.pricing_path, exc)
+        else:
+            logger.warning("pricing.enabled=true but pricing.pricing_path is empty")
+
+    status_writer = RunStatusWriter(
+        path=run_paths.status_path,
+        run_id=run_paths.run_id,
+        total_segments=len(segments),
+        flush_every_n_updates=cfg.run.status_flush_every_n_segments,
+    )
+
+    def _to_dashboard_link(path: Path) -> str:
+        try:
+            rel = path.resolve().relative_to(run_paths.run_dir.resolve())
+            return rel.as_posix()
+        except Exception:
+            return str(path)
+
+    status_writer.merge_paths(
+        {
+            "run_dir": str(run_paths.run_dir),
+            "output": str(output_path),
+            "qa_report": _to_dashboard_link(run_paths.qa_report_path),
+            "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
+            "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
+            "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
+            "checker_suggestions_safe": _to_dashboard_link(run_paths.checker_suggestions_safe_path),
+            "checker_trace": _to_dashboard_link(run_paths.checker_trace_path),
+        }
+    )
+    status_writer.set_phase("prepare")
+    status_writer.set_done(0)
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.write(force=True)
+
+    _attach_neighbor_snippets(segments, cfg)
+    glossary_text = _read_optional_text(cfg.llm.glossary_path, logger, "glossary")
+    glossary_matchers = build_glossary_matchers(glossary_text) if glossary_text else ()
+    matched_glossary_segments = 0
+    if glossary_matchers:
+        for seg in segments:
+            if not _should_translate_segment_text(seg.source_plain):
+                continue
+            checker_terms = _build_matched_glossary_context(
+                seg.source_plain,
+                glossary_matchers,
+                limit=min(12, cfg.llm.glossary_match_limit),
+            )
+            if checker_terms:
+                seg.context["matched_glossary_terms"] = checker_terms
+                matched_glossary_segments += 1
+        logger.info("Checker-only glossary hints attached to %d segments", int(matched_glossary_segments))
+
+    checker_custom_prompt = _read_optional_text(
+        effective_checker_cfg.system_prompt_path,
+        logger,
+        "checker system prompt",
+    )
+    checker_glossary_text = (
+        _read_optional_text(
+            effective_checker_cfg.glossary_path,
+            logger,
+            "checker glossary",
+        )
+        if effective_checker_cfg.glossary_path
+        else glossary_text
+    )
+
+    effective_checker_timeout_s = float(effective_checker_cfg.timeout_s)
+    if cfg.llm.auto_model_sizing:
+        checker_provider_for_sizing = (effective_checker_cfg.provider or cfg.llm.provider).strip()
+        checker_model_for_sizing = (effective_checker_cfg.model or cfg.llm.model).strip()
+        source_lengths = [len(seg.source_plain or "") for seg in segments]
+        prompt_chars = len(checker_custom_prompt or "") + len(checker_glossary_text or "")
+        sizing = recommend_runtime_model_sizing(
+            provider=cfg.llm.provider,
+            model=cfg.llm.model,
+            checker_provider=checker_provider_for_sizing,
+            checker_model=checker_model_for_sizing,
+            source_char_lengths=source_lengths,
+            prompt_chars=prompt_chars,
+            batch_segments=1,
+            batch_max_chars=max(4000, int(cfg.llm.batch_max_chars)),
+            max_output_tokens=cfg.llm.max_output_tokens,
+            context_window_chars=0,
+            checker_pages_per_chunk=effective_checker_cfg.pages_per_chunk,
+            checker_fallback_segments_per_chunk=effective_checker_cfg.fallback_segments_per_chunk,
+            checker_max_output_tokens=effective_checker_cfg.max_output_tokens,
+        )
+        effective_checker_cfg = effective_checker_cfg.__class__(
+            **{
+                **effective_checker_cfg.__dict__,
+                "pages_per_chunk": sizing.checker_pages_per_chunk,
+                "fallback_segments_per_chunk": sizing.checker_fallback_segments_per_chunk,
+                "max_output_tokens": sizing.checker_max_output_tokens,
+            }
+        )
+        for note in sizing.notes:
+            logger.info("Checker-only model auto-sizing: %s", note)
+
+    checker_timeout_before = float(effective_checker_cfg.timeout_s)
+    effective_checker_timeout_s = recommend_checker_timeout_s(
+        timeout_s=checker_timeout_before,
+        fallback_segments_per_chunk=int(effective_checker_cfg.fallback_segments_per_chunk),
+    )
+    if float(effective_checker_timeout_s) > checker_timeout_before:
+        logger.info(
+            "Checker-only mode auto-raised checker timeout_s to %.1f (prev=%.1f; fallback_segments_per_chunk=%d)",
+            float(effective_checker_timeout_s),
+            float(checker_timeout_before),
+            int(effective_checker_cfg.fallback_segments_per_chunk),
+        )
+
+    checker_suggestions_count = 0
+    checker_safe_suggestions_count = 0
+    checker_applied_suggestions = 0
+    checker_requests_total = 0
+    checker_requests_succeeded = 0
+    checker_requests_failed = 0
+    checker_chunks_failed = 0
+    checker_chunks_total = 0
+    checker_translatable_segments = 0
+    checker_segments_checked = 0
+    checker_split_events = 0
+    checker_active_chunk_id = ""
+    checker_active_attempt = 0
+    checker_last_event = "start"
+    checker_last_error = ""
+    checker_started_at_utc = datetime.now(timezone.utc).isoformat()
+    checker_updated_at_utc = checker_started_at_utc
+    processed_segments = 0
+
+    def _flush_status(phase: str, *, force: bool = False) -> None:
+        step = max(1, int(cfg.run.status_flush_every_n_segments))
+        if not force and processed_segments % step != 0:
+            return
+        checker_progress_pct = (
+            float(100.0 * checker_segments_checked / checker_translatable_segments)
+            if checker_translatable_segments > 0
+            else 0.0
+        )
+        status_writer.set_phase(phase)
+        status_writer.set_done(processed_segments)
+        status_writer.set_usage(usage_totals.snapshot())
+        status_writer.merge_metrics(
+            {
+                "tm_hits": 0,
+                "resume_hits": 0,
+                "tagging_errors": 0,
+                "llm_queue": 0,
+                "llm_translated": 0,
+                "complex_in_place": 0,
+                "toc_in_place": 0,
+                "checker_suggestions": checker_suggestions_count,
+                "checker_safe_suggestions": checker_safe_suggestions_count,
+                "checker_applied_suggestions": checker_applied_suggestions,
+                "checker_requests_total": checker_requests_total,
+                "checker_requests_succeeded": checker_requests_succeeded,
+                "checker_requests_failed": checker_requests_failed,
+                "checker_chunks_failed": checker_chunks_failed,
+                "checker_chunks_total": checker_chunks_total,
+                "checker_translatable_segments": checker_translatable_segments,
+                "checker_segments_checked": checker_segments_checked,
+                "checker_split_events": checker_split_events,
+                "checker_progress_pct": checker_progress_pct,
+                "checker_active_chunk": checker_active_chunk_id,
+                "checker_active_attempt": checker_active_attempt,
+                "checker_last_event": checker_last_event,
+                "checker_last_error": checker_last_error,
+                "checker_started_at": checker_started_at_utc,
+                "checker_updated_at": checker_updated_at_utc,
+                "issues_total": sum(len(seg.issues) for seg in segments),
+                "checker_alignment_source_segments": int(alignment_stats.get("source_segments", 0)),
+                "checker_alignment_output_segments": int(alignment_stats.get("output_segments", 0)),
+                "checker_alignment_candidates": int(alignment_stats.get("checker_candidates", 0)),
+                "checker_alignment_skipped_no_latin": int(alignment_stats.get("skipped_no_latin", 0)),
+                "checker_alignment_untranslated_equal": int(alignment_stats.get("untranslated_equal", 0)),
+                "checker_alignment_missing_source": int(alignment_stats.get("missing_source", 0)),
+                "checker_alignment_missing_target": int(alignment_stats.get("missing_target", 0)),
+            }
+        )
+        status_writer.write(force=force)
+
+    _flush_status("prepare", force=True)
+
+    checker_resume_skip_chunks: set[str] = set()
+    checker_resume_base_requests_total = 0
+    checker_resume_base_requests_succeeded = 0
+    checker_resume_base_requests_failed = 0
+    checker_resume_base_chunks_failed = 0
+    checker_resume_base_split_events = 0
+    checker_resume_base_suggestions = 0
+    checker_resume_base_chunks_total = 0
+    checker_resume_base_segments_checked = 0
+    checker_resume_state: dict[str, Any] = {}
+    existing_checker_edits: list[dict[str, Any]] = []
+    checker_edits: list[dict[str, Any]] = []
+
+    if resume:
+        if run_paths.checker_suggestions_path.exists():
+            try:
+                existing_checker_edits = read_checker_suggestions(run_paths.checker_suggestions_path)
+            except Exception as exc:
+                logger.warning("Checker-only resume: failed to read existing suggestions: %s", exc)
+                existing_checker_edits = []
+        if run_paths.checker_trace_path.exists():
+            try:
+                checker_resume_state = read_checker_trace_resume_state(run_paths.checker_trace_path)
+            except Exception as exc:
+                logger.warning("Checker-only resume: failed to read checker trace state: %s", exc)
+                checker_resume_state = {}
+            completed_chunks_raw = checker_resume_state.get("completed_chunk_ids") or []
+            if existing_checker_edits and isinstance(completed_chunks_raw, list):
+                checker_resume_skip_chunks = {str(item).strip() for item in completed_chunks_raw if str(item).strip()}
+                if checker_resume_skip_chunks:
+                    checker_resume_base_chunks_total = len(checker_resume_skip_chunks)
+                    logger.info(
+                        "Checker-only resume: will skip %d completed chunks from previous attempt.",
+                        len(checker_resume_skip_chunks),
+                    )
+            elif completed_chunks_raw:
+                logger.warning(
+                    "Checker-only resume: trace has completed chunks, but suggestions checkpoint is missing; "
+                    "rerunning checker from the beginning to avoid losing prior edits."
+                )
+
+            try:
+                checker_translatable_segments = max(
+                    checker_translatable_segments,
+                    int(checker_resume_state.get("translatable_segments") or 0),
+                )
+                checker_resume_base_requests_total = max(0, int(checker_resume_state.get("requests_total") or 0))
+                checker_resume_base_requests_succeeded = max(
+                    0,
+                    int(checker_resume_state.get("requests_succeeded") or 0),
+                )
+                checker_resume_base_requests_failed = max(
+                    0,
+                    int(checker_resume_state.get("requests_failed") or 0),
+                )
+                checker_resume_base_chunks_failed = max(0, int(checker_resume_state.get("chunks_failed") or 0))
+                checker_resume_base_split_events = max(0, int(checker_resume_state.get("split_events") or 0))
+                if existing_checker_edits:
+                    checker_resume_base_suggestions = max(
+                        checker_resume_base_suggestions,
+                        int(checker_resume_state.get("suggestions_total") or 0),
+                    )
+            except Exception:
+                logger.debug("Checker-only resume: failed to normalize base trace counters", exc_info=True)
+
+        if existing_checker_edits and checker_resume_skip_chunks:
+            checker_edits = attach_checker_edits_to_segments(
+                segments=segments,
+                edits=existing_checker_edits,
+                logger=logger,
+            )
+            checker_suggestions_count = len(checker_edits)
+            checker_resume_base_suggestions = checker_suggestions_count
+            logger.info(
+                "Checker-only resume: loaded %d suggestions checkpoint entries.",
+                checker_suggestions_count,
+            )
+        elif existing_checker_edits:
+            logger.info(
+                "Checker-only resume: suggestions checkpoint exists, but no completed chunk map; "
+                "checker will rerun from the beginning."
+            )
+
+    status_writer.set_phase("checker")
+    _flush_status("checker", force=True)
+    status_writer.write(force=True)
+
+    def _on_checker_progress(event: dict[str, Any]) -> None:
+        nonlocal checker_suggestions_count
+        nonlocal checker_requests_total
+        nonlocal checker_requests_succeeded
+        nonlocal checker_requests_failed
+        nonlocal checker_chunks_failed
+        nonlocal checker_chunks_total
+        nonlocal checker_translatable_segments
+        nonlocal checker_segments_checked
+        nonlocal checker_split_events
+        nonlocal checker_active_chunk_id
+        nonlocal checker_active_attempt
+        nonlocal checker_last_event
+        nonlocal checker_last_error
+        nonlocal checker_started_at_utc
+        nonlocal checker_updated_at_utc
+        nonlocal processed_segments
+
+        def _event_int(key: str) -> int | None:
+            value = event.get(key)
+            if value is None:
+                return None
+            try:
+                return max(0, int(value))
+            except Exception:
+                return None
+
+        event_name = str(event.get("event") or "").strip()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if not checker_started_at_utc:
+            checker_started_at_utc = now_iso
+        checker_updated_at_utc = now_iso
+        if event_name:
+            checker_last_event = event_name
+
+        chunk_id = str(event.get("chunk_id") or "").strip()
+        if chunk_id:
+            checker_active_chunk_id = chunk_id
+        attempt = _event_int("attempt")
+        if attempt is not None:
+            checker_active_attempt = attempt
+        if event_name in {"response", "failed_chunk", "summary"}:
+            checker_active_attempt = 0
+        if event_name == "summary":
+            checker_active_chunk_id = ""
+
+        err_text = str(event.get("error") or "").strip()
+        if err_text:
+            checker_last_error = err_text
+
+        chunks_total_live = _event_int("chunks_total")
+        if chunks_total_live is not None:
+            checker_chunks_total = checker_resume_base_chunks_total + chunks_total_live
+        translatable_live = _event_int("translatable_segments")
+        if translatable_live is not None:
+            checker_translatable_segments = translatable_live
+        segments_checked_live = _event_int("segments_checked")
+        if segments_checked_live is not None:
+            checker_segments_checked = checker_resume_base_segments_checked + segments_checked_live
+            processed_segments = min(len(segments), checker_segments_checked)
+        requests_total_live = _event_int("requests_total")
+        if requests_total_live is not None:
+            checker_requests_total = checker_resume_base_requests_total + requests_total_live
+        requests_ok_live = _event_int("requests_succeeded")
+        if requests_ok_live is not None:
+            checker_requests_succeeded = checker_resume_base_requests_succeeded + requests_ok_live
+        requests_failed_live = _event_int("requests_failed")
+        if requests_failed_live is not None:
+            checker_requests_failed = checker_resume_base_requests_failed + requests_failed_live
+        chunks_failed_live = _event_int("chunks_failed")
+        if chunks_failed_live is not None:
+            checker_chunks_failed = checker_resume_base_chunks_failed + chunks_failed_live
+        split_live = _event_int("split_events")
+        if split_live is not None:
+            checker_split_events = checker_resume_base_split_events + split_live
+        suggestions_live = _event_int("suggestions_total")
+        if suggestions_live is not None:
+            checker_suggestions_count = checker_resume_base_suggestions + suggestions_live
+        _flush_status("checker", force=True)
+
+    run_paths.checker_trace_path.parent.mkdir(parents=True, exist_ok=True)
+    if not (resume and run_paths.checker_trace_path.exists()):
+        run_paths.checker_trace_path.write_text("", encoding="utf-8")
+    write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
+    checker_provider = (effective_checker_cfg.provider or cfg.llm.provider).strip()
+    checker_model = (effective_checker_cfg.model or cfg.llm.model).strip()
+    checker_client = build_llm_client(
+        provider=checker_provider,
+        model=checker_model,
+        temperature=effective_checker_cfg.temperature,
+        timeout_s=effective_checker_timeout_s,
+        max_output_tokens=effective_checker_cfg.max_output_tokens,
+        source_lang=cfg.llm.source_lang,
+        target_lang=cfg.llm.target_lang,
+        base_url=cfg.llm.base_url,
+        custom_system_prompt=checker_custom_prompt,
+        glossary_text=checker_glossary_text,
+        glossary_prompt_text=checker_glossary_text,
+        reasoning_effort=cfg.llm.reasoning_effort,
+        prompt_cache_key=cfg.llm.prompt_cache_key,
+        prompt_cache_retention=cfg.llm.prompt_cache_retention,
+        structured_output_mode="strict",
+        base_system_prompt=CHECKER_SYSTEM_PROMPT,
+        on_usage=usage_totals.add,
+        estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
+        pricing_currency=pricing_table.currency,
+    )
+
+    checker_checkpoint_seen_keys: set[tuple[str, str, str, str]] = set()
+    for item in checker_edits:
+        checker_checkpoint_seen_keys.add(
+            (
+                str(item.get("chunk_id") or "").strip(),
+                str(item.get("segment_id") or "").strip(),
+                str(item.get("suggested_target") or "").strip(),
+                str(item.get("instruction") or "").strip(),
+            )
+        )
+
+    def _on_checker_chunk_complete(chunk_id: str, chunk_edits: list[dict[str, Any]]) -> None:
+        nonlocal checker_edits
+        if chunk_edits:
+            for item in chunk_edits:
+                key = (
+                    str(chunk_id).strip(),
+                    str(item.get("segment_id") or "").strip(),
+                    str(item.get("suggested_target") or "").strip(),
+                    str(item.get("instruction") or "").strip(),
+                )
+                if key in checker_checkpoint_seen_keys:
+                    continue
+                checker_checkpoint_seen_keys.add(key)
+                checker_edits.append(item)
+        write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
+    checker_trace_stats: dict[str, Any] = {}
+    checker_new_edits = run_llm_checker(
+        segments=segments,
+        checker_cfg=effective_checker_cfg,
+        checker_client=checker_client,
+        logger=logger,
+        trace_path=run_paths.checker_trace_path,
+        stats_out=checker_trace_stats,
+        progress_callback=_on_checker_progress,
+        skip_chunk_ids=checker_resume_skip_chunks,
+        chunk_complete_callback=_on_checker_chunk_complete,
+    )
+
+    for item in checker_new_edits:
+        key = (
+            str(item.get("chunk_id") or "").strip(),
+            str(item.get("segment_id") or "").strip(),
+            str(item.get("suggested_target") or "").strip(),
+            str(item.get("instruction") or "").strip(),
+        )
+        if key in checker_checkpoint_seen_keys:
+            continue
+        checker_checkpoint_seen_keys.add(key)
+        checker_edits.append(item)
+
+    checker_chunks_total = checker_resume_base_chunks_total + int(checker_trace_stats.get("chunks_total", checker_chunks_total))
+    checker_segments_checked = checker_resume_base_segments_checked + int(
+        checker_trace_stats.get("segments_checked", checker_segments_checked)
+    )
+    checker_requests_total = checker_resume_base_requests_total + int(checker_trace_stats.get("requests_total", 0))
+    checker_requests_succeeded = checker_resume_base_requests_succeeded + int(
+        checker_trace_stats.get("requests_succeeded", 0)
+    )
+    checker_requests_failed = checker_resume_base_requests_failed + int(checker_trace_stats.get("requests_failed", 0))
+    checker_chunks_failed = checker_resume_base_chunks_failed + int(checker_trace_stats.get("chunks_failed", 0))
+    checker_split_events = checker_resume_base_split_events + int(
+        checker_trace_stats.get("split_events", checker_split_events)
+    )
+    checker_suggestions_count = len(checker_edits)
+    if checker_segments_checked > checker_translatable_segments:
+        checker_translatable_segments = checker_segments_checked
+    checker_last_event = "summary"
+    checker_updated_at_utc = datetime.now(timezone.utc).isoformat()
+    checker_active_chunk_id = ""
+    checker_active_attempt = 0
+    processed_segments = min(len(segments), checker_segments_checked)
+
+    checker_safe_edits, checker_safe_skipped = filter_checker_suggestions(
+        checker_edits,
+        safe_only=True,
+        min_confidence=float(effective_checker_cfg.auto_apply_min_confidence),
+    )
+    checker_safe_suggestions_count = len(checker_safe_edits)
+    write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+    write_checker_safe_suggestions(
+        run_paths.checker_suggestions_safe_path,
+        source_edits=checker_edits,
+        safe_edits=checker_safe_edits,
+        skipped=checker_safe_skipped,
+    )
+    logger.info("Checker suggestions: %d (%s)", checker_suggestions_count, run_paths.checker_suggestions_path)
+    logger.info(
+        "Checker safe suggestions: %d/%d (%s)",
+        checker_safe_suggestions_count,
+        checker_suggestions_count,
+        run_paths.checker_suggestions_safe_path,
+    )
+
+    if effective_checker_cfg.auto_apply_safe and checker_safe_edits:
+        apply_summary = apply_checker_suggestions_to_segments(
+            segments=segments,
+            edits=checker_safe_edits,
+            safe_only=True,
+            min_confidence=float(effective_checker_cfg.auto_apply_min_confidence),
+            require_current_match=True,
+            logger=logger,
+        )
+        checker_applied_suggestions = int(apply_summary.get("applied", 0))
+        if checker_applied_suggestions > 0:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            logger.info(
+                "Checker-only safe auto-apply wrote updated DOCX: applied=%d; output=%s",
+                checker_applied_suggestions,
+                output_path,
+            )
+
+    logger.info(
+        "Checker-only requests: total=%d; ok=%d; failed=%d; chunks_failed=%d",
+        checker_requests_total,
+        checker_requests_succeeded,
+        checker_requests_failed,
+        checker_chunks_failed,
+    )
+    _flush_status("checker", force=True)
+
+    if not run_paths.checker_suggestions_path.exists():
+        write_checker_suggestions(run_paths.checker_suggestions_path, [])
+    if not run_paths.checker_suggestions_safe_path.exists():
+        write_checker_safe_suggestions(
+            run_paths.checker_suggestions_safe_path,
+            source_edits=[],
+            safe_edits=[],
+            skipped=[],
+        )
+
+    status_writer.set_phase("qa")
+    status_writer.write(force=True)
+    qa_html = run_paths.qa_report_path
+    qa_jsonl = run_paths.qa_jsonl_path
+    write_qa_report(segments, qa_html)
+    write_qa_jsonl(segments, qa_jsonl)
+    logger.info("QA report: %s", qa_html)
+    logger.info("QA jsonl: %s", qa_jsonl)
+
+    processed_segments = len(segments)
+    status_writer.set_phase("done")
+    status_writer.set_done(processed_segments)
+    status_writer.set_usage(usage_totals.snapshot())
+    status_writer.merge_metrics(
+        {
+            "checker_suggestions": checker_suggestions_count,
+            "checker_safe_suggestions": checker_safe_suggestions_count,
+            "checker_applied_suggestions": checker_applied_suggestions,
+            "checker_requests_total": checker_requests_total,
+            "checker_requests_succeeded": checker_requests_succeeded,
+            "checker_requests_failed": checker_requests_failed,
+            "checker_chunks_failed": checker_chunks_failed,
+            "checker_chunks_total": checker_chunks_total,
+            "checker_translatable_segments": checker_translatable_segments,
+            "checker_segments_checked": checker_segments_checked,
+            "checker_split_events": checker_split_events,
+            "issues_total": sum(len(seg.issues) for seg in segments),
+            "written_segments": 0,
+            "llm_translated": 0,
+            "tm_hits": 0,
+            "resume_hits": 0,
+            "complex_in_place": 0,
+            "checker_alignment_source_segments": int(alignment_stats.get("source_segments", 0)),
+            "checker_alignment_output_segments": int(alignment_stats.get("output_segments", 0)),
+            "checker_alignment_candidates": int(alignment_stats.get("checker_candidates", 0)),
+            "checker_alignment_skipped_no_latin": int(alignment_stats.get("skipped_no_latin", 0)),
+            "checker_alignment_untranslated_equal": int(alignment_stats.get("untranslated_equal", 0)),
+            "checker_alignment_missing_source": int(alignment_stats.get("missing_source", 0)),
+            "checker_alignment_missing_target": int(alignment_stats.get("missing_target", 0)),
+        }
+    )
+    status_writer.write(force=True)

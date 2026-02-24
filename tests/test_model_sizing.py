@@ -63,7 +63,7 @@ def test_recommend_runtime_model_sizing_for_gpt5_mini_uses_turbo_limits():
         checker_fallback_segments_per_chunk=120,
         checker_max_output_tokens=2_000,
     )
-    assert 36_000 <= sizing.batch_max_chars <= 48_000
+    assert 36_000 <= sizing.batch_max_chars <= 60_000
     assert 12 <= sizing.batch_segments <= 24
     assert sizing.checker_pages_per_chunk == 4
 

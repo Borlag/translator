@@ -160,6 +160,40 @@ def test_translate_batch_group_marks_json_schema_violation():
         assert "batch_json_schema_violation" in codes
 
 
+def test_translate_batch_group_retries_timeout_once_before_fallback():
+    class FakeClient:
+        supports_repair = True
+
+        def __init__(self) -> None:
+            self.batch_calls = 0
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            del text
+            if context.get("task") == "batch_translate":
+                self.batch_calls += 1
+                if self.batch_calls == 1:
+                    raise RuntimeError("OpenAI request failed: The read operation timed out")
+                return '{"1":"T1","2":"T2"}'
+            return "UNUSED"
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
+    cfg = PipelineConfig(
+        llm=LLMConfig(retries=1),
+        run=RunConfig(fail_fast_on_translate_error=False),
+    )
+    fake = FakeClient()
+
+    results = _translate_batch_group(jobs, cfg, fake, logging.getLogger("test"))
+
+    assert fake.batch_calls == 2
+    assert len(results) == 2
+    for seg, _, _, out, issues in results:
+        assert out == ("T1" if seg.segment_id == "1" else "T2")
+        codes = {issue.code for issue in issues}
+        assert "batch_ok" in codes
+        assert "batch_fallback_single" not in codes
+
+
 def test_translate_batch_group_fail_fast_raises_on_batch_error():
     class FakeClient:
         supports_repair = True
@@ -258,6 +292,15 @@ def test_recommended_grouped_batch_workers_caps_huge_batches():
         concurrency=4,
         grouped_jobs_count=10,
         batch_max_chars=120_000,
+    )
+    assert workers == 2
+
+
+def test_recommended_grouped_batch_workers_caps_60k_batches_to_two_workers():
+    workers = _recommended_grouped_batch_workers(
+        concurrency=4,
+        grouped_jobs_count=10,
+        batch_max_chars=60_000,
     )
     assert workers == 2
 

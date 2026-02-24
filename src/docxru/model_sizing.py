@@ -120,7 +120,7 @@ _TIER_LIMITS: dict[str, TierLimits] = {
     "turbo": TierLimits(
         # Keep turbo meaningfully faster than balanced/premium, but avoid
         # oversized grouped requests that can stall for long periods.
-        batch_chars_cap=48_000,
+        batch_chars_cap=60_000,
         batch_segments_cap=24,
         translate_output_cap=64_000,
         checker_segments_cap=120,

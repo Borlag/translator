@@ -5,7 +5,12 @@ import logging
 
 from docx import Document
 
-from docxru.checker import apply_checker_suggestions_to_segments, filter_checker_suggestions, run_llm_checker
+from docxru.checker import (
+    apply_checker_suggestions_to_segments,
+    filter_checker_suggestions,
+    read_checker_trace_resume_state,
+    run_llm_checker,
+)
 from docxru.config import CheckerConfig
 from docxru.models import Issue, Segment, Severity
 from docxru.tagging import paragraph_to_tagged
@@ -459,6 +464,129 @@ def test_run_llm_checker_writes_trace_and_stats(tmp_path):
     assert stats["requests_succeeded"] == 1
     assert stats["requests_failed"] == 0
     assert stats["suggestions_total"] == 1
+
+
+def test_run_llm_checker_emits_progress_events_with_running_totals():
+    segments = [_seg("s1", 1), _seg("s2", 2)]
+    client = _FakeCheckerClient(
+        [
+            {
+                "chunk_id": "pages_1_1",
+                "edits": [
+                    {
+                        "segment_id": "s1",
+                        "location": "pdf/p1/s1",
+                        "severity": "warn",
+                        "issue_type": "meaning",
+                        "source_excerpt": "SOURCE s1",
+                        "current_target": "TARGET s1",
+                        "suggested_target": "TARGET s1 FIXED",
+                        "instruction": "replace s1",
+                        "confidence": 0.9,
+                    }
+                ],
+            },
+            {
+                "chunk_id": "pages_2_2",
+                "edits": [
+                    {
+                        "segment_id": "s2",
+                        "location": "pdf/p2/s2",
+                        "severity": "warn",
+                        "issue_type": "terminology",
+                        "source_excerpt": "SOURCE s2",
+                        "current_target": "TARGET s2",
+                        "suggested_target": "TARGET s2 FIXED",
+                        "instruction": "replace s2",
+                        "confidence": 0.9,
+                    }
+                ],
+            },
+        ]
+    )
+    progress_events: list[dict[str, object]] = []
+    cfg = CheckerConfig(enabled=True, pages_per_chunk=1, only_on_issue_severities=(), only_on_issue_codes=())
+    edits = run_llm_checker(
+        segments=segments,
+        checker_cfg=cfg,
+        checker_client=client,
+        logger=logging.getLogger("test_checker"),
+        progress_callback=progress_events.append,
+    )
+
+    assert len(edits) == 2
+    assert progress_events
+    assert progress_events[0]["event"] == "start"
+    assert any(event.get("event") == "request" for event in progress_events)
+    assert any(event.get("event") == "response" for event in progress_events)
+    summary = progress_events[-1]
+    assert summary["event"] == "summary"
+    assert summary["requests_total"] == 2
+    assert summary["requests_succeeded"] == 2
+    assert summary["requests_failed"] == 0
+    assert summary["segments_checked"] == 2
+    assert summary["suggestions_total"] == 2
+
+
+def test_read_checker_trace_resume_state_marks_split_root_complete(tmp_path):
+    trace_path = tmp_path / "checker_trace.jsonl"
+    lines = [
+        {"event": "request", "chunk_id": "segments_1_2"},
+        {"event": "response", "chunk_id": "segments_1_2", "edits_count": 1},
+        {"event": "request", "chunk_id": "segments_3_4"},
+        {"event": "split", "chunk_id": "segments_3_4"},
+        {"event": "request", "chunk_id": "segments_3_4.a"},
+        {"event": "response", "chunk_id": "segments_3_4.a", "edits_count": 0},
+        {"event": "request", "chunk_id": "segments_3_4.b"},
+        {"event": "response", "chunk_id": "segments_3_4.b", "edits_count": 2},
+        {"event": "request", "chunk_id": "segments_5_6"},
+    ]
+    trace_path.write_text(
+        "\n".join(json.dumps(item, ensure_ascii=False) for item in lines) + "\n",
+        encoding="utf-8",
+    )
+
+    state = read_checker_trace_resume_state(trace_path)
+    assert state["completed_chunk_ids"] == ["segments_1_2", "segments_3_4"]
+    assert state["requests_total"] == 5
+    assert state["requests_succeeded"] == 3
+    assert state["suggestions_total"] == 3
+
+
+def test_run_llm_checker_skips_completed_chunks():
+    segments = [_seg("s1", 1), _seg("s2", 2), _seg("s3", 3), _seg("s4", 4)]
+    client = _FakeCheckerClient(
+        [
+            {"chunk_id": "pages_3_3", "edits": []},
+            {"chunk_id": "pages_4_4", "edits": []},
+        ]
+    )
+    stats: dict[str, object] = {}
+    cfg = CheckerConfig(
+        enabled=True,
+        pages_per_chunk=1,
+        only_on_issue_severities=(),
+        only_on_issue_codes=(),
+    )
+    completed_calls: list[tuple[str, int]] = []
+
+    edits = run_llm_checker(
+        segments=segments,
+        checker_cfg=cfg,
+        checker_client=client,
+        logger=logging.getLogger("test_checker"),
+        stats_out=stats,
+        skip_chunk_ids={"pages_1_1", "pages_2_2"},
+        chunk_complete_callback=lambda chunk_id, chunk_edits: completed_calls.append((chunk_id, len(chunk_edits))),
+    )
+
+    assert edits == []
+    assert client.calls == 2
+    assert completed_calls == [("pages_3_3", 0), ("pages_4_4", 0)]
+    assert stats["chunks_total"] == 2
+    assert stats["segments_checked"] == 4
+    assert stats["skipped_chunks"] == 2
+    assert stats["skipped_segments"] == 2
 
 
 def test_run_llm_checker_openai_batch_mode_success():

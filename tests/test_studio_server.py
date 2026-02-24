@@ -70,7 +70,7 @@ def test_studio_build_config_payload_includes_checker_settings(tmp_path):
     assert payload["checker"]["auto_apply_min_confidence"] == 0.8
     assert payload["run"]["run_id"] == run_id
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.08
-    assert payload["run"]["fail_fast_on_translate_error"] is True
+    assert payload["run"]["fail_fast_on_translate_error"] is False
     assert payload["concurrency"] == 3
 
 
@@ -164,10 +164,10 @@ def test_studio_build_config_payload_can_enable_grouped_turbo_mode(tmp_path):
         run_dir=tmp_path / "runs" / "run_turbo",
     )
     assert payload["llm"]["batch_segments"] == 24
-    assert payload["llm"]["batch_max_chars"] == 48_000
+    assert payload["llm"]["batch_max_chars"] == 60_000
     assert payload["llm"]["context_window_chars"] == 0
     assert payload["llm"]["auto_model_sizing"] is True
-    assert payload["llm"]["timeout_s"] == 180.0
+    assert payload["llm"]["timeout_s"] == 300.0
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.20
 
 
@@ -190,6 +190,7 @@ def test_studio_html_contains_checker_trace_widgets():
     assert "checkerTraceTail" in html
     assert "checkerOpenaiBatch" in html
     assert "checkerAutoApplySafe" in html
+    assert "runCheckerBtn" in html
     assert "applyCheckerBtn" in html
     assert "grouped_aggressive" in html
     assert "grouped_turbo" in html
@@ -321,3 +322,86 @@ def test_studio_run_manager_stop_run_on_finished_process_is_noop(tmp_path):
     assert payload["ok"] is True
     assert payload["already_finished"] is True
     assert payload["stopped"] is False
+
+
+def test_studio_manager_loads_existing_run_dirs_on_startup(tmp_path):
+    run_id = "run_existing"
+    run_dir = tmp_path / "runs" / run_id
+    uploads = run_dir / "uploads"
+    uploads.mkdir(parents=True, exist_ok=True)
+    (run_dir / "config.studio.yaml").write_text("checker:\n  enabled: true\n", encoding="utf-8")
+    (run_dir / "translated.docx").write_bytes(b"docx")
+    (uploads / "input.docx").write_bytes(b"src")
+    (run_dir / "run_status.json").write_text(
+        '{"run_id":"run_existing","phase":"done","started_at":"2026-02-24T00:00:00+00:00"}',
+        encoding="utf-8",
+    )
+
+    manager = StudioRunManager(base_dir=tmp_path)
+    status = manager.get_status(run_id)
+    assert status["ok"] is True
+    assert status["state"] == "completed"
+    assert status["run_id"] == run_id
+
+
+def test_studio_run_manager_can_start_checker_only_for_finished_run(tmp_path, monkeypatch):
+    manager = StudioRunManager(base_dir=tmp_path)
+    run_id = "run_checker"
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    source_path = run_dir / "input.docx"
+    source_path.write_bytes(b"source")
+    output_path = run_dir / "translated.docx"
+    output_path.write_bytes(b"output")
+    config_path = run_dir / "config.studio.yaml"
+    config_path.write_text("checker:\n  enabled: false\n", encoding="utf-8")
+    log_path = run_dir / "studio_process.log"
+    log_path.write_text("", encoding="utf-8")
+
+    process = subprocess.Popen(
+        [sys.executable, "-c", "print('ok')"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        start_new_session=True,
+    )
+    process.wait(timeout=10)
+    run = StudioRun(
+        run_id=run_id,
+        run_dir=run_dir,
+        source_path=source_path,
+        output_path=output_path,
+        config_path=config_path,
+        log_path=log_path,
+        status_path=run_dir / "run_status.json",
+        command=[sys.executable, "-m", "docxru", "translate"],
+        process=process,
+        started_at="2026-02-24T00:00:00+00:00",
+    )
+    manager._runs[run_id] = run  # noqa: SLF001 - unit-level hook
+
+    captured: dict[str, object] = {}
+
+    class _FakeProc:
+        def poll(self):
+            return None
+
+    def _fake_popen(command, **kwargs):  # noqa: ANN001
+        captured["command"] = command
+        captured["env"] = kwargs.get("env")
+        return _FakeProc()
+
+    monkeypatch.setattr("docxru.studio_server.subprocess.Popen", _fake_popen)
+
+    payload = manager.start_checker_for_run(run_id, openai_api_key="sk-test")
+    assert payload["ok"] is True
+    assert payload["run_id"] == run_id
+    assert payload["state"] == "running"
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert "--checker-only" in command
+    assert "--resume" in command
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env["OPENAI_API_KEY"] == "sk-test"

@@ -8,7 +8,7 @@ from .config import load_config
 from .dashboard_server import serve_dashboard
 from .eval import evaluate_batch, write_eval_report
 from .pdf_pipeline import translate_pdf
-from .pipeline import translate_docx
+from .pipeline import run_docx_checker_only, translate_docx
 from .structure_check import compare_docx_structure, write_structure_report
 from .studio_server import serve_studio
 
@@ -22,6 +22,11 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--output", "-o", required=True, help="Path to output .docx")
     t.add_argument("--config", "-c", required=True, help="Path to YAML config")
     t.add_argument("--resume", action="store_true", help="Resume using TM/progress cache.")
+    t.add_argument(
+        "--checker-only",
+        action="store_true",
+        help="Skip translation and run checker pass against existing output DOCX (requires --output to exist).",
+    )
     t.add_argument(
         "--mode",
         choices=["reflow", "com"],
@@ -204,13 +209,25 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_footers:
             cfg = cfg.__class__(**{**cfg.__dict__, "include_footers": False})
 
-        translate_docx(
-            input_path=Path(args.input),
-            output_path=Path(args.output),
-            cfg=cfg,
-            resume=bool(args.resume),
-            max_segments=(int(args.max_segments) if args.max_segments is not None else None),
-        )
+        if args.checker_only and not cfg.checker.enabled:
+            checker_cfg = cfg.checker.__class__(**{**cfg.checker.__dict__, "enabled": True})
+            cfg = cfg.__class__(**{**cfg.__dict__, "checker": checker_cfg})
+        if args.checker_only:
+            run_docx_checker_only(
+                input_path=Path(args.input),
+                output_path=Path(args.output),
+                cfg=cfg,
+                resume=bool(args.resume),
+                max_segments=(int(args.max_segments) if args.max_segments is not None else None),
+            )
+        else:
+            translate_docx(
+                input_path=Path(args.input),
+                output_path=Path(args.output),
+                cfg=cfg,
+                resume=bool(args.resume),
+                max_segments=(int(args.max_segments) if args.max_segments is not None else None),
+            )
         return 0
 
     if args.cmd == "translate-pdf":

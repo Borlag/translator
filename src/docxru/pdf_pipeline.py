@@ -4,13 +4,17 @@ import logging
 import re
 import subprocess
 from collections import deque
+from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
 from .checker import (
     CHECKER_SYSTEM_PROMPT,
+    attach_checker_edits_to_segments,
     filter_checker_suggestions,
+    read_checker_suggestions,
+    read_checker_trace_resume_state,
     run_llm_checker,
     write_checker_safe_suggestions,
     write_checker_suggestions,
@@ -657,9 +661,61 @@ def _translate_and_write_pdf(
 
     qa_segments = [_to_qa_segment(seg) for seg in segments]
     checker_edits: list[dict[str, Any]] = []
+    checker_requests_total = 0
+    checker_requests_succeeded = 0
+    checker_requests_failed = 0
+    checker_chunks_failed = 0
     if effective_checker_cfg.enabled:
         status_writer.set_phase("checker")
         status_writer.write(force=True)
+        checker_trace_stats: dict[str, Any] = {}
+        checker_resume_skip_chunks: set[str] = set()
+        checker_resume_base_requests_total = 0
+        checker_resume_base_requests_succeeded = 0
+        checker_resume_base_requests_failed = 0
+        checker_resume_base_chunks_failed = 0
+        existing_checker_edits: list[dict[str, Any]] = []
+        run_paths.checker_trace_path.parent.mkdir(parents=True, exist_ok=True)
+        if resume:
+            if run_paths.checker_suggestions_path.exists():
+                with suppress(Exception):
+                    existing_checker_edits = read_checker_suggestions(run_paths.checker_suggestions_path)
+            if run_paths.checker_trace_path.exists():
+                with suppress(Exception):
+                    resume_state = read_checker_trace_resume_state(run_paths.checker_trace_path)
+                    completed_chunks_raw = resume_state.get("completed_chunk_ids") or []
+                    if existing_checker_edits and isinstance(completed_chunks_raw, list):
+                        checker_resume_skip_chunks = {
+                            str(item).strip()
+                            for item in completed_chunks_raw
+                            if str(item).strip()
+                        }
+                    checker_resume_base_requests_total = max(
+                        0,
+                        int(resume_state.get("requests_total") or 0),
+                    )
+                    checker_resume_base_requests_succeeded = max(
+                        0,
+                        int(resume_state.get("requests_succeeded") or 0),
+                    )
+                    checker_resume_base_requests_failed = max(
+                        0,
+                        int(resume_state.get("requests_failed") or 0),
+                    )
+                    checker_resume_base_chunks_failed = max(
+                        0,
+                        int(resume_state.get("chunks_failed") or 0),
+                    )
+            if existing_checker_edits and checker_resume_skip_chunks:
+                checker_edits = attach_checker_edits_to_segments(
+                    segments=qa_segments,
+                    edits=existing_checker_edits,
+                    logger=logger,
+                )
+        if not (resume and run_paths.checker_trace_path.exists()):
+            run_paths.checker_trace_path.write_text("", encoding="utf-8")
+        write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
         checker_provider = (effective_checker_cfg.provider or cfg.llm.provider).strip()
         checker_model = (effective_checker_cfg.model or cfg.llm.model).strip()
         checker_custom_prompt = _read_optional_text(
@@ -697,11 +753,65 @@ def _translate_and_write_pdf(
             estimate_cost=(pricing_table.estimate_cost if cfg.pricing.enabled else None),
             pricing_currency=pricing_table.currency,
         )
-        checker_edits = run_llm_checker(
+        checker_checkpoint_seen_keys: set[tuple[str, str, str, str]] = set()
+        for item in checker_edits:
+            checker_checkpoint_seen_keys.add(
+                (
+                    str(item.get("chunk_id") or "").strip(),
+                    str(item.get("segment_id") or "").strip(),
+                    str(item.get("suggested_target") or "").strip(),
+                    str(item.get("instruction") or "").strip(),
+                )
+            )
+
+        def _on_checker_chunk_complete(chunk_id: str, chunk_edits: list[dict[str, Any]]) -> None:
+            nonlocal checker_edits
+            if chunk_edits:
+                for item in chunk_edits:
+                    key = (
+                        str(chunk_id).strip(),
+                        str(item.get("segment_id") or "").strip(),
+                        str(item.get("suggested_target") or "").strip(),
+                        str(item.get("instruction") or "").strip(),
+                    )
+                    if key in checker_checkpoint_seen_keys:
+                        continue
+                    checker_checkpoint_seen_keys.add(key)
+                    checker_edits.append(item)
+            write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
+
+        checker_new_edits = run_llm_checker(
             segments=qa_segments,
             checker_cfg=effective_checker_cfg,
             checker_client=checker_client,
             logger=logger,
+            trace_path=run_paths.checker_trace_path,
+            stats_out=checker_trace_stats,
+            skip_chunk_ids=checker_resume_skip_chunks,
+            chunk_complete_callback=_on_checker_chunk_complete,
+        )
+        for item in checker_new_edits:
+            key = (
+                str(item.get("chunk_id") or "").strip(),
+                str(item.get("segment_id") or "").strip(),
+                str(item.get("suggested_target") or "").strip(),
+                str(item.get("instruction") or "").strip(),
+            )
+            if key in checker_checkpoint_seen_keys:
+                continue
+            checker_checkpoint_seen_keys.add(key)
+            checker_edits.append(item)
+        checker_requests_total = checker_resume_base_requests_total + int(
+            checker_trace_stats.get("requests_total", 0)
+        )
+        checker_requests_succeeded = checker_resume_base_requests_succeeded + int(
+            checker_trace_stats.get("requests_succeeded", 0)
+        )
+        checker_requests_failed = checker_resume_base_requests_failed + int(
+            checker_trace_stats.get("requests_failed", 0)
+        )
+        checker_chunks_failed = checker_resume_base_chunks_failed + int(
+            checker_trace_stats.get("chunks_failed", 0)
         )
     write_checker_suggestions(run_paths.checker_suggestions_path, checker_edits)
     safe_checker_edits, safe_checker_skipped = filter_checker_suggestions(
@@ -722,6 +832,10 @@ def _translate_and_write_pdf(
         {
             "checker_suggestions": len(checker_edits),
             "checker_safe_suggestions": len(safe_checker_edits),
+            "checker_requests_total": checker_requests_total,
+            "checker_requests_succeeded": checker_requests_succeeded,
+            "checker_requests_failed": checker_requests_failed,
+            "checker_chunks_failed": checker_chunks_failed,
             "issues_total": sum(len(seg.issues) for seg in qa_segments),
         }
     )
@@ -742,6 +856,10 @@ def _translate_and_write_pdf(
         {
             "checker_suggestions": len(checker_edits),
             "checker_safe_suggestions": len(safe_checker_edits),
+            "checker_requests_total": checker_requests_total,
+            "checker_requests_succeeded": checker_requests_succeeded,
+            "checker_requests_failed": checker_requests_failed,
+            "checker_chunks_failed": checker_chunks_failed,
             "issues_total": sum(len(seg.issues) for seg in qa_segments),
         }
     )

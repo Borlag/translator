@@ -263,7 +263,7 @@ def _translation_grouping_profile(mode: str) -> tuple[str, dict[str, Any], float
             "grouped_turbo",
             {
                 "batch_segments": 24,
-                "batch_max_chars": 48_000,
+                "batch_max_chars": 60_000,
                 "context_window_chars": 0,
                 "auto_model_sizing": True,
             },
@@ -561,6 +561,7 @@ def _build_studio_html() -> str:
         <a id="checkerTraceLink" class="btn" href="#" target="_blank" rel="noreferrer">Checker Trace</a>
         <a id="outputLink" class="btn" href="#" target="_blank" rel="noreferrer">Output</a>
         <a id="checkedOutputLink" class="btn" href="#" target="_blank" rel="noreferrer">Checked Output</a>
+        <button id="runCheckerBtn" type="button">Run Checker Only (Resume)</button>
         <button id="applyCheckerBtn" type="button">Apply Checker (Safe)</button>
       </div>
       <div class="muted" style="margin:10px 0 4px;">Live log tail</div>
@@ -611,6 +612,7 @@ def _build_studio_html() -> str:
   const checkerOpenaiBatchRow = document.getElementById("checkerOpenaiBatchRow");
   const checkerOpenaiBatch = document.getElementById("checkerOpenaiBatch");
   const openaiApiKeyInput = document.querySelector("input[name='openai_api_key']");
+  const runCheckerBtn = document.getElementById("runCheckerBtn");
   const applyCheckerBtn = document.getElementById("applyCheckerBtn");
 
   function defaultModelForProvider(provider) {
@@ -754,8 +756,10 @@ def _build_studio_html() -> str:
   function syncRunButtons(state) {
     const s = (state || "").toLowerCase();
     const canStop = Boolean(currentRunId) && (s === "running" || s === "stopping");
+    const canRunChecker = Boolean(currentRunId) && (s === "completed" || s === "failed" || s === "cancelled");
     stopRunBtn.disabled = !canStop;
     stopRunBtn.textContent = s === "stopping" ? "Stopping..." : "Stop Translation";
+    runCheckerBtn.disabled = !canRunChecker;
   }
 
   async function estimateDuration() {
@@ -814,7 +818,14 @@ def _build_studio_html() -> str:
       const checkerUsage = byPhase.checker || {};
       const done = Number(status.done_segments || 0);
       const total = Number(status.total_segments || 0);
-      const pct = Number(metrics.progress_pct || (total > 0 ? (100 * done / total) : 0));
+      const phase = String(status.phase || "").toLowerCase();
+      const checkerTranslatable = Number(metrics.checker_translatable_segments || 0);
+      const checkerChecked = Number(metrics.checker_segments_checked || 0);
+      const checkerPct = Number(metrics.checker_progress_pct || 0);
+      const checkerPhase = phase === "checker" && checkerTranslatable > 0;
+      const pct = checkerPhase
+        ? checkerPct
+        : Number(metrics.progress_pct || (total > 0 ? (100 * done / total) : 0));
       const checkerReqTotal = Number(metrics.checker_requests_total || 0);
       const checkerReqOk = Number(metrics.checker_requests_succeeded || 0);
       const checkerReqFail = Number(metrics.checker_requests_failed || 0);
@@ -822,7 +833,9 @@ def _build_studio_html() -> str:
       document.getElementById("runId").textContent = data.run_id || "-";
       document.getElementById("phase").textContent = status.phase || "-";
       document.getElementById("progress").textContent = `${pct.toFixed(1)}%`;
-      document.getElementById("segments").textContent = `${fmtNum(done)} / ${fmtNum(total)}`;
+      document.getElementById("segments").textContent = checkerPhase
+        ? `${fmtNum(checkerChecked)} / ${fmtNum(checkerTranslatable)}`
+        : `${fmtNum(done)} / ${fmtNum(total)}`;
       document.getElementById("eta").textContent = fmtSeconds(metrics.eta_seconds);
       document.getElementById("tokens").textContent = fmtNum(usage.total_tokens || 0);
       document.getElementById("tokenIo").textContent =
@@ -916,6 +929,32 @@ def _build_studio_html() -> str:
     }
   });
 
+  runCheckerBtn.addEventListener("click", async () => {
+    if (!currentRunId) return;
+    runCheckerBtn.disabled = true;
+    runCheckerBtn.textContent = "Starting checker...";
+    try {
+      const resp = await fetch(`/api/run-checker?run_id=${encodeURIComponent(currentRunId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ openai_api_key: (openaiApiKeyInput.value || "").trim() })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        alert(data.error || `Run checker failed: ${resp.status}`);
+        return;
+      }
+      estimateHint.textContent = "Checker-only resume started.";
+      await refreshStatus();
+    } catch (err) {
+      alert(String(err));
+      await refreshStatus();
+    } finally {
+      runCheckerBtn.textContent = "Run Checker Only (Resume)";
+      await refreshStatus();
+    }
+  });
+
   stopRunBtn.addEventListener("click", async () => {
     if (!currentRunId) return;
     const currentState = (document.getElementById("state").textContent || "").toLowerCase();
@@ -944,6 +983,7 @@ def _build_studio_html() -> str:
   syncTranslateModelUI();
   syncCheckerUI();
   syncRunButtons("idle");
+  runCheckerBtn.disabled = true;
   applyCheckerBtn.disabled = true;
   refreshOpenAIModels();
 
@@ -971,6 +1011,14 @@ class StudioRun:
     stop_method: str | None = None
 
 
+class _CompletedProcess:
+    def __init__(self, return_code: int = 0) -> None:
+        self._return_code = int(return_code)
+
+    def poll(self) -> int:
+        return self._return_code
+
+
 class StudioRunManager:
     def __init__(self, *, base_dir: Path) -> None:
         self.base_dir = base_dir.resolve()
@@ -978,6 +1026,61 @@ class StudioRunManager:
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._runs: dict[str, StudioRun] = {}
+        self._load_existing_runs()
+
+    def _load_existing_runs(self) -> None:
+        for run_dir in sorted(self.runs_dir.glob("*"), reverse=True):
+            if not run_dir.is_dir():
+                continue
+            run_id = run_dir.name
+            if run_id in self._runs:
+                continue
+
+            config_path = run_dir / "config.studio.yaml"
+            if not config_path.exists():
+                continue
+
+            uploads_dir = run_dir / "uploads"
+            source_candidates = []
+            if uploads_dir.exists():
+                source_candidates = sorted(
+                    [
+                        p
+                        for p in uploads_dir.glob("*")
+                        if p.is_file() and p.suffix.lower() in {".docx", ".pdf"}
+                    ]
+                )
+            source_path = source_candidates[0] if source_candidates else (run_dir / "input.docx")
+            output_docx = run_dir / "translated.docx"
+            output_pdf = run_dir / "translated.pdf"
+            output_path = output_docx if output_docx.exists() else output_pdf
+            if not output_path.exists():
+                output_path = output_docx
+
+            log_path = run_dir / "studio_process.log"
+            status_path = run_dir / "run_status.json"
+            started_at = _now_utc_iso()
+            return_code = 1
+            if status_path.exists():
+                with suppress(Exception):
+                    payload = json.loads(status_path.read_text(encoding="utf-8"))
+                    if isinstance(payload, dict):
+                        started_at = str(payload.get("started_at") or started_at)
+                        phase = str(payload.get("phase") or "").strip().lower()
+                        return_code = 0 if phase == "done" else 1
+            run = StudioRun(
+                run_id=run_id,
+                run_dir=run_dir,
+                source_path=source_path,
+                output_path=output_path,
+                config_path=config_path,
+                log_path=log_path,
+                status_path=status_path,
+                command=[sys.executable, "-m", "docxru", "translate"],
+                process=_CompletedProcess(return_code=return_code),  # type: ignore[arg-type]
+                started_at=started_at,
+            )
+            self._runs[run_id] = run
 
     def _read_file_field(self, form: cgi.FieldStorage, field_name: str, fallback_name: str) -> tuple[str, bytes] | None:
         field = form[field_name] if field_name in form else None
@@ -1085,7 +1188,8 @@ class StudioRunManager:
                 "dashboard_html_path": str(run_dir / "dashboard.html"),
                 "status_flush_every_n_segments": 5,
                 "batch_fallback_warn_ratio": float(batch_fallback_warn_ratio),
-                "fail_fast_on_translate_error": True,
+                # Studio defaults to resilient runs: degrade grouped failures to per-segment fallback.
+                "fail_fast_on_translate_error": False,
             },
             "concurrency": max(1, concurrency),
             "mode": "reflow",
@@ -1470,6 +1574,67 @@ class StudioRunManager:
         _open_path(run.run_dir)
         return {"ok": True, "path": str(run.run_dir)}
 
+    def start_checker_for_run(self, run_id: str, *, openai_api_key: str | None = None) -> dict[str, Any]:
+        with self._lock:
+            run = self._runs.get(run_id)
+        if run is None:
+            raise KeyError(run_id)
+        if run.process.poll() is None:
+            raise RuntimeError("Run is still in progress. Stop or wait before starting checker-only mode.")
+        if run.output_path.suffix.lower() != ".docx":
+            raise RuntimeError("Checker-only restart is currently supported for DOCX outputs only.")
+        if not run.source_path.exists():
+            raise RuntimeError(f"Source file not found: {run.source_path}")
+        if not run.output_path.exists():
+            raise RuntimeError(f"Translated output not found: {run.output_path}")
+        if not run.config_path.exists():
+            raise RuntimeError(f"Run config not found: {run.config_path}")
+
+        command = [
+            sys.executable,
+            "-m",
+            "docxru",
+            "translate",
+            "--input",
+            str(run.source_path),
+            "--output",
+            str(run.output_path),
+            "--config",
+            str(run.config_path),
+            "--resume",
+            "--checker-only",
+        ]
+
+        env = os.environ.copy()
+        key = (openai_api_key or "").strip()
+        if key:
+            env["OPENAI_API_KEY"] = key
+
+        log_path = run.run_dir / "studio_process.log"
+        with log_path.open("a", encoding="utf-8") as lf:
+            lf.write(f"\n[{_now_utc_iso()}] --- Starting checker-only resume run ---\n")
+        log_file = log_path.open("a", encoding="utf-8")
+        process = subprocess.Popen(
+            command,
+            cwd=str(_repo_root()),
+            env=env,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,
+        )
+        log_file.close()
+
+        with self._lock:
+            run.command = command
+            run.process = process
+            run.started_at = _now_utc_iso()
+            run.stop_requested_at = None
+            run.stop_completed_at = None
+            run.stop_method = None
+
+        return self.get_status(run_id)
+
     def apply_checker_suggestions(self, run_id: str, *, safe_only: bool = True) -> dict[str, Any]:
         with self._lock:
             run = self._runs.get(run_id)
@@ -1702,6 +1867,30 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 payload = self._manager.open_run_dir(run_id)
+            except KeyError:
+                self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
+                return
+            except Exception as exc:
+                self._write_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                return
+            self._write_json(HTTPStatus.OK, payload)
+            return
+
+        if parsed.path == "/api/run-checker":
+            params = parse_qs(parsed.query)
+            run_id = (params.get("run_id", [""])[0] or "").strip()
+            if not run_id:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "run_id is required"})
+                return
+            content_len = int(self.headers.get("Content-Length", "0") or "0")
+            payload_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+            openai_api_key = ""
+            with suppress(Exception):
+                parsed_payload = json.loads(payload_raw.decode("utf-8"))
+                if isinstance(parsed_payload, dict):
+                    openai_api_key = str(parsed_payload.get("openai_api_key") or "").strip()
+            try:
+                payload = self._manager.start_checker_for_run(run_id, openai_api_key=openai_api_key)
             except KeyError:
                 self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
                 return

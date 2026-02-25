@@ -679,6 +679,13 @@ def _fallback_translate_by_spans(
         target_shielded_tagged=candidate,
         source_unshielded_plain=src_plain,
         target_unshielded_plain=tgt_plain,
+        untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
+        untranslated_latin_min_len=cfg.untranslated_latin_min_len,
+        untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
+        repeated_words_check=cfg.repeated_words_check,
+        repeated_phrase_ngram_max=cfg.repeated_phrase_ngram_max,
+        context_leakage_check=cfg.context_leakage_check,
+        context_leakage_allowlist_path=cfg.context_leakage_allowlist_path,
     )
     issues.extend(final_issues)
     if any(i.severity == Severity.ERROR for i in final_issues):
@@ -694,7 +701,7 @@ def _fallback_translate_by_spans(
     return candidate, issues
 
 
-def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
+def _validate_segment_candidate(seg: Segment, cfg: PipelineConfig, out: str) -> list[Issue]:
     src_unshielded = unshield(seg.shielded_tagged or "", seg.token_map or {})
     tgt_unshielded = unshield(out, seg.token_map or {})
     src_plain = strip_bracket_tokens(src_unshielded)
@@ -704,6 +711,13 @@ def _validate_segment_candidate(seg: Segment, out: str) -> list[Issue]:
         target_shielded_tagged=out,
         source_unshielded_plain=src_plain,
         target_unshielded_plain=tgt_plain,
+        untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
+        untranslated_latin_min_len=cfg.untranslated_latin_min_len,
+        untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
+        repeated_words_check=cfg.repeated_words_check,
+        repeated_phrase_ngram_max=cfg.repeated_phrase_ngram_max,
+        context_leakage_check=cfg.context_leakage_check,
+        context_leakage_allowlist_path=cfg.context_leakage_allowlist_path,
     )
     leak_upper = out.upper()
     if "TASK: REPAIR_MARKERS" in leak_upper or ("SOURCE:" in leak_upper and "OUTPUT:" in leak_upper):
@@ -1026,6 +1040,46 @@ def _coerce_batch_glossary_context(value: Any, *, limit: int = 12) -> list[dict[
     return out
 
 
+def _coerce_batch_tm_hints(value: Any, *, limit: int = 1) -> list[dict[str, str]]:
+    if value is None:
+        return []
+
+    items = value if isinstance(value, (list, tuple)) else [value]
+    max_items = max(0, int(limit))
+    out: list[dict[str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        target = str(item.get("target") or "").strip()
+        if not source or not target:
+            continue
+        out.append({"source": source, "target": target})
+        if max_items and len(out) >= max_items:
+            break
+    return out
+
+
+def _coerce_batch_recent_translations(value: Any, *, limit: int = 3) -> list[dict[str, str]]:
+    if value is None:
+        return []
+
+    items = value if isinstance(value, (list, tuple)) else [value]
+    max_items = max(0, int(limit))
+    out: list[dict[str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        target = str(item.get("target") or "").strip()
+        if not source or not target:
+            continue
+        out.append({"source": source, "target": target})
+        if max_items and len(out) >= max_items:
+            break
+    return out
+
+
 def _build_batch_item_context(seg: Segment) -> str:
     parts: list[str] = []
     section_header = _compact_context_text(seg.context.get("section_header"), max_chars=120)
@@ -1059,7 +1113,8 @@ def _build_batch_translation_prompt(items: list[dict[str, Any]]) -> str:
         "Translate each item.text from English to Russian.\n"
         "Use item.context for disambiguation between homonyms and nearby segment intent.\n"
         "If item.glossary is provided, prefer those EN->RU term mappings.\n"
-        "Do not translate item.id, item.context, or glossary keys.\n"
+        "If item.tm_hints/recent_translations are provided, keep terminology consistent with them.\n"
+        "Do not translate item.id/item.context/item.glossary/item.tm_hints/item.recent_translations.\n"
         "Keep marker placeholders and style tags unchanged.\n"
         "Return ONLY valid JSON object (no markdown, no prose) where key=id and value=translated text.\n"
         "Preferred shape:\n"
@@ -1199,6 +1254,7 @@ def _parse_batch_translation_output(raw: str, expected_ids: list[str]) -> dict[s
 def _translate_batch_once(
     llm_client,
     jobs: list[tuple[Segment, str, str]],
+    cfg: PipelineConfig,
 ) -> dict[str, str]:
     items: list[dict[str, Any]] = []
     for seg, _, _ in jobs:
@@ -1210,6 +1266,18 @@ def _translate_batch_once(
         matched_glossary = _coerce_batch_glossary_context(seg.context.get("matched_glossary_terms"), limit=10)
         if matched_glossary:
             item["glossary"] = matched_glossary
+        tm_hints = _coerce_batch_tm_hints(
+            seg.context.get("tm_references"),
+            limit=cfg.llm.batch_tm_hints_per_item,
+        )
+        if tm_hints:
+            item["tm_hints"] = tm_hints
+        recent_translations = _coerce_batch_recent_translations(
+            seg.context.get("recent_translations"),
+            limit=cfg.llm.batch_recent_translations_per_item,
+        )
+        if recent_translations:
+            item["recent_translations"] = recent_translations
         items.append(item)
 
     prompt = _build_batch_translation_prompt(items)
@@ -1270,13 +1338,13 @@ def _translate_batch_group(
     batch_map: dict[str, str] | None = None
     batch_error: Exception | None = None
     try:
-        batch_map = _translate_batch_once(llm_client, jobs)
+        batch_map = _translate_batch_once(llm_client, jobs, cfg)
     except Exception as e:
         batch_error = e
         if _is_timeout_error(e):
             logger.warning("Batch translate timed out (size=%d), retrying grouped request once.", len(jobs))
             try:
-                batch_map = _translate_batch_once(llm_client, jobs)
+                batch_map = _translate_batch_once(llm_client, jobs, cfg)
                 batch_error = None
             except Exception as retry_err:
                 batch_error = retry_err
@@ -1334,7 +1402,7 @@ def _translate_batch_group(
             results.append((seg, source_hash, source_norm, out, issues))
             continue
 
-        batch_issues = _validate_segment_candidate(seg, candidate)
+        batch_issues = _validate_segment_candidate(seg, cfg, candidate)
         if any(i.severity == Severity.ERROR for i in batch_issues):
             if fail_fast:
                 raise RuntimeError(
@@ -1413,7 +1481,7 @@ def _translate_one(
         last_output = out
 
         # Validate markers and numbers
-        issues = _validate_segment_candidate(seg, out)
+        issues = _validate_segment_candidate(seg, cfg, out)
 
         hard_errors = [i for i in issues if i.severity == Severity.ERROR]
         if not hard_errors:
@@ -1453,7 +1521,7 @@ def _translate_one(
                     ),
                 ]
 
-            retry_marker_issues = _validate_segment_candidate(seg, retry_out)
+            retry_marker_issues = _validate_segment_candidate(seg, cfg, retry_out)
             retry_hard_errors = [i for i in retry_marker_issues if i.severity == Severity.ERROR]
             if retry_hard_errors:
                 return out, [
@@ -1790,6 +1858,7 @@ def translate_docx(
         custom_system_prompt=custom_system_prompt,
         glossary_text=glossary_text,
         glossary_prompt_text=effective_glossary_text,
+        prompt_examples_mode=cfg.llm.prompt_examples_mode,
         reasoning_effort=cfg.llm.reasoning_effort,
         prompt_cache_key=cfg.llm.prompt_cache_key,
         prompt_cache_retention=cfg.llm.prompt_cache_retention,
@@ -2195,7 +2264,7 @@ def translate_docx(
                 "running sequential translation with recent translations context.",
                 context_window_chars,
             )
-            recent_translations: deque[tuple[str, str]] = deque(maxlen=3)
+            recent_translations: deque[tuple[str, str]] = deque(maxlen=6)
             for seg, source_hash, source_norm in tqdm(to_translate, desc="Translate (sequential)", unit="seg"):
                 if recent_translations:
                     seg.context["recent_translations"] = [

@@ -3,17 +3,19 @@ from __future__ import annotations
 from docxru.config import LLMConfig, PdfConfig, PipelineConfig, load_config
 
 
-def test_llm_config_default_context_window_chars_is_600():
-    assert LLMConfig().context_window_chars == 600
+def test_llm_config_default_context_window_chars_is_900():
+    assert LLMConfig().context_window_chars == 900
+    assert LLMConfig().temperature == 0.0
     assert LLMConfig().auto_model_sizing is False
 
 
-def test_load_config_defaults_context_window_chars_to_600(tmp_path):
+def test_load_config_defaults_context_window_chars_to_900(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text("llm:\n  provider: mock\n", encoding="utf-8")
 
     cfg = load_config(config_path)
-    assert cfg.llm.context_window_chars == 600
+    assert cfg.llm.context_window_chars == 900
+    assert cfg.llm.temperature == 0.0
     assert cfg.llm.auto_model_sizing is False
 
 

@@ -113,7 +113,7 @@ llm:
   base_url: http://localhost:11434
   system_prompt_path: general_prompt.md
   glossary_path: glossary.md
-  temperature: 0.1
+  temperature: 0.0
 ```
 
 Notes:
@@ -151,7 +151,9 @@ Reliability and terminology controls:
 - Batch guardrails:
   - `llm.batch_skip_on_brline: true`
   - `llm.batch_max_style_tokens: 16`
-  - `llm.context_window_chars: 600` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped request mode.
+  - `llm.context_window_chars: 900` by default (sequential mode with recent EN=>RU context); set `0` to allow grouped request mode.
+  - `llm.prompt_examples_mode: "core"` enables compact few-shot examples in default prompt (`"off"` disables).
+  - `llm.batch_tm_hints_per_item` / `llm.batch_recent_translations_per_item` control extra consistency hints in grouped mode payload.
   - Runtime auto-raises `llm.timeout_s` for grouped mode when batch payload is large (>=36k/60k/100k chars).
   - `run.batch_fallback_warn_ratio: 0.08` warns when grouped-batch fallback share exceeds threshold.
   - `run.fail_fast_on_translate_error: true` stops translation immediately on translate failures instead of continuing.
@@ -167,6 +169,10 @@ Reliability and terminology controls:
 - Optional glossary morphology check (`pymorphy3`, if installed):
   - `glossary_lemma_check: "off" | "warn" | "retry"`
   - In `retry` mode, pipeline performs one additional glossary-focused rewrite when matched terms are missing.
+- Optional warn-only quality checks:
+  - `untranslated_latin_warn_ratio` + `untranslated_latin_min_len` + `untranslated_latin_allowlist_path`
+  - `repeated_words_check` + `repeated_phrase_ngram_max`
+  - `context_leakage_check` + `context_leakage_allowlist_path`
 - Optional consistency and layout checks:
   - `layout_check: true|false`
   - `layout_expansion_warn_ratio: 1.5` (warn on high RU/EN expansion ratio)

@@ -16,7 +16,7 @@ class LLMConfig:
     source_lang: str = "en"
     target_lang: str = "ru"
     base_url: str | None = None
-    temperature: float = 0.1
+    temperature: float = 0.0
     max_output_tokens: int = 2000
     retries: int = 2
     timeout_s: float = 60.0
@@ -47,7 +47,14 @@ class LLMConfig:
     batch_max_style_tokens: int = 16
     # Sliding prompt context for near-neighbor snippets and recent translations.
     # 0 disables sequential recent-translation context mode.
-    context_window_chars: int = 600
+    context_window_chars: int = 900
+    # Optional compact few-shot examples in default translation prompt.
+    prompt_examples_mode: str = "core"  # 'off' | 'core'
+    # Batch payload context hints per item.
+    batch_tm_hints_per_item: int = 1
+    batch_recent_translations_per_item: int = 3
+    # Optional external overrides for domain post-processing replacements.
+    domain_term_pairs_path: str = "config/domain_term_pairs.yaml"
     # Auto-tune batch/checker payload sizing based on selected model context limits.
     auto_model_sizing: bool = False
 
@@ -145,6 +152,14 @@ class PipelineConfig:
     log_path: str = "run.log"
     abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive'
     glossary_lemma_check: str = "off"  # 'off' | 'warn' | 'retry'
+    # Warn-only checks for visible EN leftovers and LLM repetition artifacts.
+    untranslated_latin_warn_ratio: float = 0.15
+    untranslated_latin_min_len: int = 3
+    untranslated_latin_allowlist_path: str | None = None
+    repeated_words_check: bool = True
+    repeated_phrase_ngram_max: int = 3
+    context_leakage_check: bool = True
+    context_leakage_allowlist_path: str | None = None
     # Optional post-translation layout validation/autofix heuristics.
     layout_check: bool = False
     layout_expansion_warn_ratio: float = 1.5
@@ -219,6 +234,12 @@ def load_config(path: str | Path) -> PipelineConfig:
     glossary_in_prompt = (
         llm_legacy_glossary_in_prompt if not llm_has_prompt_mode else (glossary_prompt_mode != "off")
     )
+    prompt_examples_mode = _normalize_choice(
+        llm_data.get("prompt_examples_mode", "core"),
+        field_name="llm.prompt_examples_mode",
+        allowed={"off", "core"},
+        default="core",
+    )
 
     llm = LLMConfig(
         provider=str(llm_data.get("provider", "mock")),
@@ -226,7 +247,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         source_lang=str(llm_data.get("source_lang", "en")),
         target_lang=str(llm_data.get("target_lang", "ru")),
         base_url=(str(llm_data["base_url"]) if llm_data.get("base_url") is not None else None),
-        temperature=float(llm_data.get("temperature", 0.1)),
+        temperature=float(llm_data.get("temperature", 0.0)),
         max_output_tokens=int(llm_data.get("max_output_tokens", 2000)),
         retries=int(llm_data.get("retries", 2)),
         timeout_s=float(llm_data.get("timeout_s", 60.0)),
@@ -262,7 +283,14 @@ def load_config(path: str | Path) -> PipelineConfig:
         glossary_match_limit=int(llm_data.get("glossary_match_limit", 24)),
         batch_skip_on_brline=bool(llm_data.get("batch_skip_on_brline", True)),
         batch_max_style_tokens=int(llm_data.get("batch_max_style_tokens", 16)),
-        context_window_chars=max(0, int(llm_data.get("context_window_chars", 600))),
+        context_window_chars=max(0, int(llm_data.get("context_window_chars", 900))),
+        prompt_examples_mode=prompt_examples_mode,
+        batch_tm_hints_per_item=max(0, int(llm_data.get("batch_tm_hints_per_item", 1))),
+        batch_recent_translations_per_item=max(0, int(llm_data.get("batch_recent_translations_per_item", 3))),
+        domain_term_pairs_path=(
+            _resolve_optional_path(cfg_path.parent, llm_data.get("domain_term_pairs_path", "config/domain_term_pairs.yaml"))
+            or "config/domain_term_pairs.yaml"
+        ),
         auto_model_sizing=bool(llm_data.get("auto_model_sizing", False)),
     )
     tm = TMConfig(
@@ -369,6 +397,22 @@ def load_config(path: str | Path) -> PipelineConfig:
         allowed={"off", "warn", "retry"},
         default="off",
     )
+    untranslated_latin_warn_ratio = max(
+        0.0,
+        min(1.0, float(data.get("untranslated_latin_warn_ratio", 0.15))),
+    )
+    untranslated_latin_min_len = max(1, int(data.get("untranslated_latin_min_len", 3)))
+    untranslated_latin_allowlist_path = _resolve_optional_path(
+        cfg_path.parent,
+        data.get("untranslated_latin_allowlist_path"),
+    )
+    repeated_words_check = bool(data.get("repeated_words_check", True))
+    repeated_phrase_ngram_max = max(2, int(data.get("repeated_phrase_ngram_max", 3)))
+    context_leakage_check = bool(data.get("context_leakage_check", True))
+    context_leakage_allowlist_path = _resolve_optional_path(
+        cfg_path.parent,
+        data.get("context_leakage_allowlist_path"),
+    )
     layout_check = bool(data.get("layout_check", False))
     layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
     layout_auto_fix = bool(data.get("layout_auto_fix", False))
@@ -423,6 +467,13 @@ def load_config(path: str | Path) -> PipelineConfig:
         log_path=log_path,
         abbyy_profile=abbyy_profile,
         glossary_lemma_check=glossary_lemma_check,
+        untranslated_latin_warn_ratio=untranslated_latin_warn_ratio,
+        untranslated_latin_min_len=untranslated_latin_min_len,
+        untranslated_latin_allowlist_path=untranslated_latin_allowlist_path,
+        repeated_words_check=repeated_words_check,
+        repeated_phrase_ngram_max=repeated_phrase_ngram_max,
+        context_leakage_check=context_leakage_check,
+        context_leakage_allowlist_path=context_leakage_allowlist_path,
         layout_check=layout_check,
         layout_expansion_warn_ratio=layout_expansion_warn_ratio,
         layout_auto_fix=layout_auto_fix,

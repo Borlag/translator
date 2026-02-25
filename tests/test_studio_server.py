@@ -102,7 +102,7 @@ def test_studio_build_config_payload_can_enable_sequential_context_mode(tmp_path
     )
     assert payload["llm"]["batch_segments"] == 1
     assert payload["llm"]["batch_max_chars"] == 12000
-    assert payload["llm"]["context_window_chars"] == 600
+    assert payload["llm"]["context_window_chars"] == 900
     assert payload["run"]["batch_fallback_warn_ratio"] == 0.03
 
 

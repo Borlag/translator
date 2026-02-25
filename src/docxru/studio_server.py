@@ -241,7 +241,7 @@ def _translation_grouping_profile(mode: str) -> tuple[str, dict[str, Any], float
             {
                 "batch_segments": 1,
                 "batch_max_chars": 12000,
-                "context_window_chars": 600,
+                "context_window_chars": 900,
                 "auto_model_sizing": True,
             },
             0.03,

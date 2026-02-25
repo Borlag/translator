@@ -68,16 +68,31 @@ OUTPUT:
 """
 
 BATCH_SYSTEM_PROMPT_TEMPLATE = """You translate technical aviation text from English to Russian.
-Return ONLY valid JSON in the requested schema.
-Do not add commentary.
+Role: aviation technical translator (CMM/AMM/IPC), EN->RU.
+Output contract: return ONLY valid JSON in the requested schema.
+No prose outside JSON.
 Preserve all marker tokens exactly (for example: ⟦...⟧ / 🦦...🧧).
-Preserve numbers, units, and punctuation.
+Preserve numbers, units, punctuation, and code-like fragments.
+Use imperative style for procedure steps; keep table labels concise.
+If item.glossary / item.tm_hints / item.recent_translations are present, use them for consistency.
 """
 
 BATCH_JSON_INSTRUCTIONS = """BATCH MODE: Return ONLY valid JSON in the requested schema.
 Do not add commentary outside JSON.
-Preserve all marker tokens exactly (including placeholder and style tags).
-Preserve numbers, units, and punctuation.
+Preserve all marker tokens exactly (including placeholder and style tags like ⟦S_...⟧).
+Do not translate item.id/item.context/item.glossary/item.tm_hints/item.recent_translations.
+Preserve numbers, units, punctuation, and alphanumeric identifiers exactly.
+"""
+
+_CORE_PROMPT_EXAMPLES = """Короткие примеры (ориентир стиля и терминов):
+EN: Remove the bolt and washer.
+RU: Снимите болт и шайбу.
+
+EN: Torque Values
+RU: Моменты затяжки
+
+EN: ⟦S_1|B⟧WARNING:⟦/S_1⟧ Do not exceed ⟦DIM_1⟧.
+RU: ⟦S_1|B⟧ПРЕДУПРЕЖДЕНИЕ:⟦/S_1⟧ Не превышайте ⟦DIM_1⟧.
 """
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
@@ -133,7 +148,7 @@ def _format_matched_glossary_block(value: Any) -> str:
     return "\n".join(lines)
 
 
-def _format_recent_translations_block(value: Any, *, max_chars: int = 500) -> str:
+def _format_recent_translations_block(value: Any, *, max_chars: int = 900) -> str:
     pairs = _coerce_glossary_pairs(value)
     if not pairs:
         return ""
@@ -240,11 +255,11 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     if tm_references:
         extra_blocks.append(f"TM_REFERENCES:\n{tm_references}")
 
-    raw_recent_max_chars = context.get("recent_translations_max_chars", 500)
+    raw_recent_max_chars = context.get("recent_translations_max_chars", 900)
     try:
         recent_max_chars = int(raw_recent_max_chars)
     except (TypeError, ValueError):
-        recent_max_chars = 500
+        recent_max_chars = 900
     recent_translations = _format_recent_translations_block(
         context.get("recent_translations"),
         max_chars=recent_max_chars,
@@ -479,16 +494,26 @@ def _supports_temperature(model: str, reasoning_effort: str | None) -> bool:
     return False
 
 
+def _normalize_prompt_examples_mode(mode: str | None) -> str:
+    value = (mode or "off").strip().lower()
+    if value not in {"off", "core"}:
+        raise ValueError(f"Unsupported prompt_examples_mode: {mode!r}")
+    return value
+
+
 def build_translation_system_prompt(
     base_system_prompt: str,
     *,
     custom_system_prompt: str | None = None,
     glossary_text: str | None = None,
+    prompt_examples_mode: str = "off",
 ) -> str:
     sections = [base_system_prompt.strip()]
     custom = (custom_system_prompt or "").strip()
     if custom:
         sections.append(f"Дополнительные инструкции:\n{custom}")
+    if _normalize_prompt_examples_mode(prompt_examples_mode) == "core":
+        sections.append(_CORE_PROMPT_EXAMPLES.strip())
     glossary = (glossary_text or "").strip()
     if glossary:
         sections.append(f"Глоссарий (EN -> RU, приоритетно соблюдать):\n{glossary}")
@@ -1609,6 +1634,7 @@ def build_llm_client(
     custom_system_prompt: str | None = None,
     glossary_text: str | None = None,
     glossary_prompt_text: str | None = None,
+    prompt_examples_mode: str = "off",
     reasoning_effort: str | None = None,
     prompt_cache_key: str | None = None,
     prompt_cache_retention: str | None = None,
@@ -1625,6 +1651,7 @@ def build_llm_client(
         effective_base_prompt,
         custom_system_prompt=custom_system_prompt,
         glossary_text=prompt_glossary_text,
+        prompt_examples_mode=prompt_examples_mode,
     )
     domain_replacements = build_domain_replacements()
     # Post replacements are required for the free Google provider (limited prompt control)

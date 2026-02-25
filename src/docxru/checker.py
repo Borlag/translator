@@ -19,9 +19,18 @@ _PDF_PAGE_RE = re.compile(r"^pdf/p(\d+)(?:/|$)", flags=re.IGNORECASE)
 _SPACE_RE = re.compile(r"\s+")
 _NOCHANGE_INSTRUCTION_RE = re.compile(r"\bno\s+change\s+needed\b|без\s+изменени", flags=re.IGNORECASE)
 
-CHECKER_SYSTEM_PROMPT = """You are a bilingual EN->RU translation quality checker.
-Your job is to find concrete translation defects and suggest exact replacement wording.
-Return ONLY strict JSON.
+CHECKER_SYSTEM_PROMPT = """You are a strict EN->RU aviation translation quality checker (CMM/AMM/IPC).
+Find only concrete defects that affect correctness, safety, terminology, or technical style.
+Do not suggest stylistic rewrites when there is no defect.
+
+Critical rules:
+- Preserve all marker tokens exactly (⟦...⟧ / 🦦...🧧) in every suggestion.
+- Preserve numbers, units, and identifiers unless they are clearly wrong.
+- Procedural steps should use Russian imperative style.
+- Terminology must stay technically consistent across nearby segments.
+- Untranslated English leftovers and context-token leakage are valid defects.
+
+Return ONLY strict JSON in the requested schema.
 """
 
 

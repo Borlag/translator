@@ -11,7 +11,7 @@ llm:
   glossary_path: ../glossary.md
   hard_glossary: false       # true = stricter term lock; false = usually more natural RU phrasing
   structured_output_mode: "off"
-  temperature: 0.1
+  temperature: 0.0
   max_output_tokens: 2000
   retries: 1
   timeout_s: 60.0

@@ -238,7 +238,19 @@ def _translate_segment_text(
         return
 
     target_text = unshield(translated_shielded, token_map)
-    issues = validate_all(shielded, translated_shielded, source_plain, target_text)
+    issues = validate_all(
+        shielded,
+        translated_shielded,
+        source_plain,
+        target_text,
+        untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
+        untranslated_latin_min_len=cfg.untranslated_latin_min_len,
+        untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
+        repeated_words_check=cfg.repeated_words_check,
+        repeated_phrase_ngram_max=cfg.repeated_phrase_ngram_max,
+        context_leakage_check=cfg.context_leakage_check,
+        context_leakage_allowlist_path=cfg.context_leakage_allowlist_path,
+    )
     hard_errors = [issue for issue in issues if issue.severity == Severity.ERROR]
     if hard_errors and supports_repair(llm_client):
         try:
@@ -247,7 +259,19 @@ def _translate_segment_text(
                 {**seg.context, "task": "repair"},
             )
             repaired_target = unshield(repaired, token_map)
-            repaired_issues = validate_all(shielded, repaired, source_plain, repaired_target)
+            repaired_issues = validate_all(
+                shielded,
+                repaired,
+                source_plain,
+                repaired_target,
+                untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
+                untranslated_latin_min_len=cfg.untranslated_latin_min_len,
+                untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
+                repeated_words_check=cfg.repeated_words_check,
+                repeated_phrase_ngram_max=cfg.repeated_phrase_ngram_max,
+                context_leakage_check=cfg.context_leakage_check,
+                context_leakage_allowlist_path=cfg.context_leakage_allowlist_path,
+            )
             if not any(issue.severity == Severity.ERROR for issue in repaired_issues):
                 translated_shielded = repaired
                 target_text = repaired_target
@@ -534,6 +558,7 @@ def _translate_and_write_pdf(
         custom_system_prompt=custom_system_prompt,
         glossary_text=glossary_text,
         glossary_prompt_text=effective_glossary_text,
+        prompt_examples_mode=cfg.llm.prompt_examples_mode,
         reasoning_effort=cfg.llm.reasoning_effort,
         prompt_cache_key=cfg.llm.prompt_cache_key,
         prompt_cache_retention=cfg.llm.prompt_cache_retention,
@@ -550,7 +575,7 @@ def _translate_and_write_pdf(
 
     tm = TMStore(cfg.tm.path)
     document_glossary: dict[str, str] = {}
-    recent_translations: deque[tuple[str, str]] = deque(maxlen=3)
+    recent_translations: deque[tuple[str, str]] = deque(maxlen=6)
 
     # Neighbor snippets improve local consistency.
     for i, seg in enumerate(segments):

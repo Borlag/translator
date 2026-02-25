@@ -151,6 +151,12 @@ def test_build_translation_system_prompt_includes_optional_sections():
     assert "TERM — ТЕРМИН" in prompt
 
 
+def test_build_translation_system_prompt_can_enable_core_examples():
+    prompt = build_translation_system_prompt("BASE", prompt_examples_mode="core")
+    assert "Короткие примеры" in prompt
+    assert "EN: Remove the bolt and washer." in prompt
+
+
 def test_domain_replacements_include_repair_no():
     replacements = build_domain_replacements()
     out = "Repair No. 11-34"

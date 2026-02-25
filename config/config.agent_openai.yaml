@@ -14,7 +14,7 @@ llm:
   prompt_cache_key: docxru-en-ru-v1
   prompt_cache_retention: 24h
   structured_output_mode: "strict"
-  temperature: 0.1
+  temperature: 0.0
   max_output_tokens: 2400
   retries: 3
   timeout_s: 90.0

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from .models import Issue, Severity
@@ -10,6 +12,34 @@ from .token_shield import BRACKET_TOKEN_RE, extract_numbers
 _STYLE_TOKEN_BODY_RE = re.compile(r"^/?S_\d+(?:\|[^|]+)*$")
 _PLACEHOLDER_BODY_RE = re.compile(r"^[A-Z][A-Z0-9]*_\d+$")
 _WORD_RE = re.compile(r"[A-Za-zА-Яа-яЁё]+")
+_LATIN_WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9/-]*")
+_CONTEXT_LEAKAGE_TOKEN_RE = re.compile(
+    r"\b(PART|DOC_SECTION|TABLE_CELL|TOC_ENTRY|SECTION|PREV|NEXT|MATCHED_GLOSSARY|DOCUMENT_GLOSSARY|TM_REFERENCES|RECENT_TRANSLATIONS)\b(\s*[:=])?",
+    flags=re.IGNORECASE,
+)
+_DEFAULT_UNTRANSLATED_ALLOWLIST = {
+    "amm",
+    "api",
+    "ata",
+    "cmm",
+    "docx",
+    "en",
+    "ipc",
+    "kg",
+    "kpa",
+    "mlg",
+    "mm",
+    "nlg",
+    "nm",
+    "oem",
+    "pdf",
+    "pn",
+    "psi",
+    "ru",
+    "safran",
+    "sb",
+}
+_CONTEXT_TOKENS_REQUIRE_SEPARATOR = {"PART", "SECTION", "PREV", "NEXT"}
 
 _PymorphyMorphAnalyzer: Any | None
 try:
@@ -205,6 +235,193 @@ def _contains_target_term_by_lemma(target_text: str, target_term: str, analyzer:
     return term_lemmas.issubset(target_lemmas)
 
 
+@lru_cache(maxsize=16)
+def _load_allowlist_file(path: str) -> tuple[str, ...]:
+    file_path = Path(path)
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except OSError:
+        return ()
+
+    values: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip().lower()
+        if line:
+            values.append(line)
+    return tuple(values)
+
+
+def _resolve_allowlist(path: str | None, defaults: set[str]) -> set[str]:
+    allowlist = set(defaults)
+    raw = str(path or "").strip()
+    if not raw:
+        return allowlist
+    allowlist.update(_load_allowlist_file(raw))
+    return allowlist
+
+
+def validate_untranslated_fragments(
+    source_plain: str,
+    target_plain: str,
+    *,
+    warn_ratio: float = 0.15,
+    min_len: int = 3,
+    allowlist_path: str | None = None,
+) -> list[Issue]:
+    if not source_plain or not target_plain:
+        return []
+
+    target_words = _WORD_RE.findall(target_plain or "")
+    total_words = len(target_words)
+    if total_words == 0:
+        return []
+
+    ratio_limit = max(0.0, min(1.0, float(warn_ratio)))
+    min_word_len = max(1, int(min_len))
+    allowlist = _resolve_allowlist(allowlist_path, _DEFAULT_UNTRANSLATED_ALLOWLIST)
+
+    suspicious: list[str] = []
+    for token in _LATIN_WORD_RE.findall(target_plain or ""):
+        word = token.strip()
+        if len(word) < min_word_len:
+            continue
+        lowered = word.lower()
+        if lowered in allowlist:
+            continue
+        if any(ch.isdigit() for ch in word):
+            continue
+        if word.isupper() and len(word) <= 5:
+            continue
+        suspicious.append(word)
+
+    if not suspicious:
+        return []
+
+    ratio = len(suspicious) / max(1, total_words)
+    if ratio < ratio_limit:
+        return []
+
+    unique_samples: list[str] = []
+    seen_samples: set[str] = set()
+    for item in suspicious:
+        key = item.lower()
+        if key in seen_samples:
+            continue
+        seen_samples.add(key)
+        unique_samples.append(item)
+        if len(unique_samples) >= 8:
+            break
+
+    return [
+        Issue(
+            code="untranslated_fragments",
+            severity=Severity.WARN,
+            message="Translation likely contains untranslated Latin fragments.",
+            details={
+                "ratio": round(ratio, 4),
+                "count": len(suspicious),
+                "total_words": total_words,
+                "samples": unique_samples,
+            },
+        )
+    ]
+
+
+def validate_repeated_words(
+    target_plain: str,
+    *,
+    phrase_ngram_max: int = 3,
+) -> list[Issue]:
+    text = str(target_plain or "").strip()
+    if not text:
+        return []
+
+    repeated_words: list[str] = []
+    seen_word: set[str] = set()
+    for match in re.finditer(r"\b([А-Яа-яЁё]{2,})\b(?:[\s,;:()\-]+)\1\b", text, flags=re.IGNORECASE):
+        word = str(match.group(1) or "").lower()
+        if not word or word in seen_word:
+            continue
+        seen_word.add(word)
+        repeated_words.append(word)
+        if len(repeated_words) >= 6:
+            break
+
+    phrase_hits: list[str] = []
+    tokens = [token.lower() for token in re.findall(r"[А-Яа-яЁё]{2,}", text)]
+    max_ngram = max(2, int(phrase_ngram_max))
+    seen_phrase: set[str] = set()
+    for ngram_size in range(2, max_ngram + 1):
+        if len(tokens) < ngram_size * 2:
+            continue
+        for idx in range(0, len(tokens) - (ngram_size * 2) + 1):
+            left = tokens[idx : idx + ngram_size]
+            right = tokens[idx + ngram_size : idx + (ngram_size * 2)]
+            if left != right:
+                continue
+            phrase = " ".join(left)
+            if phrase in seen_phrase:
+                continue
+            seen_phrase.add(phrase)
+            phrase_hits.append(phrase)
+            if len(phrase_hits) >= 6:
+                break
+        if len(phrase_hits) >= 6:
+            break
+
+    if not repeated_words and not phrase_hits:
+        return []
+
+    return [
+        Issue(
+            code="repeated_words",
+            severity=Severity.WARN,
+            message="Translation contains repeated word/phrase artifacts.",
+            details={
+                "repeated_words": repeated_words,
+                "repeated_phrases": phrase_hits,
+            },
+        )
+    ]
+
+
+def validate_context_leakage(
+    target_plain: str,
+    *,
+    allowlist_path: str | None = None,
+) -> list[Issue]:
+    text = str(target_plain or "")
+    if not text:
+        return []
+
+    allowlist = {item.upper() for item in _resolve_allowlist(allowlist_path, set())}
+    hits: list[str] = []
+    seen: set[str] = set()
+    for match in _CONTEXT_LEAKAGE_TOKEN_RE.finditer(text):
+        token = str(match.group(1) or "").upper()
+        separator = str(match.group(2) or "")
+        if token in _CONTEXT_TOKENS_REQUIRE_SEPARATOR and not separator.strip():
+            continue
+        if token in allowlist or token in seen:
+            continue
+        seen.add(token)
+        hits.append(token)
+        if len(hits) >= 8:
+            break
+
+    if not hits:
+        return []
+
+    return [
+        Issue(
+            code="context_leakage",
+            severity=Severity.WARN,
+            message="Prompt/context control tokens leaked into translated text.",
+            details={"tokens": hits},
+        )
+    ]
+
+
 def validate_glossary_lemmas(
     target_plain: str,
     matched_glossary_terms: Any,
@@ -254,10 +471,41 @@ def validate_all(
     target_shielded_tagged: str,
     source_unshielded_plain: str,
     target_unshielded_plain: str,
+    *,
+    untranslated_latin_warn_ratio: float = 0.15,
+    untranslated_latin_min_len: int = 3,
+    untranslated_latin_allowlist_path: str | None = None,
+    repeated_words_check: bool = True,
+    repeated_phrase_ngram_max: int = 3,
+    context_leakage_check: bool = True,
+    context_leakage_allowlist_path: str | None = None,
 ) -> list[Issue]:
     issues: list[Issue] = []
     issues.extend(validate_placeholders(source_shielded_tagged, target_shielded_tagged))
     issues.extend(validate_style_tokens(source_shielded_tagged, target_shielded_tagged))
     issues.extend(validate_numbers(source_unshielded_plain, target_unshielded_plain))
     issues.extend(validate_length(source_unshielded_plain, target_unshielded_plain))
+    issues.extend(
+        validate_untranslated_fragments(
+            source_unshielded_plain,
+            target_unshielded_plain,
+            warn_ratio=untranslated_latin_warn_ratio,
+            min_len=untranslated_latin_min_len,
+            allowlist_path=untranslated_latin_allowlist_path,
+        )
+    )
+    if repeated_words_check:
+        issues.extend(
+            validate_repeated_words(
+                target_unshielded_plain,
+                phrase_ngram_max=repeated_phrase_ngram_max,
+            )
+        )
+    if context_leakage_check:
+        issues.extend(
+            validate_context_leakage(
+                target_unshielded_plain,
+                allowlist_path=context_leakage_allowlist_path,
+            )
+        )
     return issues

@@ -28,7 +28,7 @@ llm:
   batch_skip_on_brline: true
   batch_max_style_tokens: 16
   # >0 enables sequential recent-translation context mode.
-  context_window_chars: 600
+  context_window_chars: 900
 
 tm:
   # For eval this path is overridden per-run into output_dir/_eval/<file>/tm.sqlite.

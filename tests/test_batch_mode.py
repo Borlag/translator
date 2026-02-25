@@ -226,11 +226,12 @@ def test_build_batch_translation_prompt_mentions_context_and_glossary():
     )
     assert "Use item.context for disambiguation" in prompt
     assert "item.glossary" in prompt
+    assert "item.tm_hints/recent_translations" in prompt
     assert '"context"' in prompt
     assert '"glossary"' in prompt
 
 
-def test_translate_batch_once_includes_per_item_context_and_glossary_in_prompt():
+def test_translate_batch_once_includes_per_item_context_glossary_and_tm_hints_in_prompt():
     class FakeClient:
         supports_repair = True
 
@@ -249,12 +250,20 @@ def test_translate_batch_once_includes_per_item_context_and_glossary_in_prompt()
             "section_header": "32-10-00",
             "in_table": True,
             "matched_glossary_terms": [{"source": "Main Fitting", "target": "Корпус стойки"}],
+            "tm_references": [{"source": "Install Main Fitting", "target": "Установите корпус стойки"}],
+            "recent_translations": [{"source": "Install panel.", "target": "Установите панель."}],
         }
     )
     jobs[1][0].context.update({"section_header": "32-20-00"})
 
     fake = FakeClient()
-    out = _translate_batch_once(fake, jobs)
+    cfg = PipelineConfig(
+        llm=LLMConfig(
+            batch_tm_hints_per_item=1,
+            batch_recent_translations_per_item=2,
+        )
+    )
+    out = _translate_batch_once(fake, jobs, cfg)
 
     assert out == {"1": "T1", "2": "T2"}
     assert fake.context.get("task") == "batch_translate"
@@ -262,6 +271,8 @@ def test_translate_batch_once_includes_per_item_context_and_glossary_in_prompt()
     assert "SECTION=32-10-00" in fake.prompt
     assert "TABLE_CELL" in fake.prompt
     assert '"glossary"' in fake.prompt
+    assert '"tm_hints"' in fake.prompt
+    assert '"recent_translations"' in fake.prompt
     assert "Main Fitting" in fake.prompt
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from docxru.config import LLMConfig, PdfConfig, PipelineConfig, load_config
+from docxru.config import LLMConfig, PdfConfig, PipelineConfig, TMConfig, load_config
 
 
 def test_llm_config_default_context_window_chars_is_900():
@@ -24,6 +24,12 @@ def test_pdf_config_defaults():
     assert cfg.max_font_shrink_ratio == 0.6
     assert cfg.table_detection is True
     assert cfg.max_pages is None
+
+
+def test_tm_config_fuzzy_defaults():
+    cfg = TMConfig()
+    assert cfg.fuzzy_token_regex == r"[A-Za-zА-Яа-яЁё0-9]{2,}"
+    assert cfg.fuzzy_rank_mode == "hybrid"
 
 
 def test_load_config_defaults_pdf_section(tmp_path):
@@ -74,7 +80,10 @@ def test_pipeline_config_checker_and_pricing_defaults():
     assert cfg.pricing.currency == "USD"
     assert cfg.run.status_flush_every_n_segments == 10
     assert cfg.run.batch_fallback_warn_ratio == 0.08
+    assert cfg.run.batch_timeout_bisect is True
     assert cfg.run.fail_fast_on_translate_error is True
+    assert cfg.short_translation_min_ratio == 0.35
+    assert cfg.short_translation_min_source_chars == 24
 
 
 def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
@@ -111,6 +120,7 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
         "  dashboard_html_path: dashboard.html\n"
         "  status_flush_every_n_segments: 5\n"
         "  batch_fallback_warn_ratio: 0.12\n"
+        "  batch_timeout_bisect: false\n"
         "  fail_fast_on_translate_error: false\n",
         encoding="utf-8",
     )
@@ -138,6 +148,7 @@ def test_load_config_reads_checker_pricing_and_run_sections(tmp_path):
     assert cfg.run.dashboard_html_path == str((tmp_path / "dashboard.html").resolve())
     assert cfg.run.status_flush_every_n_segments == 5
     assert cfg.run.batch_fallback_warn_ratio == 0.12
+    assert cfg.run.batch_timeout_bisect is False
     assert cfg.run.fail_fast_on_translate_error is False
 
 
@@ -153,3 +164,21 @@ def test_load_config_reads_auto_model_sizing_flag(tmp_path):
 
     cfg = load_config(config_path)
     assert cfg.llm.auto_model_sizing is True
+
+
+def test_load_config_reads_tm_fuzzy_tokenization_options(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "llm:\n"
+        "  provider: mock\n"
+        "tm:\n"
+        "  fuzzy_enabled: true\n"
+        "  fuzzy_token_regex: '[A-Za-z0-9]{2,}'\n"
+        "  fuzzy_rank_mode: sequence\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path)
+    assert cfg.tm.fuzzy_enabled is True
+    assert cfg.tm.fuzzy_token_regex == "[A-Za-z0-9]{2,}"
+    assert cfg.tm.fuzzy_rank_mode == "sequence"

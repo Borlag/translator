@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 
 import pytest
 
@@ -179,7 +180,7 @@ def test_translate_batch_group_retries_timeout_once_before_fallback():
     jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
     cfg = PipelineConfig(
         llm=LLMConfig(retries=1),
-        run=RunConfig(fail_fast_on_translate_error=False),
+        run=RunConfig(fail_fast_on_translate_error=False, batch_timeout_bisect=False),
     )
     fake = FakeClient()
 
@@ -194,6 +195,69 @@ def test_translate_batch_group_retries_timeout_once_before_fallback():
         assert "batch_fallback_single" not in codes
 
 
+def test_translate_batch_group_bisects_on_timeout_when_enabled():
+    class FakeClient:
+        supports_repair = True
+
+        def __init__(self) -> None:
+            self.batch_calls = 0
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            if context.get("task") == "batch_translate":
+                self.batch_calls += 1
+                if self.batch_calls == 1:
+                    raise RuntimeError("OpenAI request failed: The read operation timed out")
+                payload_raw = text.split("INPUT_JSON:\n", 1)[-1]
+                payload = json.loads(payload_raw)
+                ids = [str(item.get("id") or "") for item in payload if isinstance(item, dict)]
+                return "{" + ",".join(f'"{seg_id}":"T{seg_id}"' for seg_id in ids) + "}"
+            return "UNUSED"
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta"), _make_job("3", "Gamma"), _make_job("4", "Delta")]
+    cfg = PipelineConfig(
+        llm=LLMConfig(retries=1),
+        run=RunConfig(fail_fast_on_translate_error=False, batch_timeout_bisect=True),
+    )
+    fake = FakeClient()
+
+    results = _translate_batch_group(jobs, cfg, fake, logging.getLogger("test"))
+
+    assert fake.batch_calls == 3  # root + two bisected halves
+    assert len(results) == 4
+    for seg, _, _, out, issues in results:
+        assert out == f"T{seg.segment_id}"
+        codes = {issue.code for issue in issues}
+        assert "batch_ok" in codes
+        assert "batch_timeout_bisect" in codes
+        assert "batch_fallback_single" not in codes
+
+
+def test_translate_batch_group_bisect_reaches_single_segment_fallback():
+    class FakeClient:
+        supports_repair = True
+
+        def translate(self, text: str, context: dict[str, str]) -> str:
+            del text
+            if context.get("task") == "batch_translate":
+                raise RuntimeError("OpenAI request failed: The read operation timed out")
+            return "OK"
+
+    jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
+    cfg = PipelineConfig(
+        llm=LLMConfig(retries=1),
+        run=RunConfig(fail_fast_on_translate_error=False, batch_timeout_bisect=True),
+    )
+
+    results = _translate_batch_group(jobs, cfg, FakeClient(), logging.getLogger("test"))
+
+    assert len(results) == 2
+    for _, _, _, out, issues in results:
+        assert out == "OK"
+        codes = {issue.code for issue in issues}
+        assert "batch_timeout_bisect" in codes
+        assert "batch_fallback_single" in codes
+
+
 def test_translate_batch_group_fail_fast_raises_on_batch_error():
     class FakeClient:
         supports_repair = True
@@ -206,7 +270,7 @@ def test_translate_batch_group_fail_fast_raises_on_batch_error():
     jobs = [_make_job("1", "Alpha"), _make_job("2", "Beta")]
     cfg = PipelineConfig(
         llm=LLMConfig(retries=1),
-        run=RunConfig(fail_fast_on_translate_error=True),
+        run=RunConfig(fail_fast_on_translate_error=True, batch_timeout_bisect=False),
     )
 
     with pytest.raises(RuntimeError, match="Batch translate failed"):

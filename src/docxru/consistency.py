@@ -89,7 +89,10 @@ def build_phrase_translation_map(
     return phrase_map
 
 
-def detect_inconsistencies(phrase_map: dict[str, set[str]]) -> list[Issue]:
+def detect_inconsistencies(
+    phrase_map: dict[str, set[str]],
+    segment_index: dict[str, dict[str, list[str]]] | None = None,
+) -> list[Issue]:
     issues: list[Issue] = []
     for source_term, targets in sorted(phrase_map.items(), key=lambda item: item[0].lower()):
         norm_targets: dict[str, str] = {}
@@ -101,16 +104,32 @@ def detect_inconsistencies(phrase_map: dict[str, set[str]]) -> list[Issue]:
         if len(norm_targets) < 2:
             continue
         variants = sorted(norm_targets.values())
+        details: dict[str, object] = {
+            "source_term": source_term,
+            "targets": variants,
+            "variant_count": len(variants),
+        }
+        if segment_index is not None:
+            counts = {
+                target: len(segment_index.get(source_term, {}).get(target, []))
+                for target in variants
+            }
+            sorted_by_count = sorted(counts.items(), key=lambda item: (-item[1], item[0].lower()))
+            if len(sorted_by_count) >= 2 and sorted_by_count[0][1] > sorted_by_count[1][1]:
+                majority_target, majority_count = sorted_by_count[0]
+                minority = [item for item in sorted_by_count[1:] if item[1] < majority_count]
+                details["majority_target"] = majority_target
+                details["majority_count"] = majority_count
+                details["minority_targets"] = [
+                    {"target": target, "count": count}
+                    for target, count in minority
+                ]
         issues.append(
             Issue(
                 code="consistency_term_variation",
                 severity=Severity.WARN,
-                message=f"Inconsistent translation variants for term '{source_term}'.",
-                details={
-                    "source_term": source_term,
-                    "targets": variants,
-                    "variant_count": len(variants),
-                },
+                message=f"Inconsistent translation variants for term '{source_term}'. Minority variants deviate from majority usage.",
+                details=details,
             )
         )
     return issues
@@ -121,7 +140,7 @@ def report_consistency(
     glossary_matchers: tuple[GlossaryMatcher, ...],
 ) -> list[Issue]:
     phrase_map, segment_index = _collect_term_variants(segments, glossary_matchers)
-    raw_issues = detect_inconsistencies(phrase_map)
+    raw_issues = detect_inconsistencies(phrase_map, segment_index)
     if not raw_issues:
         return []
 

@@ -96,6 +96,7 @@ RU: ⟦S_1|B⟧ПРЕДУПРЕЖДЕНИЕ:⟦/S_1⟧ Не превышайте
 """
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", flags=re.IGNORECASE)
+_STANDARD_CODE_PREFIX_RE = re.compile(r"^(?:AMS|ASTM|MIL|ISO|SAE|BS|DIN|EN|QQ|NAS)\b", flags=re.IGNORECASE)
 
 GlossaryReplacement = tuple[re.Pattern[str], str]
 GlossaryMatcher = tuple[str, str, re.Pattern[str]]
@@ -570,6 +571,15 @@ def parse_glossary_pairs(glossary_text: str | None) -> list[tuple[str, str]]:
     return pairs
 
 
+def _is_standard_code_term(source_term: str) -> bool:
+    term = re.sub(r"\s+", " ", (source_term or "").strip())
+    if not term:
+        return False
+    if not re.search(r"\d", term):
+        return False
+    return bool(_STANDARD_CODE_PREFIX_RE.match(term))
+
+
 def _compile_term_pattern(source_term: str) -> re.Pattern[str]:
     escaped = re.escape(source_term.strip())
     gap = r"(?:\s+|⟦BR(?:LINE|COL|PAGE)_\d+⟧)+"
@@ -587,6 +597,8 @@ def _compile_term_pattern(source_term: str) -> re.Pattern[str]:
 def build_glossary_matchers(glossary_text: str | None) -> tuple[GlossaryMatcher, ...]:
     matchers: list[GlossaryMatcher] = []
     for source_term, target_term in parse_glossary_pairs(glossary_text):
+        if _is_standard_code_term(source_term):
+            continue
         matchers.append((source_term, target_term, _compile_term_pattern(source_term)))
     return tuple(matchers)
 
@@ -789,7 +801,11 @@ def build_hard_glossary_replacements(glossary_text: str | None) -> tuple[Glossar
     User glossary entries override domain defaults for the same source term.
     """
     domain_pairs = [item for item in DOMAIN_TERM_PAIRS if re.search(r"\s", item[0])]
-    glossary_pairs = [item for item in parse_glossary_pairs(glossary_text) if re.search(r"\s", item[0])]
+    glossary_pairs = [
+        item
+        for item in parse_glossary_pairs(glossary_text)
+        if re.search(r"\s", item[0]) and not _is_standard_code_term(item[0])
+    ]
 
     # Deduplicate source terms case-insensitively; user glossary overrides domain defaults.
     merged: dict[str, tuple[str, str]] = {}

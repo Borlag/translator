@@ -243,6 +243,8 @@ def _translate_segment_text(
         translated_shielded,
         source_plain,
         target_text,
+        short_translation_min_ratio=cfg.short_translation_min_ratio,
+        short_translation_min_source_chars=cfg.short_translation_min_source_chars,
         untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
         untranslated_latin_min_len=cfg.untranslated_latin_min_len,
         untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
@@ -264,6 +266,8 @@ def _translate_segment_text(
                 repaired,
                 source_plain,
                 repaired_target,
+                short_translation_min_ratio=cfg.short_translation_min_ratio,
+                short_translation_min_source_chars=cfg.short_translation_min_source_chars,
                 untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
                 untranslated_latin_min_len=cfg.untranslated_latin_min_len,
                 untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
@@ -573,7 +577,11 @@ def _translate_and_write_pdf(
         glossary_terms = build_hard_glossary_replacements(glossary_text)
         logger.info("Hard glossary enabled for PDF translation (%d terms).", len(glossary_terms))
 
-    tm = TMStore(cfg.tm.path)
+    tm = TMStore(
+        cfg.tm.path,
+        fuzzy_token_regex=cfg.tm.fuzzy_token_regex,
+        fuzzy_rank_mode=cfg.tm.fuzzy_rank_mode,
+    )
     document_glossary: dict[str, str] = {}
     recent_translations: deque[tuple[str, str]] = deque(maxlen=6)
 

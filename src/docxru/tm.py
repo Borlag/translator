@@ -44,10 +44,23 @@ class FuzzyTMHit:
 
 
 class TMStore:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        fuzzy_token_regex: str = r"[A-Za-zА-Яа-яЁё0-9]{2,}",
+        fuzzy_rank_mode: str = "hybrid",
+    ) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fts_enabled = False
+        token_pattern = (fuzzy_token_regex or "").strip() or r"[A-Za-zА-Яа-яЁё0-9]{2,}"
+        try:
+            self._fuzzy_token_re = re.compile(token_pattern, flags=re.UNICODE)
+        except re.error:
+            self._fuzzy_token_re = re.compile(r"[A-Za-zА-Яа-яЁё0-9]{2,}", flags=re.UNICODE)
+        rank_mode = (fuzzy_rank_mode or "").strip().lower()
+        self._fuzzy_rank_mode = rank_mode if rank_mode in {"sequence", "hybrid"} else "hybrid"
         self.conn = self._connect_with_recovery()
 
     def close(self) -> None:
@@ -156,7 +169,7 @@ class TMStore:
             self.conn.execute(
                 """
                 CREATE VIRTUAL TABLE IF NOT EXISTS tm_exact_fts
-                USING fts5(source_hash UNINDEXED, source_norm);
+                USING fts5(source_hash UNINDEXED, source_norm, tokenize='unicode61');
                 """
             )
             self.conn.execute(
@@ -179,13 +192,30 @@ class TMStore:
             (source_hash, source_norm),
         )
 
-    @staticmethod
-    def _build_fts_query(text: str) -> str:
-        tokens = re.findall(r"[A-Za-z0-9]{2,}", (text or "").lower())
+    def _tokenize_fuzzy(self, text: str) -> list[str]:
+        tokens = [m.group(0).lower() for m in self._fuzzy_token_re.finditer(text or "")]
+        return [token for token in tokens if token]
+
+    def _build_fts_query(self, text: str) -> str:
+        tokens = self._tokenize_fuzzy(text)
         unique_tokens = list(dict.fromkeys(tokens))
         if not unique_tokens:
             return ""
         return " OR ".join(f'"{token}"' for token in unique_tokens[:24])
+
+    def _similarity_score(self, source_norm: str, candidate_source: str) -> float:
+        sequence_score = float(SequenceMatcher(None, source_norm, candidate_source).ratio())
+        if self._fuzzy_rank_mode == "sequence":
+            return sequence_score
+        source_tokens = set(self._tokenize_fuzzy(source_norm))
+        candidate_tokens = set(self._tokenize_fuzzy(candidate_source))
+        if not source_tokens and not candidate_tokens:
+            token_score = 0.0
+        else:
+            union = source_tokens | candidate_tokens
+            token_score = float(len(source_tokens & candidate_tokens) / max(1, len(union)))
+        # Hybrid ranking favors lexical overlap while keeping character-level sensitivity.
+        return (0.65 * token_score) + (0.35 * sequence_score)
 
     @staticmethod
     def _utc_now_iso() -> str:
@@ -241,7 +271,7 @@ class TMStore:
             for row in rows:
                 try:
                     candidate_source = str(row[1])
-                    similarity = float(SequenceMatcher(None, source_norm, candidate_source).ratio())
+                    similarity = self._similarity_score(source_norm, candidate_source)
                     if similarity < float(min_similarity):
                         continue
                     meta = json.loads(row[3]) if row[3] else {}

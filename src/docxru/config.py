@@ -66,6 +66,8 @@ class TMConfig:
     fuzzy_top_k: int = 3
     fuzzy_min_similarity: float = 0.75
     fuzzy_prompt_max_chars: int = 500
+    fuzzy_token_regex: str = r"[A-Za-zА-Яа-яЁё0-9]{2,}"
+    fuzzy_rank_mode: str = "hybrid"  # 'sequence' | 'hybrid'
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,8 @@ class RunConfig:
     status_flush_every_n_segments: int = 10
     # Warn when fallback share among grouped batch attempts exceeds this ratio.
     batch_fallback_warn_ratio: float = 0.08
+    # If grouped batch request times out, split batch recursively (N -> N/2 -> ... -> 1).
+    batch_timeout_bisect: bool = True
     # Stop translation immediately on segment/batch translation errors instead of continuing.
     fail_fast_on_translate_error: bool = True
 
@@ -152,6 +156,9 @@ class PipelineConfig:
     log_path: str = "run.log"
     abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive'
     glossary_lemma_check: str = "off"  # 'off' | 'warn' | 'retry'
+    # Warn-only detector for suspiciously short translations on sufficiently long source.
+    short_translation_min_ratio: float = 0.35
+    short_translation_min_source_chars: int = 24
     # Warn-only checks for visible EN leftovers and LLM repetition artifacts.
     untranslated_latin_warn_ratio: float = 0.15
     untranslated_latin_min_len: int = 3
@@ -299,6 +306,14 @@ def load_config(path: str | Path) -> PipelineConfig:
         fuzzy_top_k=int(tm_data.get("fuzzy_top_k", 3)),
         fuzzy_min_similarity=float(tm_data.get("fuzzy_min_similarity", 0.75)),
         fuzzy_prompt_max_chars=int(tm_data.get("fuzzy_prompt_max_chars", 500)),
+        fuzzy_token_regex=str(tm_data.get("fuzzy_token_regex", r"[A-Za-zА-Яа-яЁё0-9]{2,}")).strip()
+        or r"[A-Za-zА-Яа-яЁё0-9]{2,}",
+        fuzzy_rank_mode=_normalize_choice(
+            tm_data.get("fuzzy_rank_mode", "hybrid"),
+            field_name="tm.fuzzy_rank_mode",
+            allowed={"sequence", "hybrid"},
+            default="hybrid",
+        ),
     )
     max_pages_raw = pdf_data.get("max_pages")
     max_pages = None if max_pages_raw is None else max(0, int(max_pages_raw))
@@ -374,6 +389,7 @@ def load_config(path: str | Path) -> PipelineConfig:
             0.0,
             min(1.0, float(run_data.get("batch_fallback_warn_ratio", 0.08))),
         ),
+        batch_timeout_bisect=bool(run_data.get("batch_timeout_bisect", True)),
         fail_fast_on_translate_error=bool(run_data.get("fail_fast_on_translate_error", True)),
     )
 
@@ -397,6 +413,11 @@ def load_config(path: str | Path) -> PipelineConfig:
         allowed={"off", "warn", "retry"},
         default="off",
     )
+    short_translation_min_ratio = max(
+        0.0,
+        min(1.0, float(data.get("short_translation_min_ratio", 0.35))),
+    )
+    short_translation_min_source_chars = max(1, int(data.get("short_translation_min_source_chars", 24)))
     untranslated_latin_warn_ratio = max(
         0.0,
         min(1.0, float(data.get("untranslated_latin_warn_ratio", 0.15))),
@@ -467,6 +488,8 @@ def load_config(path: str | Path) -> PipelineConfig:
         log_path=log_path,
         abbyy_profile=abbyy_profile,
         glossary_lemma_check=glossary_lemma_check,
+        short_translation_min_ratio=short_translation_min_ratio,
+        short_translation_min_source_chars=short_translation_min_source_chars,
         untranslated_latin_warn_ratio=untranslated_latin_warn_ratio,
         untranslated_latin_min_len=untranslated_latin_min_len,
         untranslated_latin_allowlist_path=untranslated_latin_allowlist_path,

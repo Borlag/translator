@@ -236,6 +236,24 @@ def test_hard_glossary_skips_single_word_entries():
     assert "Ремонт" not in token_map.values()
 
 
+def test_hard_glossary_skips_standard_code_entries():
+    terms = build_hard_glossary_replacements(
+        "AMS 2700 - Стандарт на пассивирование\nMain Landing Gear Leg - Стойка основного шасси"
+    )
+    _, token_map = shield_terms("AMS 2700 Main Landing Gear Leg", terms, token_prefix="GLS")
+    assert "Стойка основного шасси" in token_map.values()
+    assert "Стандарт на пассивирование" not in token_map.values()
+
+
+def test_build_glossary_replacements_skips_standard_codes():
+    replacements = build_glossary_replacements(
+        "AMS-QQ-P-416 - Стандарт на кадмирование\nMain fitting - Основной фитинг"
+    )
+    out = apply_glossary_replacements("Use AMS-QQ-P-416 for Main fitting", replacements)
+    assert "AMS-QQ-P-416" in out
+    assert "Основной фитинг" in out
+
+
 def test_apply_glossary_replacements_normalizes_with_and_pn_and():
     out = apply_glossary_replacements("WITH\n⟦PN_1⟧ AND ⟦PN_2⟧", ())
     assert "С" in out

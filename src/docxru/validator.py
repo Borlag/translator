@@ -203,6 +203,42 @@ def validate_length(source_plain: str, target_plain: str, factor_warn: float = 3
     return []
 
 
+def validate_short_translation(
+    source_plain: str,
+    target_plain: str,
+    *,
+    min_ratio: float = 0.35,
+    min_source_chars: int = 24,
+) -> list[Issue]:
+    source_len = len((source_plain or "").strip())
+    target_len = len((target_plain or "").strip())
+    min_src = max(1, int(min_source_chars))
+    if source_len < min_src:
+        return []
+    if source_len == 0:
+        return []
+
+    ratio = float(target_len) / float(source_len)
+    ratio_threshold = max(0.0, min(1.0, float(min_ratio)))
+    if ratio >= ratio_threshold:
+        return []
+
+    return [
+        Issue(
+            code="short_translation",
+            severity=Severity.WARN,
+            message="Translation is suspiciously short relative to source text.",
+            details={
+                "ratio": round(ratio, 4),
+                "ratio_threshold": ratio_threshold,
+                "source_len": source_len,
+                "target_len": target_len,
+                "min_source_chars": min_src,
+            },
+        )
+    ]
+
+
 def _lemmatize_words(text: str, analyzer: Any) -> set[str]:
     lemmas: set[str] = set()
     for token in _WORD_RE.findall(text or ""):
@@ -472,6 +508,8 @@ def validate_all(
     source_unshielded_plain: str,
     target_unshielded_plain: str,
     *,
+    short_translation_min_ratio: float = 0.35,
+    short_translation_min_source_chars: int = 24,
     untranslated_latin_warn_ratio: float = 0.15,
     untranslated_latin_min_len: int = 3,
     untranslated_latin_allowlist_path: str | None = None,
@@ -485,6 +523,14 @@ def validate_all(
     issues.extend(validate_style_tokens(source_shielded_tagged, target_shielded_tagged))
     issues.extend(validate_numbers(source_unshielded_plain, target_unshielded_plain))
     issues.extend(validate_length(source_unshielded_plain, target_unshielded_plain))
+    issues.extend(
+        validate_short_translation(
+            source_unshielded_plain,
+            target_unshielded_plain,
+            min_ratio=short_translation_min_ratio,
+            min_source_chars=short_translation_min_source_chars,
+        )
+    )
     issues.extend(
         validate_untranslated_fragments(
             source_unshielded_plain,

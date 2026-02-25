@@ -37,6 +37,8 @@ tm:
   fuzzy_top_k: 3
   fuzzy_min_similarity: 0.75
   fuzzy_prompt_max_chars: 500
+  fuzzy_token_regex: "[A-Za-zА-Яа-яЁё0-9]{2,}"
+  fuzzy_rank_mode: "hybrid" # sequence | hybrid
 
 pdf:
   bilingual_mode: false
@@ -86,6 +88,7 @@ run:
   status_path: null        # null = <run_dir>/run_status.json
   dashboard_html_path: null # null = <run_dir>/dashboard.html
   status_flush_every_n_segments: 10
+  batch_timeout_bisect: true # on grouped timeout split batch recursively instead of retrying same size
   fail_fast_on_translate_error: true # true = stop translation immediately on LLM translate errors
 
 include_headers: false
@@ -95,6 +98,8 @@ concurrency: 4
 mode: reflow              # reflow | com
 abbyy_profile: "off"        # off | safe | aggressive
 glossary_lemma_check: "off" # off | warn | retry
+short_translation_min_ratio: 0.35
+short_translation_min_source_chars: 24
 untranslated_latin_warn_ratio: 0.15
 untranslated_latin_min_len: 3
 untranslated_latin_allowlist_path: null

@@ -5,7 +5,7 @@ import logging
 import docxru.pipeline as pipeline
 import docxru.validator as validator
 from docxru.config import LLMConfig, PipelineConfig
-from docxru.models import Issue, Segment, Severity
+from docxru.models import Issue, Segment, Severity, Span
 
 
 class _FakeParse:
@@ -148,3 +148,32 @@ def test_translate_one_glossary_retry_keeps_original_without_improvement(monkeyp
     assert out == "Установите деталь."
     assert "glossary_lemma_mismatch" in codes
     assert "glossary_retry_no_improvement" in codes
+
+
+def test_span_fallback_applies_hard_glossary_shielding():
+    class _EchoClient:
+        supports_repair = True
+
+        def translate(self, text: str, context: dict[str, object]) -> str:
+            del context
+            return text
+
+    seg = Segment(
+        segment_id="s-span",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="lower bearing subassembly",
+        paragraph_ref=None,
+        spans=[Span(span_id=1, flags=(), source_text="lower bearing subassembly")],
+        shielded_tagged="⟦S_1⟧lower bearing subassembly⟦/S_1⟧",
+        token_map={},
+    )
+    seg.context["_hard_glossary_terms"] = pipeline.build_hard_glossary_replacements(
+        "lower bearing subassembly - нижний узел подшипника"
+    )
+
+    out, issues = pipeline._fallback_translate_by_spans(seg, PipelineConfig(), _EchoClient())
+
+    assert out is not None
+    assert "нижний узел подшипника" in out
+    assert any(issue.code == "style_fallback_used" for issue in issues)

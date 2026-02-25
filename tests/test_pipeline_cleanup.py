@@ -38,8 +38,46 @@ def test_final_cleanup_applies_to_translated_segments():
 
     changed = _apply_final_run_level_cleanup([seg])
 
+    assert changed == 0
+    assert paragraph.text == "Table"
+
+
+def test_final_cleanup_translates_table_references_with_numbers():
+    doc = Document()
+    paragraph = doc.add_paragraph("Table 5A")
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="Table 5A",
+        paragraph_ref=paragraph,
+        target_shielded_tagged="table-ref-ru",
+        target_tagged="table-ref-ru",
+    )
+
+    changed = _apply_final_run_level_cleanup([seg])
+
     assert changed == 1
-    assert paragraph.text != "Table"
+    assert paragraph.text == "Таблица 5A"
+
+
+def test_final_cleanup_keeps_table_of_contents_phrase():
+    doc = Document()
+    paragraph = doc.add_paragraph("Table of Contents")
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="Table of Contents",
+        paragraph_ref=paragraph,
+        target_shielded_tagged="toc-ru",
+        target_tagged="toc-ru",
+    )
+
+    changed = _apply_final_run_level_cleanup([seg])
+
+    assert changed == 0
+    assert paragraph.text == "Table of Contents"
 
 
 def test_should_translate_segment_text_skips_russian_only():

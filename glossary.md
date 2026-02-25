@@ -109,8 +109,8 @@
 | Non-Destructive Inspection (NDI/NDT) | Неразрушающий контроль |
 | Visual Inspection | Визуальный осмотр |
 | Dimensional Inspection | Измерение размеров |
-| Dye Penetrant Inspection (DPI) | Цветная дефектоскопия |
-| Fluorescent-Penetrant Method (FPI) | Контроль методом проникающих красителей |
+| Dye Penetrant Inspection (DPI) | Контроль методом проникающих красителей |
+| Fluorescent-Penetrant Method (FPI) | Люминесцентный капиллярный контроль |
 | Liquid Penetrant | Проникающий краситель |
 | Adhesion Test | Испытание на адгезию |
 | Corrosion Resistance Test | Испытание на коррозионную стойкость |
@@ -141,7 +141,7 @@
 | Adhesive | Клей |
 | Activator | Активатор |
 | Cleaning Agent | Очиститель |
-| Deoxydine | Обезжиривающее средство |
+| Deoxydine | Дезоксидирующее средство |
 | Clear Polyurethane Varnish | Прозрачный полиуретановый лак |
 | Methyl Ethyl Ketone (MEK) | Метилэтилкетон |
 | Ethyl Alcohol | Этиловый спирт |

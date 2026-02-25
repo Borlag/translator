@@ -5,6 +5,7 @@ from docxru.validator import (
     validate_context_leakage,
     validate_placeholders,
     validate_repeated_words,
+    validate_short_translation,
     validate_style_tokens,
     validate_untranslated_fragments,
 )
@@ -54,6 +55,26 @@ def test_validate_context_leakage_detects_prompt_tokens():
     assert issues and issues[0].code == "context_leakage"
 
 
+def test_validate_short_translation_warns_for_suspicious_ratio():
+    issues = validate_short_translation(
+        "Install the lower bearing subassembly in the housing.",
+        "Установите узел.",
+        min_ratio=0.35,
+        min_source_chars=24,
+    )
+    assert issues and issues[0].code == "short_translation"
+
+
+def test_validate_short_translation_skips_short_source():
+    issues = validate_short_translation(
+        "Install bolt.",
+        "Установите.",
+        min_ratio=0.35,
+        min_source_chars=24,
+    )
+    assert issues == []
+
+
 def test_validate_all_includes_new_warn_checks():
     issues = validate_all(
         source_shielded_tagged="Remove bolt.",
@@ -65,3 +86,15 @@ def test_validate_all_includes_new_warn_checks():
     assert "untranslated_fragments" in codes
     assert "repeated_words" in codes
     assert "context_leakage" in codes
+
+
+def test_validate_all_includes_short_translation_check():
+    issues = validate_all(
+        source_shielded_tagged="Install the lower bearing subassembly in the housing.",
+        target_shielded_tagged="Установите узел.",
+        source_unshielded_plain="Install the lower bearing subassembly in the housing.",
+        target_unshielded_plain="Установите узел.",
+        short_translation_min_ratio=0.35,
+        short_translation_min_source_chars=24,
+    )
+    assert "short_translation" in {issue.code for issue in issues}

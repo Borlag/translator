@@ -124,8 +124,6 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Converted manuals often keep standalone English joiners on the title page.
     (re.compile(r"^\s*WITH\s*$", flags=re.IGNORECASE), "С"),
     (re.compile(r"\bNEW/REVISED\b"), "НОВЫЕ/ПЕРЕСМОТРЕННЫЕ"),
-    (re.compile(r"\bTable\b"), "Таблица"),
-    (re.compile(r"\btable\b"), "таблица"),
     # Legal small-print: tighten wording to avoid cover-page overflow in converted OEM manuals.
     (re.compile(r"\bНастоящий документ\b", flags=re.IGNORECASE), "Документ"),
     (re.compile(r"\bЭтот документ и вся информация\b", flags=re.IGNORECASE), "Документ и информация"),
@@ -138,6 +136,10 @@ _FINAL_CLEANUP_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"\bС\s+ИЛЛЮСТРИРОВАННЫЙ\s+(?:ПЕРЕЧЕНЬ|СПИСОК)\s+ДЕТАЛЕЙ\b", flags=re.IGNORECASE),
         "С ИЛЛЮСТРИРОВАННЫМ СПИСКОМ ДЕТАЛЕЙ",
     ),
+)
+_TABLE_REF_WORD_RE = re.compile(
+    r"\btable\b(?=\s+(?:\d+[A-Z]?|[IVXLC]+(?:-[IVXLC]+)?|[A-Z]\d+))",
+    flags=re.IGNORECASE,
 )
 _W_T_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 _W_HYPERLINK_TAG = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hyperlink"
@@ -571,6 +573,15 @@ def _append_recent_translation(
     ring.append((source, target))
 
 
+def _normalize_table_reference_labels(text: str) -> str:
+    # Translate table references like "Table 1" but keep phrases such as "Table of Contents" untouched.
+    def _replace(match: re.Match[str]) -> str:
+        token = match.group(0)
+        return "Таблица" if token and token[0].isupper() else "таблица"
+
+    return _TABLE_REF_WORD_RE.sub(_replace, text)
+
+
 def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
     changed_runs = 0
     seen_paragraphs: set[int] = set()
@@ -590,6 +601,7 @@ def _apply_final_run_level_cleanup(segments: list[Segment]) -> int:
             updated = original
             for pattern, replacement in _FINAL_CLEANUP_RULES:
                 updated = pattern.sub(replacement, updated)
+            updated = _normalize_table_reference_labels(updated)
             if updated != original:
                 run.text = updated
                 changed_runs += 1
@@ -654,6 +666,7 @@ def _fallback_translate_by_spans(
     rebuilt: list[str] = []
     issues: list[Issue] = []
     span_count = len(seg.spans)
+    hard_glossary_terms = tuple(seg.context.get("_hard_glossary_terms") or ())
     for span in seg.spans:
         inner = source_inner.get(span.span_id)
         if inner is None:
@@ -662,7 +675,18 @@ def _fallback_translate_by_spans(
         ctx = dict(seg.context)
         ctx["span_id"] = span.span_id
         ctx["span_total"] = span_count
-        translated_inner, tr_issues = _translate_shielded_fragment(inner, llm_client, ctx)
+        shielded_inner = inner
+        span_glossary_map: dict[str, str] = {}
+        if hard_glossary_terms and _LATIN_RE.search(inner):
+            shielded_inner, span_glossary_map = shield_terms(
+                inner,
+                hard_glossary_terms,
+                token_prefix="GLS",
+                bridge_break_tokens=False,
+            )
+        translated_inner, tr_issues = _translate_shielded_fragment(shielded_inner, llm_client, ctx)
+        if span_glossary_map:
+            translated_inner = unshield(translated_inner, span_glossary_map)
         issues.extend(tr_issues)
 
         rebuilt.append(_style_start_tag(span.span_id, span.flags))
@@ -679,6 +703,8 @@ def _fallback_translate_by_spans(
         target_shielded_tagged=candidate,
         source_unshielded_plain=src_plain,
         target_unshielded_plain=tgt_plain,
+        short_translation_min_ratio=cfg.short_translation_min_ratio,
+        short_translation_min_source_chars=cfg.short_translation_min_source_chars,
         untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
         untranslated_latin_min_len=cfg.untranslated_latin_min_len,
         untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
@@ -711,6 +737,8 @@ def _validate_segment_candidate(seg: Segment, cfg: PipelineConfig, out: str) -> 
         target_shielded_tagged=out,
         source_unshielded_plain=src_plain,
         target_unshielded_plain=tgt_plain,
+        short_translation_min_ratio=cfg.short_translation_min_ratio,
+        short_translation_min_source_chars=cfg.short_translation_min_source_chars,
         untranslated_latin_warn_ratio=cfg.untranslated_latin_warn_ratio,
         untranslated_latin_min_len=cfg.untranslated_latin_min_len,
         untranslated_latin_allowlist_path=cfg.untranslated_latin_allowlist_path,
@@ -795,6 +823,8 @@ def _build_tm_profile_key(
             f"fuzzy_top_k={int(cfg.tm.fuzzy_top_k)}",
             f"fuzzy_min_similarity={cfg.tm.fuzzy_min_similarity:.4f}",
             f"fuzzy_prompt_max_chars={int(cfg.tm.fuzzy_prompt_max_chars)}",
+            f"fuzzy_token_regex={cfg.tm.fuzzy_token_regex}",
+            f"fuzzy_rank_mode={cfg.tm.fuzzy_rank_mode.strip().lower()}",
             f"abbyy_profile={cfg.abbyy_profile.strip().lower()}",
             f"glossary_lemma_check={cfg.glossary_lemma_check.strip().lower()}",
             f"layout_check={int(bool(cfg.layout_check))}",
@@ -1328,11 +1358,25 @@ def _translate_batch_group(
     cfg: PipelineConfig,
     llm_client,
     logger: logging.Logger,
+    *,
+    _root_batch_size: int | None = None,
+    _from_timeout_bisect: bool = False,
 ) -> list[tuple[Segment, str, str, str, list[Issue]]]:
     fail_fast = bool(cfg.run.fail_fast_on_translate_error)
+    root_batch_size = max(1, int(_root_batch_size or len(jobs)))
     if len(jobs) == 1:
         seg, source_hash, source_norm = jobs[0]
         out, issues = _translate_one(seg, cfg, llm_client, source_hash, source_norm, logger)
+        if _from_timeout_bisect:
+            issues = [
+                Issue(
+                    code="batch_fallback_single",
+                    severity=Severity.WARN,
+                    message="Grouped batch timed out and was bisected to single-segment fallback.",
+                    details={"batch_size": root_batch_size, "reason": "timeout_bisect"},
+                ),
+                *issues,
+            ]
         return [(seg, source_hash, source_norm, out, issues)]
 
     batch_map: dict[str, str] | None = None
@@ -1341,7 +1385,49 @@ def _translate_batch_group(
         batch_map = _translate_batch_once(llm_client, jobs, cfg)
     except Exception as e:
         batch_error = e
-        if _is_timeout_error(e):
+        timeout_like = _is_timeout_error(e)
+        if timeout_like and bool(cfg.run.batch_timeout_bisect):
+            split_at = max(1, len(jobs) // 2)
+            left_jobs = jobs[:split_at]
+            right_jobs = jobs[split_at:]
+            logger.warning(
+                "Batch translate timed out (size=%d), bisecting into %d + %d.",
+                len(jobs),
+                len(left_jobs),
+                len(right_jobs),
+            )
+            left_results = _translate_batch_group(
+                left_jobs,
+                cfg,
+                llm_client,
+                logger,
+                _root_batch_size=root_batch_size,
+                _from_timeout_bisect=True,
+            )
+            right_results = _translate_batch_group(
+                right_jobs,
+                cfg,
+                llm_client,
+                logger,
+                _root_batch_size=root_batch_size,
+                _from_timeout_bisect=True,
+            )
+            split_issue = Issue(
+                code="batch_timeout_bisect",
+                severity=Severity.INFO,
+                message="Grouped batch timed out and was bisected.",
+                details={
+                    "batch_size": len(jobs),
+                    "root_batch_size": root_batch_size,
+                    "left_size": len(left_jobs),
+                    "right_size": len(right_jobs),
+                },
+            )
+            return [
+                (seg, source_hash, source_norm, out, [split_issue, *issues])
+                for seg, source_hash, source_norm, out, issues in (*left_results, *right_results)
+            ]
+        if timeout_like:
             logger.warning("Batch translate timed out (size=%d), retrying grouped request once.", len(jobs))
             try:
                 batch_map = _translate_batch_once(llm_client, jobs, cfg)
@@ -1687,7 +1773,11 @@ def translate_docx(
     # Attach neighbor snippets to improve local consistency.
     _attach_neighbor_snippets(segments, cfg)
 
-    tm = TMStore(cfg.tm.path)
+    tm = TMStore(
+        cfg.tm.path,
+        fuzzy_token_regex=cfg.tm.fuzzy_token_regex,
+        fuzzy_rank_mode=cfg.tm.fuzzy_rank_mode,
+    )
     if cfg.tm.fuzzy_enabled and not tm.fts_enabled:
         logger.info("Fuzzy TM requested, but SQLite FTS5 is unavailable; continuing with exact-only TM behavior.")
     custom_system_prompt = _read_optional_text(cfg.llm.system_prompt_path, logger, "custom system prompt")
@@ -2082,6 +2172,7 @@ def translate_docx(
                 seg.context["matched_glossary_terms"] = checker_terms
 
         seg_glossary_terms = _segment_glossary_terms(seg, glossary_terms)
+        seg.context["_hard_glossary_terms"] = seg_glossary_terms
 
         # Dedicated TOC flow: preserve tab/page layout and translate column chunks in-place.
         if seg.context.get("is_toc_entry"):

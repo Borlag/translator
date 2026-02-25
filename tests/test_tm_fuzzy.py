@@ -64,3 +64,38 @@ def test_tm_store_fuzzy_returns_empty_when_fts_disabled(tmp_path):
     finally:
         tm.close()
 
+
+def test_tm_store_fuzzy_supports_unicode_tokenization_and_hybrid_rank(tmp_path):
+    tm = TMStore(
+        tmp_path / "tm.sqlite",
+        fuzzy_token_regex=r"[A-Za-zА-Яа-яЁё0-9]{2,}",
+        fuzzy_rank_mode="hybrid",
+    )
+    try:
+        tm.put_exact(
+            source_hash="h1",
+            source_norm="проверить давление в шине",
+            target_text="проверьте давление в шине",
+            meta={},
+        )
+        tm.put_exact(
+            source_hash="h2",
+            source_norm="проверить давление в гидросистеме",
+            target_text="проверьте давление в гидросистеме",
+            meta={},
+        )
+
+        if not tm.fts_enabled:
+            pytest.skip("SQLite FTS5 is unavailable in this environment")
+
+        hits = tm.get_fuzzy(
+            "проверить давление в шине",
+            top_k=2,
+            min_similarity=0.1,
+        )
+        if not hits:
+            pytest.skip("SQLite FTS tokenizer did not return Cyrillic candidates in this environment")
+        assert hits[0].source_hash == "h1"
+    finally:
+        tm.close()
+

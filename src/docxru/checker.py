@@ -29,6 +29,11 @@ Critical rules:
 - Procedural steps should use Russian imperative style.
 - Terminology must stay technically consistent across nearby segments.
 - Untranslated English leftovers and context-token leakage are valid defects.
+- Treat issue types strictly:
+  - meaning/omission/addition/number_error/terminology/untranslated => real defects.
+  - register/style => lower-severity quality issues only when wording is clearly inappropriate for technical documentation.
+  - If current translation is acceptable, do not emit an edit.
+- If a term appears in glossary_terms_used for a segment, suggested_target must follow that target term.
 
 Return ONLY strict JSON in the requested schema.
 """
@@ -467,6 +472,17 @@ def _build_checker_prompt(
         "For heading-like segments, keep concise title style and section intent; do not rewrite as full prose sentences.\n"
         "For TOC-style segments, preserve leader dots, numbering, and page references unless SOURCE clearly differs.\n"
         "For tables/textboxes, preserve units, abbreviations, and compact label phrasing.\n"
+        "Classify only concrete defects:\n"
+        "- meaning: semantic distortion or wrong instruction intent\n"
+        "- omission: missing meaningful source content\n"
+        "- addition: invented content not present in source\n"
+        "- number_error: wrong numeric value/unit/sign/range\n"
+        "- terminology: wrong technical term\n"
+        "- untranslated: untranslated English leftovers\n"
+        "- consistency: conflicting term variant vs nearby context\n"
+        "- register/style: non-critical wording/style mismatch\n"
+        "If none of the above applies, do not emit an edit.\n"
+        "If glossary_terms_used contains a source term for this segment, suggested_target must use the provided target term.\n"
         "If there is no issue, return empty edits list.\n"
         "Return ONLY JSON object with schema:\n"
         "{\n"
@@ -476,7 +492,7 @@ def _build_checker_prompt(
         '      "segment_id": "string",\n'
         '      "location": "string",\n'
         '      "severity": "error|warn|info",\n'
-        '      "issue_type": "terminology|meaning|consistency|style|other",\n'
+        '      "issue_type": "terminology|meaning|omission|addition|number_error|untranslated|consistency|register|style|other",\n'
         '      "source_excerpt": "string",\n'
         '      "current_target": "string",\n'
         '      "suggested_target": "string",\n'

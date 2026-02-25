@@ -4,10 +4,12 @@ import cgi
 import io
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import webbrowser
@@ -55,6 +57,8 @@ DEFAULT_OPENAI_MODELS: tuple[str, ...] = (
 )
 
 _OPENAI_MODEL_PREFIXES: tuple[str, ...] = ("gpt-", "o1", "o3", "o4")
+_TRANSLATE_MODULE_CMD_RE = re.compile(r"(?i)(?:^|\s)-m\s+docxru\s+translate(?:-pdf)?(?:\s|$)")
+_WATCHDOG_HEARTBEAT_TIMEOUT_S = 6.0
 
 
 def _now_utc_iso() -> str:
@@ -126,7 +130,190 @@ def _open_path(path: Path) -> None:
     subprocess.Popen(["xdg-open", str(path)])
 
 
-def _kill_process_tree(process: subprocess.Popen[str], *, wait_timeout_s: float = 8.0) -> tuple[bool, str]:
+def _pid_exists(pid: int) -> bool:
+    value = int(pid or 0)
+    if value <= 0:
+        return False
+    if sys.platform.startswith("win"):
+        with suppress(Exception):
+            probe = subprocess.run(
+                ["tasklist", "/FO", "CSV", "/NH", "/FI", f"PID eq {value}"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3.0,
+            )
+            for raw_line in (probe.stdout or "").splitlines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.lower().startswith("info:"):
+                    return False
+                if re.search(rf'^"[^"]+","{value}"(?:,|$)', line):
+                    return True
+        return False
+    try:
+        os.kill(value, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+    return False
+
+
+def _wait_pid_exit(pid: int, *, timeout_s: float) -> bool:
+    deadline = time.monotonic() + max(0.1, float(timeout_s))
+    while time.monotonic() < deadline:
+        if not _pid_exists(pid):
+            return True
+        time.sleep(0.05)
+    return not _pid_exists(pid)
+
+
+def _kill_pid_tree(pid: int, *, wait_timeout_s: float = 8.0) -> tuple[bool, str]:
+    target_pid = int(pid or 0)
+    if target_pid <= 0:
+        return False, "invalid_pid"
+    if not _pid_exists(target_pid):
+        return True, "already_exited"
+
+    if sys.platform.startswith("win"):
+        with suppress(Exception):
+            result = subprocess.run(
+                ["taskkill", "/PID", str(target_pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=max(1.0, float(wait_timeout_s)),
+            )
+            if result.returncode == 0:
+                return True, "taskkill"
+            text = ((result.stdout or "") + "\n" + (result.stderr or "")).lower()
+            if "not found" in text or "no running instance" in text:
+                return True, "already_exited"
+            return False, "taskkill_failed"
+        return False, "timeout"
+
+    sent_group_term = False
+    with suppress(Exception):
+        pgid = os.getpgid(target_pid)
+        if pgid > 0:
+            os.killpg(pgid, signal.SIGTERM)
+            sent_group_term = True
+    if not sent_group_term:
+        with suppress(Exception):
+            os.kill(target_pid, signal.SIGTERM)
+    if _wait_pid_exit(target_pid, timeout_s=2.0):
+        return True, "sigterm_group" if sent_group_term else "sigterm"
+
+    sent_group_kill = False
+    with suppress(Exception):
+        pgid = os.getpgid(target_pid)
+        if pgid > 0:
+            os.killpg(pgid, signal.SIGKILL)
+            sent_group_kill = True
+    if not sent_group_kill:
+        with suppress(Exception):
+            os.kill(target_pid, signal.SIGKILL)
+    if _wait_pid_exit(target_pid, timeout_s=max(1.0, float(wait_timeout_s))):
+        return True, "sigkill_group" if sent_group_kill else "sigkill"
+    return False, "timeout"
+
+
+def _iter_process_command_lines() -> list[tuple[int, str]]:
+    if sys.platform.startswith("win"):
+        ps_script = (
+            "Get-CimInstance Win32_Process "
+            "| Where-Object { $_.ProcessId -gt 0 -and $_.CommandLine } "
+            "| Select-Object ProcessId, CommandLine "
+            "| ConvertTo-Json -Compress"
+        )
+        with suppress(Exception):
+            output = subprocess.check_output(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+                text=True,
+                timeout=8.0,
+            )
+            raw = (output or "").strip()
+            if not raw:
+                return []
+            parsed = json.loads(raw)
+            items = parsed if isinstance(parsed, list) else [parsed]
+            out: list[tuple[int, str]] = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                pid = int(item.get("ProcessId") or 0)
+                cmd = str(item.get("CommandLine") or "").strip()
+                if pid > 0 and cmd:
+                    out.append((pid, cmd))
+            return out
+        return []
+
+    with suppress(Exception):
+        result = subprocess.run(
+            ["ps", "-eo", "pid=,args="],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=6.0,
+        )
+        if result.returncode != 0:
+            return []
+        out: list[tuple[int, str]] = []
+        for raw_line in (result.stdout or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                continue
+            with suppress(Exception):
+                pid = int(parts[0])
+                cmd = parts[1].strip()
+                if pid > 0 and cmd:
+                    out.append((pid, cmd))
+        return out
+    return []
+
+
+def _is_docxru_translate_command(command_line: str) -> bool:
+    text = str(command_line or "")
+    if not text:
+        return False
+    return bool(_TRANSLATE_MODULE_CMD_RE.search(text))
+
+
+def _matches_run_markers(command_line: str, run: StudioRun) -> bool:
+    hay = str(command_line or "")
+    markers = (
+        run.run_id,
+        str(run.run_dir),
+        str(run.config_path),
+        str(run.source_path),
+        str(run.output_path),
+    )
+    return any(marker and marker in hay for marker in markers)
+
+
+def _find_docxru_translate_processes(*, run: StudioRun | None = None) -> list[tuple[int, str]]:
+    current_pid = os.getpid()
+    matches: list[tuple[int, str]] = []
+    for pid, cmd in _iter_process_command_lines():
+        if pid <= 0 or pid == current_pid:
+            continue
+        if not _is_docxru_translate_command(cmd):
+            continue
+        if run is not None and not _matches_run_markers(cmd, run):
+            continue
+        matches.append((pid, cmd))
+    return matches
+
+
+def _kill_process_tree(process: Any, *, wait_timeout_s: float = 8.0) -> tuple[bool, str]:
     if process.poll() is not None:
         return True, "already_exited"
 
@@ -452,6 +639,7 @@ def _build_studio_html() -> str:
           </div>
         </div>
         <input type="hidden" name="model" id="modelHidden" value="gpt-5-mini" />
+        <input type="hidden" name="ui_session_id" id="uiSessionId" value="" />
 
         <div class="grid3">
           <div class="row">
@@ -573,6 +761,11 @@ def _build_studio_html() -> str:
 
 <script>
   let currentRunId = "";
+  const uiSessionId = (
+    window.crypto && typeof window.crypto.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
 
   const DEFAULT_OPENAI_MODELS = [
     "gpt-5.2",
@@ -599,6 +792,7 @@ def _build_studio_html() -> str:
   const modelHidden = document.getElementById("modelHidden");
   const refreshModelsBtn = document.getElementById("refreshModelsBtn");
   const runForm = document.getElementById("runForm");
+  const uiSessionInput = document.getElementById("uiSessionId");
   const sourceFileInput = document.querySelector("input[name='input_file']");
   const stopRunBtn = document.getElementById("stopRunBtn");
   const estimateBtn = document.getElementById("estimateBtn");
@@ -614,6 +808,9 @@ def _build_studio_html() -> str:
   const openaiApiKeyInput = document.querySelector("input[name='openai_api_key']");
   const runCheckerBtn = document.getElementById("runCheckerBtn");
   const applyCheckerBtn = document.getElementById("applyCheckerBtn");
+  if (uiSessionInput) {
+    uiSessionInput.value = uiSessionId;
+  }
 
   function defaultModelForProvider(provider) {
     const p = (provider || "").toLowerCase();
@@ -808,7 +1005,10 @@ def _build_studio_html() -> str:
   async function refreshStatus() {
     if (!currentRunId) return;
     try {
-      const resp = await fetch(`/api/status?run_id=${encodeURIComponent(currentRunId)}`, { cache: "no-store" });
+      const resp = await fetch(`/api/status?run_id=${encodeURIComponent(currentRunId)}`, {
+        cache: "no-store",
+        headers: { "X-Studio-Session": uiSessionId }
+      });
       if (!resp.ok) return;
       const data = await resp.json();
       const status = data.status || {};
@@ -936,8 +1136,14 @@ def _build_studio_html() -> str:
     try {
       const resp = await fetch(`/api/run-checker?run_id=${encodeURIComponent(currentRunId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ openai_api_key: (openaiApiKeyInput.value || "").trim() })
+        headers: {
+          "Content-Type": "application/json",
+          "X-Studio-Session": uiSessionId
+        },
+        body: JSON.stringify({
+          openai_api_key: (openaiApiKeyInput.value || "").trim(),
+          ui_session_id: uiSessionId
+        })
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) {
@@ -956,20 +1162,23 @@ def _build_studio_html() -> str:
   });
 
   stopRunBtn.addEventListener("click", async () => {
-    if (!currentRunId) return;
     const currentState = (document.getElementById("state").textContent || "").toLowerCase();
     if (currentState !== "running" && currentState !== "stopping") return;
-    const confirmed = window.confirm("Force stop current translation and kill process tree?");
+    const confirmed = window.confirm("Force stop ALL translation processes now?");
     if (!confirmed) return;
     stopRunBtn.disabled = true;
     stopRunBtn.textContent = "Stopping...";
     try {
-      const resp = await fetch(`/api/stop-run?run_id=${encodeURIComponent(currentRunId)}`, { method: "POST" });
+      const resp = await fetch("/api/stop-all?reason=ui_stop_click", {
+        method: "POST",
+        headers: { "X-Studio-Session": uiSessionId }
+      });
       const data = await resp.json();
       if (!resp.ok || !data.ok) {
         alert(data.error || data.message || `Stop failed: ${resp.status}`);
       } else {
-        estimateHint.textContent = "Stop requested. Translation process kill signal sent.";
+        estimateHint.textContent =
+          `Stop requested. Killed ${fmtNum((data.global_killed_pids || []).length)} process(es).`;
       }
       await refreshStatus();
     } catch (err) {
@@ -977,6 +1186,51 @@ def _build_studio_html() -> str:
       await refreshStatus();
     }
   });
+
+  async function bootstrapActiveRun() {
+    try {
+      const resp = await fetch("/api/runs", { cache: "no-store" });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const runs = Array.isArray(data.runs) ? data.runs : [];
+      const active = runs.find((item) => {
+        const s = String((item && item.state) || "").toLowerCase();
+        return s === "running" || s === "stopping";
+      });
+      if (!active || !active.run_id) return;
+      currentRunId = String(active.run_id);
+      document.getElementById("runPill").textContent = `run: ${currentRunId}`;
+      await refreshStatus();
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  let unloadStopIssued = false;
+  function stopAllOnUnload() {
+    if (unloadStopIssued) return;
+    unloadStopIssued = true;
+    const url = "/api/stop-all?reason=ui_page_unload";
+    try {
+      if (navigator.sendBeacon) {
+        const payload = new Blob([JSON.stringify({ ui_session_id: uiSessionId })], {
+          type: "application/json"
+        });
+        navigator.sendBeacon(url, payload);
+        return;
+      }
+      fetch(url, {
+        method: "POST",
+        keepalive: true,
+        headers: { "X-Studio-Session": uiSessionId }
+      });
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  window.addEventListener("pagehide", stopAllOnUnload);
+  window.addEventListener("beforeunload", stopAllOnUnload);
 
   fillModelSelect(openaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-5-mini");
   fillModelSelect(checkerOpenaiModelSelect, DEFAULT_OPENAI_MODELS, "gpt-5-mini");
@@ -986,6 +1240,7 @@ def _build_studio_html() -> str:
   runCheckerBtn.disabled = true;
   applyCheckerBtn.disabled = true;
   refreshOpenAIModels();
+  bootstrapActiveRun();
 
   setInterval(refreshStatus, 1000);
 </script>
@@ -1004,11 +1259,14 @@ class StudioRun:
     log_path: Path
     status_path: Path
     command: list[str]
-    process: subprocess.Popen[str]
+    process: Any
     started_at: str
     stop_requested_at: str | None = None
     stop_completed_at: str | None = None
     stop_method: str | None = None
+    owner_session_id: str | None = None
+    heartbeat_ts: float | None = None
+    heartbeat_timeout_s: float = _WATCHDOG_HEARTBEAT_TIMEOUT_S
 
 
 class _CompletedProcess:
@@ -1019,14 +1277,55 @@ class _CompletedProcess:
         return self._return_code
 
 
+class _PidProcess:
+    def __init__(self, pid: int) -> None:
+        self.pid = int(pid)
+
+    def poll(self) -> int | None:
+        return None if _pid_exists(self.pid) else 1
+
+    def wait(self, timeout: float | None = None) -> int:
+        if timeout is None:
+            while True:
+                status = self.poll()
+                if status is not None:
+                    return status
+                time.sleep(0.05)
+        if _wait_pid_exit(self.pid, timeout_s=float(timeout)):
+            return 1
+        raise subprocess.TimeoutExpired(cmd=f"pid:{self.pid}", timeout=float(timeout))
+
+    def kill(self) -> None:
+        _kill_pid_tree(self.pid, wait_timeout_s=1.0)
+
+    def terminate(self) -> None:
+        _kill_pid_tree(self.pid, wait_timeout_s=1.0)
+
+
 class StudioRunManager:
-    def __init__(self, *, base_dir: Path) -> None:
+    def __init__(
+        self,
+        *,
+        base_dir: Path,
+        enable_watchdog: bool = False,
+        heartbeat_timeout_s: float = _WATCHDOG_HEARTBEAT_TIMEOUT_S,
+    ) -> None:
         self.base_dir = base_dir.resolve()
         self.runs_dir = self.base_dir / "runs"
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._runs: dict[str, StudioRun] = {}
+        self._heartbeat_timeout_s = max(2.0, float(heartbeat_timeout_s))
+        self._shutdown_event = threading.Event()
+        self._watchdog_thread: threading.Thread | None = None
         self._load_existing_runs()
+        if enable_watchdog:
+            self._watchdog_thread = threading.Thread(
+                target=self._watchdog_loop,
+                name="studio-run-watchdog",
+                daemon=True,
+            )
+            self._watchdog_thread.start()
 
     def _load_existing_runs(self) -> None:
         for run_dir in sorted(self.runs_dir.glob("*"), reverse=True):
@@ -1079,8 +1378,79 @@ class StudioRunManager:
                 command=[sys.executable, "-m", "docxru", "translate"],
                 process=_CompletedProcess(return_code=return_code),  # type: ignore[arg-type]
                 started_at=started_at,
+                heartbeat_timeout_s=self._heartbeat_timeout_s,
             )
+            live_matches = _find_docxru_translate_processes(run=run)
+            if live_matches:
+                run.process = _PidProcess(live_matches[0][0])
             self._runs[run_id] = run
+
+    def _watchdog_loop(self) -> None:
+        interval_s = 1.0
+        while not self._shutdown_event.wait(interval_s):
+            now = time.monotonic()
+            stale_run_ids: list[str] = []
+            with self._lock:
+                for run in self._runs.values():
+                    if run.process.poll() is not None:
+                        continue
+                    if not run.owner_session_id:
+                        continue
+                    if run.heartbeat_ts is None:
+                        continue
+                    timeout_s = max(2.0, float(run.heartbeat_timeout_s or self._heartbeat_timeout_s))
+                    if now - float(run.heartbeat_ts) > timeout_s:
+                        stale_run_ids.append(run.run_id)
+            for run_id in stale_run_ids:
+                with suppress(Exception):
+                    self.stop_run(run_id, include_global=True, reason="ui_heartbeat_timeout")
+
+    def close(self, *, stop_all: bool = False, reason: str = "manager_close") -> None:
+        if stop_all:
+            with suppress(Exception):
+                self.stop_all_runs(reason=reason)
+        self._shutdown_event.set()
+        thread = self._watchdog_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.5)
+
+    def heartbeat(self, run_id: str, session_id: str | None) -> dict[str, Any]:
+        sid = str(session_id or "").strip()
+        now = time.monotonic()
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None:
+                raise KeyError(run_id)
+            if not sid:
+                return {"ok": False, "message": "session_id is required"}
+            owner = (run.owner_session_id or "").strip()
+            if owner and owner != sid:
+                return {"ok": False, "message": "session mismatch"}
+            run.owner_session_id = sid
+            run.heartbeat_ts = now
+            run.heartbeat_timeout_s = max(2.0, float(run.heartbeat_timeout_s or self._heartbeat_timeout_s))
+        return {"ok": True}
+
+    def _kill_external_translate_processes(self, *, run: StudioRun | None = None) -> dict[str, Any]:
+        matches = _find_docxru_translate_processes(run=run)
+        attempted_pids: list[int] = []
+        killed_pids: list[int] = []
+        failed_pids: list[int] = []
+        methods: dict[str, str] = {}
+        for pid, _cmd in matches:
+            attempted_pids.append(int(pid))
+            stopped, method = _kill_pid_tree(int(pid))
+            methods[str(int(pid))] = method
+            if stopped:
+                killed_pids.append(int(pid))
+            else:
+                failed_pids.append(int(pid))
+        return {
+            "attempted_pids": attempted_pids,
+            "killed_pids": killed_pids,
+            "failed_pids": failed_pids,
+            "methods": methods,
+        }
 
     def _read_file_field(self, form: cgi.FieldStorage, field_name: str, fallback_name: str) -> tuple[str, bytes] | None:
         field = form[field_name] if field_name in form else None
@@ -1474,6 +1844,8 @@ class StudioRunManager:
         openai_key = self._read_text_value(form, "openai_api_key", "")
         if openai_key:
             env["OPENAI_API_KEY"] = openai_key
+        ui_session_id = self._read_text_value(form, "ui_session_id", "")
+        heartbeat_ts = time.monotonic() if ui_session_id else None
 
         log_path = run_dir / "studio_process.log"
         log_file = log_path.open("w", encoding="utf-8")
@@ -1501,6 +1873,9 @@ class StudioRunManager:
             command=command,
             process=process,
             started_at=_now_utc_iso(),
+            owner_session_id=ui_session_id or None,
+            heartbeat_ts=heartbeat_ts,
+            heartbeat_timeout_s=self._heartbeat_timeout_s,
         )
         with self._lock:
             self._runs[run_id] = run
@@ -1575,7 +1950,13 @@ class StudioRunManager:
         _open_path(run.run_dir)
         return {"ok": True, "path": str(run.run_dir)}
 
-    def start_checker_for_run(self, run_id: str, *, openai_api_key: str | None = None) -> dict[str, Any]:
+    def start_checker_for_run(
+        self,
+        run_id: str,
+        *,
+        openai_api_key: str | None = None,
+        ui_session_id: str | None = None,
+    ) -> dict[str, Any]:
         with self._lock:
             run = self._runs.get(run_id)
         if run is None:
@@ -1633,6 +2014,10 @@ class StudioRunManager:
             run.stop_requested_at = None
             run.stop_completed_at = None
             run.stop_method = None
+            if (ui_session_id or "").strip():
+                run.owner_session_id = str(ui_session_id).strip()
+                run.heartbeat_ts = time.monotonic()
+            run.heartbeat_timeout_s = max(2.0, float(run.heartbeat_timeout_s or self._heartbeat_timeout_s))
 
         return self.get_status(run_id)
 
@@ -1707,40 +2092,93 @@ class StudioRunManager:
             },
         }
 
-    def stop_run(self, run_id: str) -> dict[str, Any]:
+    def stop_run(
+        self,
+        run_id: str,
+        *,
+        include_global: bool = True,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
         with self._lock:
             run = self._runs.get(run_id)
         if run is None:
             raise KeyError(run_id)
 
-        if run.process.poll() is not None:
-            status = self.get_status(run_id)
-            return {
-                "ok": True,
-                "run_id": run_id,
-                "already_finished": True,
-                "stopped": False,
-                "state": status.get("state"),
-            }
+        local_was_running = run.process.poll() is None
+        local_stopped = False
+        local_method = "already_exited"
+        if local_was_running:
+            with self._lock:
+                run.stop_requested_at = run.stop_requested_at or _now_utc_iso()
+            local_stopped, local_method = _kill_process_tree(run.process)
+
+        global_result = {
+            "attempted_pids": [],
+            "killed_pids": [],
+            "failed_pids": [],
+            "methods": {},
+        }
+        if include_global:
+            global_result = self._kill_external_translate_processes(run=None)
 
         with self._lock:
-            run.stop_requested_at = run.stop_requested_at or _now_utc_iso()
-
-        stopped, method = _kill_process_tree(run.process)
-
-        with self._lock:
-            run.stop_method = method
-            if stopped:
+            if run.stop_requested_at is None and (local_was_running or include_global):
+                run.stop_requested_at = _now_utc_iso()
+            if local_stopped or global_result["killed_pids"]:
                 run.stop_completed_at = _now_utc_iso()
+            method_parts = [str(local_method).strip()]
+            if include_global:
+                method_parts.append("global_scan")
+            if reason:
+                method_parts.append(str(reason).strip())
+            run.stop_method = ",".join(part for part in method_parts if part)
 
         status = self.get_status(run_id)
+        state = str(status.get("state") or "").strip().lower()
+        still_running = state in {"running", "stopping"}
+        stop_ok = not still_running
+        if include_global and global_result["failed_pids"]:
+            stop_ok = False
+        stopped_any = bool(local_stopped or global_result["killed_pids"])
         return {
-            "ok": bool(stopped),
+            "ok": bool(stop_ok),
             "run_id": run_id,
-            "already_finished": False,
-            "stopped": bool(stopped),
-            "state": status.get("state"),
-            "method": method,
+            "already_finished": bool(not local_was_running),
+            "stopped": bool(stopped_any),
+            "state": state,
+            "method": local_method,
+            "reason": str(reason or ""),
+            "global_attempted_pids": list(global_result["attempted_pids"]),
+            "global_killed_pids": list(global_result["killed_pids"]),
+            "global_failed_pids": list(global_result["failed_pids"]),
+        }
+
+    def stop_all_runs(self, *, reason: str | None = None) -> dict[str, Any]:
+        with self._lock:
+            run_ids = sorted(self._runs.keys(), reverse=True)
+        run_results: list[dict[str, Any]] = []
+        for run_id in run_ids:
+            with suppress(Exception):
+                run_results.append(self.stop_run(run_id, include_global=False, reason=reason))
+
+        global_result = self._kill_external_translate_processes(run=None)
+        active_after: list[str] = []
+        for run_id in run_ids:
+            with suppress(Exception):
+                status = self.get_status(run_id)
+                state = str(status.get("state") or "").strip().lower()
+                if state in {"running", "stopping"}:
+                    active_after.append(run_id)
+        ok = not active_after and not global_result["failed_pids"]
+        return {
+            "ok": bool(ok),
+            "reason": str(reason or ""),
+            "runs_checked": len(run_ids),
+            "active_after": active_after,
+            "run_results": run_results,
+            "global_attempted_pids": list(global_result["attempted_pids"]),
+            "global_killed_pids": list(global_result["killed_pids"]),
+            "global_failed_pids": list(global_result["failed_pids"]),
         }
 
 
@@ -1778,6 +2216,11 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
                 self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "run_id is required"})
                 return
             try:
+                session_id = str(self.headers.get("X-Studio-Session", "") or "").strip()
+                if session_id:
+                    heartbeat = self._manager.heartbeat(run_id, session_id)
+                    if not heartbeat.get("ok", False) and heartbeat.get("message") == "session mismatch":
+                        self._manager.stop_run(run_id, include_global=True, reason="ui_session_mismatch")
                 payload = self._manager.get_status(run_id)
             except KeyError:
                 self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
@@ -1842,14 +2285,35 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, payload)
             return
 
+        if parsed.path == "/api/stop-all":
+            content_len = int(self.headers.get("Content-Length", "0") or "0")
+            if content_len > 0:
+                _ = self.rfile.read(content_len)
+            params = parse_qs(parsed.query)
+            reason = (params.get("reason", ["ui_stop_all"])[0] or "ui_stop_all").strip()
+            try:
+                payload = self._manager.stop_all_runs(reason=reason)
+            except Exception as exc:
+                self._write_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                return
+            code = HTTPStatus.OK if payload.get("ok", False) else HTTPStatus.INTERNAL_SERVER_ERROR
+            self._write_json(code, payload)
+            return
+
         if parsed.path == "/api/stop-run":
+            content_len = int(self.headers.get("Content-Length", "0") or "0")
+            if content_len > 0:
+                _ = self.rfile.read(content_len)
             params = parse_qs(parsed.query)
             run_id = (params.get("run_id", [""])[0] or "").strip()
-            if not run_id:
-                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "run_id is required"})
-                return
+            reason = (params.get("reason", ["ui_stop"])[0] or "ui_stop").strip()
+            scope = (params.get("scope", ["all"])[0] or "all").strip().lower()
+            include_global = scope != "run"
             try:
-                payload = self._manager.stop_run(run_id)
+                if not run_id:
+                    payload = self._manager.stop_all_runs(reason=reason)
+                else:
+                    payload = self._manager.stop_run(run_id, include_global=include_global, reason=reason)
             except KeyError:
                 self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
                 return
@@ -1886,12 +2350,19 @@ class StudioRequestHandler(SimpleHTTPRequestHandler):
             content_len = int(self.headers.get("Content-Length", "0") or "0")
             payload_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
             openai_api_key = ""
+            ui_session_id = str(self.headers.get("X-Studio-Session", "") or "").strip()
             with suppress(Exception):
                 parsed_payload = json.loads(payload_raw.decode("utf-8"))
                 if isinstance(parsed_payload, dict):
                     openai_api_key = str(parsed_payload.get("openai_api_key") or "").strip()
+                    if not ui_session_id:
+                        ui_session_id = str(parsed_payload.get("ui_session_id") or "").strip()
             try:
-                payload = self._manager.start_checker_for_run(run_id, openai_api_key=openai_api_key)
+                payload = self._manager.start_checker_for_run(
+                    run_id,
+                    openai_api_key=openai_api_key,
+                    ui_session_id=ui_session_id,
+                )
             except KeyError:
                 self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown run_id: {run_id}"})
                 return
@@ -1929,7 +2400,7 @@ def serve_studio(
     port: int = 0,
     open_browser: bool = True,
 ) -> None:
-    manager = StudioRunManager(base_dir=base_dir)
+    manager = StudioRunManager(base_dir=base_dir, enable_watchdog=True)
 
     def _handler(*args, **kwargs):
         return StudioRequestHandler(*args, manager=manager, **kwargs)
@@ -1948,4 +2419,5 @@ def serve_studio(
     except KeyboardInterrupt:
         pass
     finally:
+        manager.close(stop_all=True, reason="studio_server_shutdown")
         server.server_close()

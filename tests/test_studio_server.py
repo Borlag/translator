@@ -200,6 +200,11 @@ def test_studio_html_contains_checker_trace_widgets():
     assert "stopRunBtn" in html
     assert "estimateBtn" in html
     assert "estimateHint" in html
+    assert 'name="ui_session_id"' in html
+    assert "/api/stop-all" in html
+    assert "beforeunload" in html
+    assert "pagehide" in html
+    assert "X-Studio-Session" in html
 
 
 def test_estimate_grouped_request_count_respects_segment_and_char_limits():
@@ -325,6 +330,46 @@ def test_studio_run_manager_stop_run_on_finished_process_is_noop(tmp_path):
     assert payload["stopped"] is False
 
 
+def test_studio_run_manager_stop_run_kills_external_translate_processes(tmp_path, monkeypatch):
+    manager = StudioRunManager(base_dir=tmp_path)
+    run_id = "run_external_stop"
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    process = subprocess.Popen(
+        [sys.executable, "-c", "print('ok')"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        start_new_session=True,
+    )
+    process.wait(timeout=10)
+    run = StudioRun(
+        run_id=run_id,
+        run_dir=run_dir,
+        source_path=run_dir / "input.docx",
+        output_path=run_dir / "translated.docx",
+        config_path=run_dir / "config.studio.yaml",
+        log_path=run_dir / "studio_process.log",
+        status_path=run_dir / "run_status.json",
+        command=[sys.executable, "-m", "docxru", "translate"],
+        process=process,
+        started_at="2026-02-23T00:00:00+00:00",
+    )
+    manager._runs[run_id] = run  # noqa: SLF001 - unit-level hook
+
+    monkeypatch.setattr(
+        "docxru.studio_server._find_docxru_translate_processes",
+        lambda *, run=None: [(55555, "python -m docxru translate --resume")],
+    )
+    monkeypatch.setattr("docxru.studio_server._kill_pid_tree", lambda pid, wait_timeout_s=8.0: (True, "taskkill"))
+
+    payload = manager.stop_run(run_id)
+    assert payload["ok"] is True
+    assert payload["stopped"] is True
+    assert payload["already_finished"] is True
+    assert payload["global_killed_pids"] == [55555]
+
+
 def test_studio_manager_loads_existing_run_dirs_on_startup(tmp_path):
     run_id = "run_existing"
     run_dir = tmp_path / "runs" / run_id
@@ -343,6 +388,33 @@ def test_studio_manager_loads_existing_run_dirs_on_startup(tmp_path):
     assert status["ok"] is True
     assert status["state"] == "completed"
     assert status["run_id"] == run_id
+
+
+def test_studio_manager_loads_existing_run_as_running_when_pid_found(tmp_path, monkeypatch):
+    run_id = "run_live"
+    run_dir = tmp_path / "runs" / run_id
+    uploads = run_dir / "uploads"
+    uploads.mkdir(parents=True, exist_ok=True)
+    (run_dir / "config.studio.yaml").write_text("checker:\n  enabled: true\n", encoding="utf-8")
+    (run_dir / "translated.docx").write_bytes(b"docx")
+    (uploads / "input.docx").write_bytes(b"src")
+    (run_dir / "run_status.json").write_text(
+        '{"run_id":"run_live","phase":"translate","started_at":"2026-02-24T00:00:00+00:00"}',
+        encoding="utf-8",
+    )
+
+    def _fake_find(*, run=None):  # noqa: ANN001
+        if run is not None and getattr(run, "run_id", "") == run_id:
+            return [(42424, "python -m docxru translate --config config.studio.yaml --resume")]
+        return []
+
+    monkeypatch.setattr("docxru.studio_server._find_docxru_translate_processes", _fake_find)
+    monkeypatch.setattr("docxru.studio_server._pid_exists", lambda pid: int(pid) == 42424)
+
+    manager = StudioRunManager(base_dir=tmp_path)
+    status = manager.get_status(run_id)
+    assert status["ok"] is True
+    assert status["state"] == "running"
 
 
 def test_studio_run_manager_can_start_checker_only_for_finished_run(tmp_path, monkeypatch):

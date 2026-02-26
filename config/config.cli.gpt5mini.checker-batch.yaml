@@ -1,0 +1,29 @@
+llm:
+  provider: openai
+  model: gpt-5-mini
+  system_prompt_path: ../general_prompt.md
+  glossary_path: ../glossary.md
+  glossary_prompt_mode: matched
+  structured_output_mode: auto
+  temperature: 0.0
+  max_output_tokens: 50000
+  batch_segments: 24
+  batch_max_chars: 60000
+  context_window_chars: 0
+  auto_model_sizing: true
+
+checker:
+  enabled: true
+  provider: openai
+  model: gpt-5-mini
+  temperature: 0.0
+  max_output_tokens: 20000
+  timeout_s: 900.0
+  fallback_segments_per_chunk: 120
+  openai_batch_enabled: true
+  auto_apply_safe: true
+  auto_apply_min_confidence: 0.7
+
+run:
+  batch_fallback_warn_ratio: 0.2
+  fail_fast_on_translate_error: false

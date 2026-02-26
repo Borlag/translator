@@ -223,6 +223,11 @@ def _translate_shielded_fragment(
     return restored, placeholder_issues
 
 
+def _tm_profile_source_hash(*, source_norm: str, tm_profile_key: str) -> str:
+    source_norm_for_hash = f"{_TM_RULESET_VERSION}\n{tm_profile_key}\n{source_norm}"
+    return sha256_hex(source_norm_for_hash)
+
+
 def _translate_plain_chunk(
     chunk: str,
     cfg: PipelineConfig,
@@ -230,6 +235,8 @@ def _translate_plain_chunk(
     context: dict[str, Any],
     cache: dict[str, str],
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
+    tm_store: TMStore | None = None,
+    tm_profile_key: str | None = None,
 ) -> tuple[str, list[Issue]]:
     if not chunk:
         return chunk, []
@@ -253,6 +260,21 @@ def _translate_plain_chunk(
     shielded, pattern_map = shield(shielded, cfg.pattern_set)
     if pattern_map:
         token_map = {**pattern_map, **token_map}
+
+    source_norm = normalize_text(shielded)
+    source_hash: str | None = None
+    if tm_store is not None and tm_profile_key:
+        source_hash = _tm_profile_source_hash(source_norm=source_norm, tm_profile_key=tm_profile_key)
+        try:
+            hit = tm_store.get_exact(source_hash)
+        except Exception:
+            hit = None
+        if hit is not None:
+            translated = unshield(hit.target_text, token_map)
+            number_issues = validate_numbers(chunk, translated)
+            cache[chunk] = translated
+            return translated, number_issues
+
     translated_shielded, issues = _translate_shielded_fragment(shielded, llm_client, context)
     translated = unshield(translated_shielded, token_map)
     # Run deterministic cleanup rules for Latin-bearing chunks to reduce EN leftovers
@@ -274,6 +296,23 @@ def _translate_plain_chunk(
     number_issues = validate_numbers(chunk, translated)
     all_issues = issues + number_issues
     cache[chunk] = translated
+    if tm_store is not None and tm_profile_key and source_hash:
+        has_hard_errors = any(issue.severity == Severity.ERROR for issue in all_issues)
+        has_llm_runtime_error = any(issue.code == "llm_error" for issue in all_issues)
+        if not has_hard_errors and not has_llm_runtime_error:
+            try:
+                tm_store.put_exact(
+                    source_hash=source_hash,
+                    source_norm=source_norm,
+                    target_text=translated_shielded,
+                    meta={
+                        "origin": "prepare_inplace_chunk",
+                        "provider": cfg.llm.provider,
+                        "model": cfg.llm.model,
+                    },
+                )
+            except Exception:
+                pass
     return translated, all_issues
 
 
@@ -284,6 +323,8 @@ def _translate_toc_like_text(
     context: dict[str, Any],
     cache: dict[str, str],
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
+    tm_store: TMStore | None = None,
+    tm_profile_key: str | None = None,
 ) -> tuple[str, list[Issue]]:
     parts = _LAYOUT_SPLIT_RE.split(text)
     out_parts: list[str] = []
@@ -309,7 +350,16 @@ def _translate_toc_like_text(
             out_parts.append(part)
             continue
 
-        translated_core, tr_issues = _translate_plain_chunk(core, cfg, llm_client, context, cache, glossary_terms)
+        translated_core, tr_issues = _translate_plain_chunk(
+            core,
+            cfg,
+            llm_client,
+            context,
+            cache,
+            glossary_terms,
+            tm_store,
+            tm_profile_key,
+        )
         issues.extend(tr_issues)
         out_parts.append(prefix + translated_core + suffix)
 
@@ -628,6 +678,10 @@ def _translate_complex_paragraph_in_place(
     llm_client,
     cache: dict[str, str],
     glossary_terms: tuple[tuple[re.Pattern[str], str], ...] = (),
+    tm_path: str | None = None,
+    tm_profile_key: str | None = None,
+    tm_fuzzy_token_regex: str = r"[A-Za-zРђ-РЇР°-СЏРЃС‘0-9]{2,}",
+    tm_fuzzy_rank_mode: str = "hybrid",
 ) -> tuple[bool, list[Issue]]:
     groups = _collect_complex_text_groups(seg.paragraph_ref)
     if not groups:
@@ -635,20 +689,54 @@ def _translate_complex_paragraph_in_place(
 
     changed = False
     issues: list[Issue] = []
-    for group_i, nodes in enumerate(groups):
-        source_text = "".join(node.text or "" for node in nodes)
-        if not source_text.strip():
-            continue
-        if not _LATIN_RE.search(source_text):
-            continue
-        ctx = dict(seg.context)
-        ctx["complex_group"] = group_i
-        translated, tr_issues = _translate_toc_like_text(source_text, cfg, llm_client, ctx, cache, glossary_terms)
-        issues.extend(tr_issues)
-        if translated != source_text:
-            _write_text_nodes(nodes, translated)
-            changed = True
-    return changed, issues
+    tm_store: TMStore | None = None
+    if tm_path and tm_profile_key:
+        try:
+            tm_store = TMStore(
+                tm_path,
+                fuzzy_token_regex=tm_fuzzy_token_regex,
+                fuzzy_rank_mode=tm_fuzzy_rank_mode,
+            )
+        except Exception as e:
+            issues.append(
+                Issue(
+                    code="prepare_inplace_tm_unavailable",
+                    severity=Severity.WARN,
+                    message=f"Prepare in-place TM cache is unavailable: {e}",
+                    details={},
+                )
+            )
+            tm_store = None
+    try:
+        for group_i, nodes in enumerate(groups):
+            source_text = "".join(node.text or "" for node in nodes)
+            if not source_text.strip():
+                continue
+            if not _LATIN_RE.search(source_text):
+                continue
+            ctx = dict(seg.context)
+            ctx["complex_group"] = group_i
+            translated, tr_issues = _translate_toc_like_text(
+                source_text,
+                cfg,
+                llm_client,
+                ctx,
+                cache,
+                glossary_terms,
+                tm_store=tm_store,
+                tm_profile_key=tm_profile_key,
+            )
+            issues.extend(tr_issues)
+            if translated != source_text:
+                _write_text_nodes(nodes, translated)
+                changed = True
+        return changed, issues
+    finally:
+        if tm_store is not None:
+            try:
+                tm_store.close()
+            except Exception:
+                pass
 
 
 def _fallback_translate_by_spans(
@@ -2294,6 +2382,10 @@ def translate_docx(
                     llm_client,
                     complex_chunk_cache,
                     seg_glossary_terms,
+                    tm_path=cfg.tm.path,
+                    tm_profile_key=tm_profile_key,
+                    tm_fuzzy_token_regex=cfg.tm.fuzzy_token_regex,
+                    tm_fuzzy_rank_mode=cfg.tm.fuzzy_rank_mode,
                 ): (kind, seg)
                 for kind, seg, seg_glossary_terms in prepare_inplace_jobs
             }

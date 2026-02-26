@@ -160,6 +160,13 @@ def reduce_paragraph_spacing(paragraph, factor: float = 0.8) -> bool:
     return changed
 
 
+def set_single_line_spacing(paragraph) -> bool:
+    fmt = paragraph.paragraph_format
+    before = fmt.line_spacing
+    fmt.line_spacing = 1.0
+    return before != fmt.line_spacing
+
+
 def insert_soft_wraps(paragraph, max_line_chars: int = 34) -> bool:
     if not paragraph.runs:
         return False
@@ -194,6 +201,57 @@ def insert_soft_wraps(paragraph, max_line_chars: int = 34) -> bool:
     return True
 
 
+def _fix_table_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+    if seg.paragraph_ref is None:
+        return False
+
+    changed = False
+    cell = _paragraph_cell(seg.paragraph_ref)
+    spacing_factor = float(cfg.layout_spacing_factor)
+    if cell is not None:
+        if len(cell.paragraphs) > 1:
+            spacing_factor *= 0.85
+        changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
+        for paragraph in cell.paragraphs:
+            changed = reduce_character_spacing(paragraph, twips=-15) or changed
+            changed = set_single_line_spacing(paragraph) or changed
+    else:
+        changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
+        changed = reduce_character_spacing(seg.paragraph_ref, twips=-15) or changed
+        changed = set_single_line_spacing(seg.paragraph_ref) or changed
+
+    table_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
+    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=table_font_reduction) or changed
+    changed = insert_soft_wraps(seg.paragraph_ref, max_line_chars=30) or changed
+    return changed
+
+
+def _fix_textbox_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+    if seg.paragraph_ref is None:
+        return False
+
+    changed = False
+    textbox_spacing_factor = min(0.9, max(0.4, float(cfg.layout_spacing_factor)))
+    changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=textbox_spacing_factor) or changed
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=-12) or changed
+    textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
+    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=textbox_font_reduction) or changed
+    changed = insert_soft_wraps(seg.paragraph_ref, max_line_chars=28) or changed
+    return changed
+
+
+def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+    if seg.paragraph_ref is None:
+        return False
+
+    changed = False
+    changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=cfg.layout_spacing_factor) or changed
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=-10) or changed
+    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=cfg.layout_font_reduction_pt) or changed
+    changed = insert_soft_wraps(seg.paragraph_ref) or changed
+    return changed
+
+
 def fix_expansion_issues(
     segments: list[Segment],
     issues: list[Issue],
@@ -220,25 +278,19 @@ def fix_expansion_issues(
         if seg is None or seg.paragraph_ref is None:
             continue
 
-        changed = False
-        # First attempt: reduce spacing pressure before touching font size.
-        if seg.context.get("in_table"):
-            cell = _paragraph_cell(seg.paragraph_ref)
-            if cell is not None:
-                spacing_factor = float(cfg.layout_spacing_factor)
-                if len(cell.paragraphs) > 1:
-                    spacing_factor *= 0.85
-                changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
-                for paragraph in cell.paragraphs:
-                    changed = reduce_character_spacing(paragraph, twips=-10) or changed
+        strategy = "generic"
+        if issue.code == "layout_table_overflow_risk" or (
+            issue.code == "length_ratio_high" and seg.context.get("in_table")
+        ):
+            strategy = "table"
+            changed = _fix_table_overflow(seg, cfg)
+        elif issue.code == "layout_textbox_overflow_risk" or (
+            issue.code == "length_ratio_high" and seg.context.get("in_textbox")
+        ):
+            strategy = "textbox"
+            changed = _fix_textbox_overflow(seg, cfg)
         else:
-            changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=cfg.layout_spacing_factor) or changed
-            changed = reduce_character_spacing(seg.paragraph_ref, twips=-10) or changed
-
-        # Second attempt: reduce explicit run font sizes.
-        changed = reduce_font_size(seg.paragraph_ref, reduction_pt=cfg.layout_font_reduction_pt) or changed
-        # Last resort: inject soft wraps for long labels.
-        changed = insert_soft_wraps(seg.paragraph_ref) or changed
+            changed = _fix_generic_overflow(seg, cfg)
         if not changed:
             continue
 
@@ -252,6 +304,7 @@ def fix_expansion_issues(
                     "segment_id": seg.segment_id,
                     "location": seg.location,
                     "source_issue_code": issue.code,
+                    "strategy": strategy,
                     "font_reduction_pt": float(cfg.layout_font_reduction_pt),
                     "spacing_factor": float(cfg.layout_spacing_factor),
                 },

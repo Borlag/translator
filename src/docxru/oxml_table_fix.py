@@ -91,6 +91,85 @@ def relax_exact_line_spacing(document) -> int:
     return changed
 
 
+def _local_name(node) -> str:
+    tag = str(getattr(node, "tag", ""))
+    if not tag:
+        return ""
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    if ":" in tag:
+        return tag.split(":", 1)[1]
+    return tag
+
+
+def _contains_non_whitespace_text(node) -> bool:
+    text_tag = qn("w:t")
+    for text_node in node.iter(text_tag):
+        text_value = str(getattr(text_node, "text", "") or "")
+        if text_value.strip():
+            return True
+    return False
+
+
+def _iter_non_empty_textbox_contents(document):
+    txbx_tag = qn("w:txbxContent")
+    for txbx_content in document.element.iter(txbx_tag):
+        if _contains_non_whitespace_text(txbx_content):
+            yield txbx_content
+
+
+def _iter_related_body_pr_nodes(txbx_content):
+    container_hints = {
+        "txbx",
+        "textbox",
+        "shape",
+        "wsp",
+        "drawing",
+        "pict",
+    }
+    for ancestor in [txbx_content, *list(txbx_content.iterancestors())]:
+        if _local_name(ancestor) not in container_hints:
+            continue
+        for node in ancestor.iter():
+            if _local_name(node) == "bodyPr":
+                yield node
+
+
+def _set_body_pr_norm_autofit(body_pr) -> bool:
+    no_autofit_nodes = []
+    has_norm_autofit = False
+    for child in list(body_pr):
+        local_name = _local_name(child)
+        if local_name == "noAutofit":
+            no_autofit_nodes.append(child)
+        elif local_name == "normAutofit":
+            has_norm_autofit = True
+
+    if not no_autofit_nodes:
+        return False
+
+    for node in no_autofit_nodes:
+        body_pr.remove(node)
+    if not has_norm_autofit:
+        body_pr.append(OxmlElement("a:normAutofit"))
+    return True
+
+
+def set_textbox_autofit(document) -> int:
+    """Enable TextBody auto-fit for non-empty textboxes by switching to <a:normAutofit/>."""
+    updated = 0
+    seen_node_ids: set[int] = set()
+    for txbx_content in _iter_non_empty_textbox_contents(document):
+        for body_pr in _iter_related_body_pr_nodes(txbx_content):
+            node_id = id(body_pr)
+            if node_id in seen_node_ids:
+                continue
+            seen_node_ids.add(node_id)
+            if _set_body_pr_norm_autofit(body_pr):
+                updated += 1
+    return updated
+
+
 def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     """Apply optional ABBYY-specific OXML cleanup by profile.
 
@@ -98,21 +177,25 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     - off: no cleanup
     - safe: remove only strict row-height locks (w:trHeight with hRule='exact')
     - aggressive: safe + remove paragraph frame locks (w:framePr)
+    - full: aggressive + enable textbox auto-fit via <a:normAutofit/>
     """
     mode = str(profile or "off").strip().lower()
-    if mode not in {"off", "safe", "aggressive"}:
+    if mode not in {"off", "safe", "aggressive", "full"}:
         raise ValueError(f"Unsupported ABBYY profile: {profile!r}")
 
     stats = {
         "tr_height_exact_removed": 0,
         "frame_pr_removed": 0,
         "line_spacing_exact_relaxed": 0,
+        "textbox_autofit_updated": 0,
     }
     if mode == "off":
         return stats
 
     stats["tr_height_exact_removed"] = remove_exact_tr_height(document)
-    if mode == "aggressive":
+    if mode in {"aggressive", "full"}:
         stats["frame_pr_removed"] = remove_frame_pr(document)
         stats["line_spacing_exact_relaxed"] = relax_exact_line_spacing(document)
+    if mode == "full":
+        stats["textbox_autofit_updated"] = set_textbox_autofit(document)
     return stats

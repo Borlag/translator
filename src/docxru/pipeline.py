@@ -1138,6 +1138,34 @@ def _attach_issues_to_segments(segments: list[Segment], issues: list[Issue]) -> 
     return attached
 
 
+def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: PipelineConfig, logger) -> None:
+    # Normalize ABBYY OXML before running layout checks/fixes so risk signals
+    # are computed from the relaxed document model.
+    if cfg.abbyy_profile != "off":
+        try:
+            oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
+            logger.info(
+                "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d; "
+                "lineSpacing_exact_relaxed=%d; textbox_autofit_updated=%d",
+                cfg.abbyy_profile,
+                int(oxml_stats.get("tr_height_exact_removed", 0)),
+                int(oxml_stats.get("frame_pr_removed", 0)),
+                int(oxml_stats.get("line_spacing_exact_relaxed", 0)),
+                int(oxml_stats.get("textbox_autofit_updated", 0)),
+            )
+        except Exception as e:
+            logger.warning(f"ABBYY OXML normalization failed: {e}")
+
+    if cfg.layout_check or cfg.layout_auto_fix:
+        layout_issues = validate_layout(doc, segments, cfg)
+        attached = _attach_issues_to_segments(segments, layout_issues)
+        if layout_issues:
+            logger.info(f"Layout validation issues: {len(layout_issues)} (attached={attached})")
+        if cfg.layout_auto_fix and layout_issues:
+            applied_fixes = fix_expansion_issues(segments, layout_issues, cfg)
+            logger.info(f"Layout auto-fixes applied: {applied_fixes}")
+
+
 def _coerce_batch_glossary_context(value: Any, *, limit: int = 12) -> list[dict[str, str]]:
     if value is None:
         return []
@@ -2766,14 +2794,7 @@ def translate_docx(
         if consistency_issues:
             logger.info(f"Consistency check issues: {len(consistency_issues)} (attached={attached})")
 
-    if cfg.layout_check or cfg.layout_auto_fix:
-        layout_issues = validate_layout(doc, segments, cfg)
-        attached = _attach_issues_to_segments(segments, layout_issues)
-        if layout_issues:
-            logger.info(f"Layout validation issues: {len(layout_issues)} (attached={attached})")
-        if cfg.layout_auto_fix and layout_issues:
-            applied_fixes = fix_expansion_issues(segments, layout_issues, cfg)
-            logger.info(f"Layout auto-fixes applied: {applied_fixes}")
+    _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info(f"Final run-level cleanup changes: {cleaned_runs}")
@@ -2791,20 +2812,6 @@ def translate_docx(
             + ", ".join(f"{code}={count}" for code, count in issue_counts.most_common(12))
         )
 
-    if cfg.abbyy_profile != "off":
-        try:
-            oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
-            logger.info(
-                "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d; "
-                "lineSpacing_exact_relaxed=%d",
-                cfg.abbyy_profile,
-                int(oxml_stats.get("tr_height_exact_removed", 0)),
-                int(oxml_stats.get("frame_pr_removed", 0)),
-                int(oxml_stats.get("line_spacing_exact_relaxed", 0)),
-            )
-        except Exception as e:
-            logger.warning(f"ABBYY OXML normalization failed: {e}")
-
     # Save outputs
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_path))
@@ -2814,7 +2821,11 @@ def translate_docx(
         try:
             from .com_word import update_fields_via_com
 
-            com_stats = update_fields_via_com(output_path)
+            com_stats = update_fields_via_com(
+                output_path,
+                min_font_size_pt=float(cfg.com_textbox_min_font_pt),
+                max_shrink_steps=int(cfg.com_textbox_max_shrink_steps),
+            )
             logger.info(
                 "Word COM post-process: fields_updated=%d; tocs_updated=%d; "
                 "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d",

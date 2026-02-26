@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from docx import Document
+from docx.oxml.ns import qn
 from docx.shared import Pt
 
 from docxru.config import PipelineConfig
@@ -66,7 +67,11 @@ def test_fix_expansion_issues_reduces_non_table_spacing():
     assert paragraph.paragraph_format.space_after is not None
     assert paragraph.paragraph_format.space_after.pt < 8
     assert run.font.size is not None
-    assert run.font.size.pt == pytest.approx(10.5)
+    assert run.font.size.pt == pytest.approx(10.0)
+    assert any(
+        issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "textbox"
+        for issue in seg.issues
+    )
 
 
 def test_fix_expansion_issues_reduces_table_spacing():
@@ -93,6 +98,14 @@ def test_fix_expansion_issues_reduces_table_spacing():
     after = paragraph.paragraph_format.space_after
     assert before is not None and before.pt < 12
     assert after is not None and after.pt < 10
+    assert paragraph.paragraph_format.line_spacing == pytest.approx(1.0)
+    spacing = paragraph.runs[0]._r.get_or_add_rPr().find(qn("w:spacing"))
+    assert spacing is not None
+    assert spacing.get(qn("w:val")) == "-15"
+    assert any(
+        issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "table"
+        for issue in seg.issues
+    )
 
 
 def test_apply_global_font_shrink_uses_different_body_and_table_steps():

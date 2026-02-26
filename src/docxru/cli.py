@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     t.add_argument(
         "--abbyy-profile",
-        choices=["off", "safe", "aggressive"],
+        choices=["off", "safe", "aggressive", "full"],
         default=None,
         help="Enable optional ABBYY-specific normalization profile.",
     )

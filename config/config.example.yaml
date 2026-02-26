@@ -96,7 +96,9 @@ include_footers: false
 
 concurrency: 4
 mode: reflow              # reflow | com
-abbyy_profile: "off"        # off | safe | aggressive
+com_textbox_min_font_pt: 8.0
+com_textbox_max_shrink_steps: 2
+abbyy_profile: "off"        # off | safe | aggressive | full
 glossary_lemma_check: "off" # off | warn | retry
 short_translation_min_ratio: 0.35
 short_translation_min_source_chars: 24

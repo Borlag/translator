@@ -149,12 +149,14 @@ class PipelineConfig:
     include_footers: bool = False
     concurrency: int = 4
     mode: str = "reflow"  # 'reflow' | 'com'
+    com_textbox_min_font_pt: float = 8.0
+    com_textbox_max_shrink_steps: int = 2
     qa_report_path: str = "qa_report.html"
     qa_jsonl_path: str = "qa.jsonl"
     # Optional append-only translation history for human review and term/context lookup.
     translation_history_path: str | None = None
     log_path: str = "run.log"
-    abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive'
+    abbyy_profile: str = "off"  # 'off' | 'safe' | 'aggressive' | 'full'
     glossary_lemma_check: str = "off"  # 'off' | 'warn' | 'retry'
     # Warn-only detector for suspiciously short translations on sufficiently long source.
     short_translation_min_ratio: float = 0.35
@@ -404,7 +406,7 @@ def load_config(path: str | Path) -> PipelineConfig:
     abbyy_profile = _normalize_choice(
         data.get("abbyy_profile", "off"),
         field_name="abbyy_profile",
-        allowed={"off", "safe", "aggressive"},
+        allowed={"off", "safe", "aggressive", "full"},
         default="off",
     )
     glossary_lemma_check = _normalize_choice(
@@ -441,6 +443,8 @@ def load_config(path: str | Path) -> PipelineConfig:
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
     font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", 0.0)))
     font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", 0.0)))
+    com_textbox_min_font_pt = max(6.0, float(data.get("com_textbox_min_font_pt", 8.0)))
+    com_textbox_max_shrink_steps = max(0, int(data.get("com_textbox_max_shrink_steps", 2)))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
@@ -482,6 +486,8 @@ def load_config(path: str | Path) -> PipelineConfig:
         include_footers=include_footers,
         concurrency=concurrency,
         mode=mode,
+        com_textbox_min_font_pt=com_textbox_min_font_pt,
+        com_textbox_max_shrink_steps=com_textbox_max_shrink_steps,
         qa_report_path=qa_report_path,
         qa_jsonl_path=qa_jsonl_path,
         translation_history_path=translation_history_path,

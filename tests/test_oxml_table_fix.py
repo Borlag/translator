@@ -5,7 +5,7 @@ from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-from docxru.oxml_table_fix import normalize_abbyy_oxml
+from docxru.oxml_table_fix import normalize_abbyy_oxml, set_textbox_autofit
 
 
 def _append_exact_tr_height(doc: Document):
@@ -37,6 +37,60 @@ def _append_exact_line_spacing(doc: Document):
     return spacing
 
 
+def _append_textbox(doc: Document, *, text: str) -> tuple[object, object]:
+    host = doc.add_paragraph("Host")
+    run = host.add_run("")
+
+    shape = OxmlElement("w:shape")
+    body_pr = OxmlElement("a:bodyPr")
+    body_pr.append(OxmlElement("a:noAutofit"))
+
+    txbx_content = OxmlElement("w:txbxContent")
+    if text:
+        p = OxmlElement("w:p")
+        r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = text
+        r.append(t)
+        p.append(r)
+        txbx_content.append(p)
+
+    shape.append(body_pr)
+    shape.append(txbx_content)
+    run._r.append(shape)
+    return body_pr, txbx_content
+
+
+def _has_child(node, local_name: str) -> bool:
+    for child in list(node):
+        tag = str(getattr(child, "tag", ""))
+        if tag.endswith("}" + local_name) or tag.endswith(":" + local_name) or tag == local_name:
+            return True
+    return False
+
+
+def test_set_textbox_autofit_replaces_noautofit_for_non_empty_textbox():
+    doc = Document()
+    body_pr, _ = _append_textbox(doc, text="Textbox text")
+
+    changed = set_textbox_autofit(doc)
+
+    assert changed == 1
+    assert _has_child(body_pr, "noAutofit") is False
+    assert _has_child(body_pr, "normAutofit") is True
+
+
+def test_set_textbox_autofit_skips_empty_textbox():
+    doc = Document()
+    body_pr, _ = _append_textbox(doc, text="")
+
+    changed = set_textbox_autofit(doc)
+
+    assert changed == 0
+    assert _has_child(body_pr, "noAutofit") is True
+    assert _has_child(body_pr, "normAutofit") is False
+
+
 def test_normalize_abbyy_oxml_safe_removes_exact_trheight_only():
     doc = Document()
     tr_pr = _append_exact_tr_height(doc)
@@ -48,6 +102,7 @@ def test_normalize_abbyy_oxml_safe_removes_exact_trheight_only():
     assert stats["tr_height_exact_removed"] == 1
     assert stats["frame_pr_removed"] == 0
     assert stats["line_spacing_exact_relaxed"] == 0
+    assert stats["textbox_autofit_updated"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
     assert p_pr.find(qn("w:framePr")) is not None
     assert spacing.get(qn("w:lineRule")) == "exact"
@@ -64,9 +119,30 @@ def test_normalize_abbyy_oxml_aggressive_removes_framepr_too():
     assert stats["tr_height_exact_removed"] == 1
     assert stats["frame_pr_removed"] == 1
     assert stats["line_spacing_exact_relaxed"] == 1
+    assert stats["textbox_autofit_updated"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
     assert p_pr.find(qn("w:framePr")) is None
     assert spacing.get(qn("w:lineRule")) == "atLeast"
+
+
+def test_normalize_abbyy_oxml_full_applies_textbox_autofit():
+    doc = Document()
+    tr_pr = _append_exact_tr_height(doc)
+    p_pr = _append_frame_pr(doc)
+    spacing = _append_exact_line_spacing(doc)
+    body_pr, _ = _append_textbox(doc, text="Overflowing textbox")
+
+    stats = normalize_abbyy_oxml(doc, profile="full")
+
+    assert stats["tr_height_exact_removed"] == 1
+    assert stats["frame_pr_removed"] == 1
+    assert stats["line_spacing_exact_relaxed"] == 1
+    assert stats["textbox_autofit_updated"] == 1
+    assert tr_pr.find(qn("w:trHeight")) is None
+    assert p_pr.find(qn("w:framePr")) is None
+    assert spacing.get(qn("w:lineRule")) == "atLeast"
+    assert _has_child(body_pr, "noAutofit") is False
+    assert _has_child(body_pr, "normAutofit") is True
 
 
 def test_normalize_abbyy_oxml_rejects_invalid_profile():

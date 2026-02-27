@@ -113,3 +113,40 @@ def test_cli_translate_accepts_full_abbyy_profile(tmp_path, monkeypatch):
     assert rc == 0
     cfg = called["cfg"]
     assert getattr(cfg, "abbyy_profile") == "full"
+
+
+def test_cli_postformat_dispatches_to_postformat_docx(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "config.yaml"
+    _write_min_config(cfg_path)
+
+    called: dict[str, object] = {}
+
+    def _fake_postformat(**kwargs):  # noqa: ANN003
+        called.update(kwargs)
+
+    monkeypatch.setattr(cli, "postformat_docx", _fake_postformat)
+
+    rc = cli.main(
+        [
+            "postformat",
+            "--input",
+            str(tmp_path / "translated.docx"),
+            "--output",
+            str(tmp_path / "final.docx"),
+            "--config",
+            str(cfg_path),
+            "--abbyy-profile",
+            "full",
+            "--mode",
+            "reflow",
+            "--max-segments",
+            "5",
+        ]
+    )
+    assert rc == 0
+    assert called["input_path"] == tmp_path / "translated.docx"
+    assert called["output_path"] == tmp_path / "final.docx"
+    assert called["max_segments"] == 5
+    cfg = called["cfg"]
+    assert getattr(cfg, "abbyy_profile") == "full"
+    assert getattr(cfg, "mode") == "reflow"

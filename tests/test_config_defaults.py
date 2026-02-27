@@ -43,6 +43,7 @@ def test_load_config_defaults_pdf_section(tmp_path):
 
 def test_pipeline_config_font_shrink_defaults_are_disabled():
     cfg = PipelineConfig()
+    assert cfg.translate_enable_formatting_fixes is False
     assert cfg.font_shrink_body_pt == 0.0
     assert cfg.font_shrink_table_pt == 0.0
     assert cfg.com_textbox_min_font_pt == 8.0
@@ -79,6 +80,19 @@ def test_load_config_reads_com_textbox_settings(tmp_path):
     cfg = load_config(config_path)
     assert cfg.com_textbox_min_font_pt == 7.5
     assert cfg.com_textbox_max_shrink_steps == 4
+
+
+def test_load_config_reads_translate_formatting_gate(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "llm:\n"
+        "  provider: mock\n"
+        "translate_enable_formatting_fixes: true\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path)
+    assert cfg.translate_enable_formatting_fixes is True
 
 
 def test_pipeline_config_checker_and_pricing_defaults():

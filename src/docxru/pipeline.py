@@ -1166,6 +1166,42 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
             logger.info(f"Layout auto-fixes applied: {applied_fixes}")
 
 
+def _run_word_com_postprocess(output_path: Path, cfg: PipelineConfig, logger) -> None:
+    if cfg.mode.lower() != "com":
+        return
+    try:
+        from .com_word import update_fields_via_com
+
+        com_stats = update_fields_via_com(
+            output_path,
+            min_font_size_pt=float(cfg.com_textbox_min_font_pt),
+            max_shrink_steps=int(cfg.com_textbox_max_shrink_steps),
+        )
+        logger.info(
+            "Word COM post-process: fields_updated=%d; tocs_updated=%d; "
+            "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d",
+            int(com_stats.get("fields_updated", 0)),
+            int(com_stats.get("tocs_updated", 0)),
+            int(com_stats.get("textboxes_seen", 0)),
+            int(com_stats.get("textboxes_autofit", 0)),
+            int(com_stats.get("textboxes_shrunk", 0)),
+        )
+    except Exception as e:
+        logger.warning(f"Word COM post-process failed: {e}")
+
+
+def _mark_segments_as_postformatted(segments: list[Segment]) -> int:
+    marked = 0
+    for seg in segments:
+        text = str(seg.source_plain or "")
+        if not text.strip():
+            continue
+        seg.target_shielded_tagged = text
+        seg.target_tagged = text
+        marked += 1
+    return marked
+
+
 def _coerce_batch_glossary_context(value: Any, *, limit: int = 12) -> list[dict[str, str]]:
     if value is None:
         return []
@@ -1811,6 +1847,7 @@ def translate_docx(
         f"concurrency={cfg.concurrency}; "
         f"headers={cfg.include_headers}; "
         f"footers={cfg.include_footers}; "
+        f"translate_enable_formatting_fixes={cfg.translate_enable_formatting_fixes}; "
         f"structured_output_mode={cfg.llm.structured_output_mode}; "
         f"glossary_in_prompt={cfg.llm.glossary_in_prompt}; "
         f"glossary_prompt_mode={cfg.llm.glossary_prompt_mode}; "
@@ -2779,11 +2816,19 @@ def translate_docx(
 
     logger.info(f"Written segments: {written}/{len(segments)}; complex in-place: {complex_translated}")
 
-    if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
-        shrunk = apply_global_font_shrink(segments, cfg)
+    if cfg.translate_enable_formatting_fixes:
+        if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
+            shrunk = apply_global_font_shrink(segments, cfg)
+            logger.info(
+                "Global font shrink applied: %d segments (body=%.2fpt, table/textbox=%.2fpt)",
+                shrunk,
+                float(cfg.font_shrink_body_pt),
+                float(cfg.font_shrink_table_pt),
+            )
+    elif cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
         logger.info(
-            "Global font shrink applied: %d segments (body=%.2fpt, table/textbox=%.2fpt)",
-            shrunk,
+            "Translate formatting fixes are disabled; skipping global font shrink "
+            "(body=%.2fpt, table/textbox=%.2fpt).",
             float(cfg.font_shrink_body_pt),
             float(cfg.font_shrink_table_pt),
         )
@@ -2794,7 +2839,16 @@ def translate_docx(
         if consistency_issues:
             logger.info(f"Consistency check issues: {len(consistency_issues)} (attached={attached})")
 
-    _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
+    if cfg.translate_enable_formatting_fixes:
+        _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
+    else:
+        logger.info(
+            "Translate formatting fixes are disabled; skipping ABBYY/layout auto-fix pass "
+            "(abbyy_profile=%s, layout_check=%s, layout_auto_fix=%s).",
+            cfg.abbyy_profile,
+            bool(cfg.layout_check),
+            bool(cfg.layout_auto_fix),
+        )
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info(f"Final run-level cleanup changes: {cleaned_runs}")
@@ -2817,26 +2871,7 @@ def translate_docx(
     doc.save(str(output_path))
     logger.info("DOCX сохранён")
 
-    if cfg.mode.lower() == "com":
-        try:
-            from .com_word import update_fields_via_com
-
-            com_stats = update_fields_via_com(
-                output_path,
-                min_font_size_pt=float(cfg.com_textbox_min_font_pt),
-                max_shrink_steps=int(cfg.com_textbox_max_shrink_steps),
-            )
-            logger.info(
-                "Word COM post-process: fields_updated=%d; tocs_updated=%d; "
-                "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d",
-                int(com_stats.get("fields_updated", 0)),
-                int(com_stats.get("tocs_updated", 0)),
-                int(com_stats.get("textboxes_seen", 0)),
-                int(com_stats.get("textboxes_autofit", 0)),
-                int(com_stats.get("textboxes_shrunk", 0)),
-            )
-        except Exception as e:
-            logger.warning(f"Word COM post-process failed: {e}")
+    _run_word_com_postprocess(output_path, cfg, logger)
 
     checker_edits: list[dict[str, Any]] = []
     if effective_checker_cfg.enabled:
@@ -3370,6 +3405,63 @@ def _build_checker_only_docx_segments(
             "missing_target": int(missing_target),
         },
     )
+
+
+def postformat_docx(
+    input_path: Path,
+    output_path: Path,
+    cfg: PipelineConfig,
+    *,
+    max_segments: int | None = None,
+) -> None:
+    """Run layout/formatting post-processing on an already translated DOCX."""
+    logger = setup_logging(Path(cfg.log_path))
+    logger.info("Postformat input: %s", input_path)
+    logger.info("Postformat output: %s", output_path)
+    logger.info(
+        "Postformat config: mode=%s; abbyy_profile=%s; layout_check=%s; "
+        "layout_auto_fix=%s; font_shrink_body_pt=%.2f; font_shrink_table_pt=%.2f",
+        cfg.mode,
+        cfg.abbyy_profile,
+        bool(cfg.layout_check),
+        bool(cfg.layout_auto_fix),
+        float(cfg.font_shrink_body_pt),
+        float(cfg.font_shrink_table_pt),
+    )
+
+    if input_path.suffix.lower() != ".docx":
+        raise RuntimeError("postformat currently supports DOCX input only.")
+
+    doc = Document(str(input_path))
+    segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
+    if max_segments is not None:
+        if max_segments < 0:
+            raise ValueError(f"max_segments must be >= 0, got {max_segments}")
+        segments = segments[:max_segments]
+        logger.info("Postformat segment limit enabled: %d segments", len(segments))
+
+    marked = _mark_segments_as_postformatted(segments)
+    logger.info("Postformat segments prepared: %d/%d", marked, len(segments))
+
+    if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
+        shrunk = apply_global_font_shrink(segments, cfg)
+        logger.info(
+            "Postformat global font shrink applied: %d segments (body=%.2fpt, table/textbox=%.2fpt)",
+            shrunk,
+            float(cfg.font_shrink_body_pt),
+            float(cfg.font_shrink_table_pt),
+        )
+
+    _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
+
+    cleaned_runs = _apply_final_run_level_cleanup(segments)
+    logger.info("Postformat final run-level cleanup changes: %d", cleaned_runs)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(output_path))
+    logger.info("Postformat DOCX saved")
+
+    _run_word_com_postprocess(output_path, cfg, logger)
 
 
 def run_docx_checker_only(

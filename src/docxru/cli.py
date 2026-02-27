@@ -8,7 +8,7 @@ from .config import load_config
 from .dashboard_server import serve_dashboard
 from .eval import evaluate_batch, write_eval_report
 from .pdf_pipeline import translate_pdf
-from .pipeline import run_docx_checker_only, translate_docx
+from .pipeline import postformat_docx, run_docx_checker_only, translate_docx
 from .structure_check import compare_docx_structure, write_structure_report
 from .studio_server import serve_studio
 
@@ -92,6 +92,30 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
     t.add_argument("--history-jsonl", default=None, help="Override translation history jsonl path.")
     t.add_argument("--log", default=None, help="Override log path.")
+
+    pf = sub.add_parser("postformat", help="Run formatting/layout post-process on translated DOCX.")
+    pf.add_argument("--input", "-i", required=True, help="Path to translated .docx")
+    pf.add_argument("--output", "-o", required=True, help="Path to postformatted .docx")
+    pf.add_argument("--config", "-c", required=True, help="Path to YAML config")
+    pf.add_argument(
+        "--mode",
+        choices=["reflow", "com"],
+        default=None,
+        help="Override mode from config (reflow|com).",
+    )
+    pf.add_argument(
+        "--abbyy-profile",
+        choices=["off", "safe", "aggressive", "full"],
+        default=None,
+        help="Override ABBYY normalization profile.",
+    )
+    pf.add_argument(
+        "--max-segments",
+        type=int,
+        default=None,
+        help="Process only first N segments (quick iteration mode).",
+    )
+    pf.add_argument("--log", default=None, help="Override log path.")
 
     p_pdf = sub.add_parser("translate-pdf", help="Translate PDF to Russian preserving layout.")
     p_pdf.add_argument("--input", "-i", required=True, help="Path to source .pdf")
@@ -228,6 +252,23 @@ def main(argv: list[str] | None = None) -> int:
                 resume=bool(args.resume),
                 max_segments=(int(args.max_segments) if args.max_segments is not None else None),
             )
+        return 0
+
+    if args.cmd == "postformat":
+        cfg = load_config(args.config)
+        if args.mode is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "mode": args.mode})
+        if args.abbyy_profile is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "abbyy_profile": str(args.abbyy_profile)})
+        if args.log is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "log_path": str(args.log)})
+
+        postformat_docx(
+            input_path=Path(args.input),
+            output_path=Path(args.output),
+            cfg=cfg,
+            max_segments=(int(args.max_segments) if args.max_segments is not None else None),
+        )
         return 0
 
     if args.cmd == "translate-pdf":

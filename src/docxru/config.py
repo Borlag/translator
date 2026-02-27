@@ -149,6 +149,7 @@ class PipelineConfig:
     include_footers: bool = False
     concurrency: int = 4
     mode: str = "reflow"  # 'reflow' | 'com'
+    translate_enable_formatting_fixes: bool = False
     com_textbox_min_font_pt: float = 8.0
     com_textbox_max_shrink_steps: int = 2
     qa_report_path: str = "qa_report.html"
@@ -436,6 +437,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         cfg_path.parent,
         data.get("context_leakage_allowlist_path"),
     )
+    translate_enable_formatting_fixes = bool(data.get("translate_enable_formatting_fixes", False))
     layout_check = bool(data.get("layout_check", False))
     layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
     layout_auto_fix = bool(data.get("layout_auto_fix", False))
@@ -486,6 +488,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         include_footers=include_footers,
         concurrency=concurrency,
         mode=mode,
+        translate_enable_formatting_fixes=translate_enable_formatting_fixes,
         com_textbox_min_font_pt=com_textbox_min_font_pt,
         com_textbox_max_shrink_steps=com_textbox_max_shrink_steps,
         qa_report_path=qa_report_path,

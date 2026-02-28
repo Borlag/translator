@@ -6,7 +6,7 @@ from docx.enum.text import WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-from docxru.tagging import paragraph_to_tagged, tagged_to_runs
+from docxru.tagging import paragraph_to_tagged, tagged_to_runs, tagged_to_runs_inplace
 
 
 def _flags_from_run(run):
@@ -144,3 +144,34 @@ def test_tagging_roundtrip_preserves_hyperlink_structure():
     xml = p._p.xml
     assert "<w:hyperlink" in xml
     assert "manual" in p.text
+
+
+def test_tagged_to_runs_inplace_preserves_run_structure():
+    doc = Document()
+    p = doc.add_paragraph()
+    r1 = p.add_run("Main ")
+    r1.bold = True
+    r2 = p.add_run("Fitting")
+    r2.bold = True
+
+    tagged, spans, _ = paragraph_to_tagged(p)
+    assert spans and spans[0].original_run_lengths == (5, 7)
+
+    translated_inner = "ОсновнойФитингУзла"
+    translated_tagged = tagged.replace("Main Fitting", translated_inner)
+    inplace_ok = tagged_to_runs_inplace(p, translated_tagged, spans)
+    assert inplace_ok is True
+    assert len(p.runs) == 2
+    assert "".join(run.text for run in p.runs) == translated_inner
+    assert p.runs[0].bold is True and p.runs[1].bold is True
+
+
+def test_tagged_to_runs_inplace_returns_false_on_structure_changes():
+    doc = Document()
+    p = doc.add_paragraph()
+    p.add_run("Install")
+    tagged, spans, _ = paragraph_to_tagged(p)
+
+    # Prefix text outside style tags should force rebuild path.
+    bad_tagged = "PREFIX " + tagged
+    assert tagged_to_runs_inplace(p, bad_tagged, spans) is False

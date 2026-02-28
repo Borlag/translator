@@ -1,0 +1,137 @@
+# docxru profile: maximum-quality aviation EN->RU translation (DOCX/PDF)
+#
+# Safe defaults:
+# - does not modify existing profiles
+# - enables glossary + checker + layout/format safeguards
+# - works for both `translate` and `translate-pdf` commands
+
+llm:
+  provider: openai
+  model: gpt-5-mini
+  source_lang: en
+  target_lang: ru
+  base_url: null
+  system_prompt_path: ../general_prompt.md
+  glossary_path: ../glossary.md
+  glossary_in_prompt: true
+  # Keep morphology natural in long prose; glossary is still enforced via prompt + lemma retry.
+  hard_glossary: false
+  reasoning_effort: medium
+  prompt_cache_key: docxru-aviation-en-ru-maxq-v1
+  prompt_cache_retention: 24h
+  structured_output_mode: "strict"
+  temperature: 0.0
+  max_output_tokens: 2600
+  retries: 3
+  timeout_s: 120.0
+  prompt_examples_mode: "core"
+  glossary_prompt_mode: "matched"
+  glossary_match_limit: 48
+  batch_segments: 6
+  batch_max_chars: 16000
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
+  batch_tm_hints_per_item: 2
+  batch_recent_translations_per_item: 4
+  # Grouped mode for better local coherence (sequential mode disabled).
+  context_window_chars: 0
+  auto_model_sizing: true
+
+tm:
+  path: ../translation_cache.sqlite
+  fuzzy_enabled: true
+  fuzzy_top_k: 4
+  fuzzy_min_similarity: 0.78
+  fuzzy_prompt_max_chars: 700
+  fuzzy_rank_mode: "hybrid"
+
+pdf:
+  bilingual_mode: false
+  ocr_fallback: false
+  max_pages: null
+  max_font_shrink_ratio: 0.6
+  block_merge_threshold_pt: 12.0
+  skip_headers_footers: false
+  table_detection: true
+  font_map: {}
+  default_sans_font: NotoSans-Regular.ttf
+  default_serif_font: NotoSerif-Regular.ttf
+  default_mono_font: NotoSansMono-Regular.ttf
+
+checker:
+  enabled: true
+  provider: openai
+  model: gpt-5-mini
+  temperature: 0.0
+  max_output_tokens: 8000
+  timeout_s: 120.0
+  retries: 1
+  system_prompt_path: null
+  glossary_path: ../glossary.md
+  pages_per_chunk: 2
+  fallback_segments_per_chunk: 60
+  max_segments: 0
+  only_on_issue_severities: ["warn", "error"]
+  only_on_issue_codes: []
+  output_path: checker_suggestions.json
+  safe_output_path: checker_suggestions_safe.json
+  auto_apply_safe: true
+  auto_apply_min_confidence: 0.82
+  openai_batch_enabled: false
+  openai_batch_completion_window: "24h"
+  openai_batch_poll_interval_s: 20.0
+  openai_batch_timeout_s: 86400.0
+
+pricing:
+  enabled: false
+  pricing_path: null
+  currency: USD
+
+run:
+  run_dir: ../output/max_quality
+  run_id: null
+  status_path: null
+  dashboard_html_path: null
+  status_flush_every_n_segments: 10
+  batch_fallback_warn_ratio: 0.08
+  batch_timeout_bisect: true
+  fail_fast_on_translate_error: true
+
+include_headers: false
+include_footers: false
+
+concurrency: 3
+mode: com
+translate_enable_formatting_fixes: true
+com_textbox_min_font_pt: 8.0
+com_textbox_max_shrink_steps: 4
+com_expand_overflowing_shapes: false
+com_textbox_max_height_growth: 1.5
+abbyy_profile: "safe"
+glossary_lemma_check: "retry"
+short_translation_min_ratio: 0.35
+short_translation_min_source_chars: 24
+untranslated_latin_warn_ratio: 0.15
+untranslated_latin_min_len: 3
+untranslated_latin_allowlist_path: null
+repeated_words_check: true
+repeated_phrase_ngram_max: 3
+context_leakage_check: true
+context_leakage_allowlist_path: null
+layout_check: true
+layout_expansion_warn_ratio: 1.4
+layout_auto_fix: true
+layout_auto_fix_passes: 2
+layout_font_reduction_pt: 0.5
+layout_spacing_factor: 0.82
+font_shrink_body_pt: 0.8
+font_shrink_table_pt: 1.6
+
+qa_report_path: qa_report.html
+qa_jsonl_path: qa.jsonl
+translation_history_path: ../output/max_quality/translation_history.jsonl
+log_path: run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

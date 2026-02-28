@@ -219,7 +219,7 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
             "Please pre-clean the document or change tagging delimiters."
         )
 
-    merged: list[tuple[tuple[str, ...], RunStyleSnapshot, str | None, str]] = []
+    merged: list[tuple[tuple[str, ...], RunStyleSnapshot, str | None, str, list[int]]] = []
     inline_run_map: dict[str, str] = {}
     obj_counter = 0
     br_counters: dict[str, int] = {}
@@ -251,9 +251,15 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
         # equality for merge, translation degrades into near word-by-word mode and quality
         # drops sharply. Keep the first run's rPr XML for restoration and merge by style.
         if merged and merged[-1][0] == flags_tuple and merged[-1][1] == snap:
-            merged[-1] = (merged[-1][0], merged[-1][1], merged[-1][2], merged[-1][3] + text)
+            merged[-1] = (
+                merged[-1][0],
+                merged[-1][1],
+                merged[-1][2],
+                merged[-1][3] + text,
+                [*merged[-1][4], len(text)],
+            )
         else:
-            merged.append((flags_tuple, snap, rpr_xml, text))
+            merged.append((flags_tuple, snap, rpr_xml, text, [len(text)]))
 
     if not merged:
         return ("", [], inline_run_map)
@@ -261,8 +267,17 @@ def paragraph_to_tagged(paragraph: Paragraph) -> tuple[str, list[Span], dict[str
     spans: list[Span] = []
     parts: list[str] = []
 
-    for i, (flags, snap, rpr_xml, text) in enumerate(merged, start=1):
-        spans.append(Span(span_id=i, flags=flags, source_text=text, style=snap, rpr_xml=rpr_xml))
+    for i, (flags, snap, rpr_xml, text, run_lengths) in enumerate(merged, start=1):
+        spans.append(
+            Span(
+                span_id=i,
+                flags=flags,
+                source_text=text,
+                original_run_lengths=tuple(run_lengths),
+                style=snap,
+                rpr_xml=rpr_xml,
+            )
+        )
         if flags:
             flag_part = "|" + "|".join(flags)
         else:
@@ -370,6 +385,113 @@ def _apply_style(run: Run, span: Span) -> None:
         run.font.small_caps = s.small_caps
 
 
+def _parse_tagged_pieces(tagged_text: str) -> list[tuple[str, int | None]]:
+    pieces: list[tuple[str, int | None]] = []
+    pos = 0
+    while True:
+        m = _STYLE_START_RE.search(tagged_text, pos)
+        if not m:
+            if pos < len(tagged_text):
+                pieces.append((tagged_text[pos:], None))
+            break
+
+        if m.start() > pos:
+            pieces.append((tagged_text[pos : m.start()], None))
+
+        span_id = int(m.group(1))
+        open_marker = m.group(0)[0]
+        close_marker = m.group(0)[-1]
+        end_token = f"{open_marker}/S_{span_id}{close_marker}"
+        m_end = re.search(re.escape(end_token), tagged_text[m.end() :])
+        if not m_end:
+            pieces.append((tagged_text[m.start() : m.end()], None))
+            pos = m.end()
+            continue
+
+        inner_start = m.end()
+        inner_end = inner_start + m_end.start()
+        pieces.append((tagged_text[inner_start:inner_end], span_id))
+        pos = inner_start + m_end.end()
+    return pieces
+
+
+def _run_is_plain_text_only(run: Run) -> bool:
+    for child in run._r.iterchildren():
+        local = child.tag.split("}")[-1]
+        if local in {"rPr", "t"}:
+            continue
+        return False
+    return True
+
+
+def _collect_span_run_groups(paragraph: Paragraph, spans: list[Span]) -> dict[int, list[Run]] | None:
+    merged: list[tuple[tuple[str, ...], RunStyleSnapshot, str, list[Run]]] = []
+    inline_run_map: dict[str, str] = {}
+    br_counters: dict[str, int] = {}
+
+    for run, href_flag in _iter_runs_with_hyperlink_context(paragraph, inline_run_map):
+        if _run_needs_xml_preserve(run):
+            return None
+
+        flags = list(_flags_from_run(run))
+        if href_flag:
+            flags.append(href_flag)
+        flags_tuple = tuple(flags)
+        snap = _snapshot_from_run(run)
+        text = _extract_run_text_with_special_tokens(run, br_counters)
+
+        if text == "":
+            continue
+
+        if merged and merged[-1][0] == flags_tuple and merged[-1][1] == snap:
+            merged[-1] = (merged[-1][0], merged[-1][1], merged[-1][2] + text, [*merged[-1][3], run])
+        else:
+            merged.append((flags_tuple, snap, text, [run]))
+
+    if len(merged) != len(spans):
+        return None
+
+    out: dict[int, list[Run]] = {}
+    for idx, (flags, snap, source_text, runs) in enumerate(merged):
+        span = spans[idx]
+        if span.flags != flags or span.style != snap or span.source_text != source_text:
+            return None
+        if _BRACKET_TOKEN_RE.search(source_text):
+            return None
+        for run in runs:
+            if not _run_is_plain_text_only(run):
+                return None
+        out[span.span_id] = runs
+    return out
+
+
+def _distribute_text_by_lengths(text: str, lengths: tuple[int, ...]) -> list[str]:
+    if not lengths:
+        return [text]
+    if len(lengths) == 1:
+        return [text]
+    total = sum(max(0, int(value)) for value in lengths)
+    if total <= 0:
+        return [text] + [""] * (len(lengths) - 1)
+
+    parts: list[str] = []
+    cursor = 0
+    cumulative = 0
+    text_len = len(text)
+    for i, length in enumerate(lengths):
+        if i == len(lengths) - 1:
+            parts.append(text[cursor:])
+            break
+        cumulative += max(0, int(length))
+        target_end = int(round(text_len * (cumulative / total)))
+        target_end = max(cursor, min(text_len, target_end))
+        parts.append(text[cursor:target_end])
+        cursor = target_end
+    if len(parts) < len(lengths):
+        parts.extend([""] * (len(lengths) - len(parts)))
+    return parts
+
+
 def tagged_to_runs(
     paragraph: Paragraph,
     tagged_text: str,
@@ -390,31 +512,7 @@ def tagged_to_runs(
 
     spans_by_id = {s.span_id: s for s in spans}
 
-    pieces: list[tuple[str, int | None]] = []
-    pos = 0
-    while True:
-        m = _STYLE_START_RE.search(tagged_text, pos)
-        if not m:
-            if pos < len(tagged_text):
-                pieces.append((tagged_text[pos:], None))
-            break
-
-        if m.start() > pos:
-            pieces.append((tagged_text[pos : m.start()], None))
-
-        span_id = int(m.group(1))
-        # Find the corresponding end tag
-        end_pat = re.compile(rf"⟦/S_{span_id}⟧")
-        m_end = end_pat.search(tagged_text, m.end())
-        if not m_end:
-            # Treat start tag as literal text
-            pieces.append((tagged_text[m.start() : m.end()], None))
-            pos = m.end()
-            continue
-
-        inner = tagged_text[m.end() : m_end.start()]
-        pieces.append((inner, span_id))
-        pos = m_end.end()
+    pieces = _parse_tagged_pieces(tagged_text)
 
     _clear_paragraph_runs(paragraph)
     hyperlink_nodes: dict[int, Any] = {}
@@ -490,3 +588,59 @@ def tagged_to_runs(
 
         if pos < len(chunk):
             _emit_text(chunk[pos:], span_id)
+
+
+def tagged_to_runs_inplace(
+    paragraph: Paragraph,
+    tagged_text: str,
+    spans: list[Span],
+    inline_run_map: dict[str, str] | None = None,
+    spans_schema_version: int = 1,
+) -> bool:
+    """Try to write translated text into existing runs without rebuilding paragraph XML.
+
+    Returns True when in-place update is applied. Returns False when structure is incompatible
+    and caller should fall back to full ``tagged_to_runs`` rebuild.
+    """
+    if spans_schema_version != 1:
+        raise ValueError(f"Unsupported spans_schema_version={spans_schema_version}")
+
+    # Keep signature parity with tagged_to_runs.
+    _ = inline_run_map
+
+    pieces = _parse_tagged_pieces(tagged_text)
+    expected_span_ids = [span.span_id for span in spans]
+    piece_span_ids = [span_id for _, span_id in pieces if span_id is not None]
+
+    # Any free text outside style tags means structure drift; use rebuild path.
+    if any(span_id is None and chunk for chunk, span_id in pieces):
+        return False
+    if piece_span_ids != expected_span_ids:
+        return False
+
+    run_groups = _collect_span_run_groups(paragraph, spans)
+    if run_groups is None:
+        return False
+
+    translated_by_span = {span_id: chunk for chunk, span_id in pieces if span_id is not None}
+
+    for span in spans:
+        translated = translated_by_span.get(span.span_id)
+        runs = run_groups.get(span.span_id)
+        if translated is None or runs is None:
+            return False
+        if _BRACKET_TOKEN_RE.search(translated):
+            return False
+
+        lengths = span.original_run_lengths or tuple(len(run.text or "") for run in runs)
+        if len(lengths) != len(runs):
+            return False
+
+        parts = _distribute_text_by_lengths(translated, lengths)
+        if len(parts) != len(runs):
+            return False
+
+        for run, part in zip(runs, parts):
+            run.text = part
+
+    return True

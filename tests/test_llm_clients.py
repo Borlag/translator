@@ -360,6 +360,14 @@ def test_build_user_prompt_does_not_emit_part_body_marker():
     assert "TOC_ENTRY" in header_prompt
 
 
+def test_build_user_prompt_includes_space_limit_hint_when_present():
+    prompt = build_user_prompt(
+        "Install Main Fitting.",
+        {"task": "translate", "part": "body", "max_target_chars": 42},
+    )
+    assert "SPACE_LIMIT: ~42 chars max" in prompt
+
+
 def test_apply_glossary_replacements_removes_part_context_leak():
     out = apply_glossary_replacements("Описание (См. [PART: body]) к .", ())
     assert "[PART:" not in out

@@ -34,6 +34,7 @@ def test_collect_segments_includes_body_textbox_paragraphs():
     assert "Text from body textbox" in texts
     textbox_seg = next(seg for seg in segments if seg.source_plain == "Text from body textbox")
     assert textbox_seg.context.get("in_textbox") is True
+    assert str(textbox_seg.context.get("textbox_id", "")).startswith("body/textbox")
     assert textbox_seg.location.startswith("body/textbox")
 
 

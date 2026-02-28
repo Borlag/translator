@@ -24,11 +24,11 @@ from .checker import (
     write_checker_safe_suggestions,
     write_checker_suggestions,
 )
-from .config import PipelineConfig
+from .config import PipelineConfig, apply_formatting_preset
 from .consistency import report_consistency
 from .dashboard_server import ensure_dashboard_html
 from .docx_reader import collect_segments
-from .layout_check import validate_layout
+from .layout_check import estimate_segment_capacity, validate_layout
 from .layout_fix import apply_global_font_shrink, fix_expansion_issues
 from .llm import (
     apply_glossary_replacements,
@@ -48,10 +48,11 @@ from .model_sizing import (
 from .models import Issue, Segment, Severity
 from .oxml_table_fix import normalize_abbyy_oxml
 from .pricing import PricingTable, load_pricing_table
+from .format_report import write_format_report
 from .qa_report import write_qa_jsonl, write_qa_report
 from .run_context import resolve_run_paths
 from .run_status import RunStatusWriter
-from .tagging import is_supported_paragraph, paragraph_to_tagged, tagged_to_runs
+from .tagging import is_supported_paragraph, paragraph_to_tagged, tagged_to_runs, tagged_to_runs_inplace
 from .tm import FuzzyTMHit, TMStore, normalize_text, sha256_hex
 from .token_shield import BRACKET_TOKEN_RE, shield, shield_terms, strip_bracket_tokens, unshield
 from .usage import UsageTotals
@@ -552,6 +553,76 @@ def _attach_neighbor_snippets(segments: list[Segment], cfg: PipelineConfig) -> N
             seg.context["prev_text"] = prev_text
         if next_text:
             seg.context["next_text"] = next_text
+
+
+def _detect_document_origin(doc: Document) -> str:
+    creator = str(getattr(doc.core_properties, "author", "") or "").lower()
+    last_modified_by = str(getattr(doc.core_properties, "last_modified_by", "") or "").lower()
+    xml_text = ""
+    try:
+        xml_text = str(doc.part.element.xml or "")
+    except Exception:
+        xml_text = ""
+
+    frame_count = len(re.findall(r"<w:framePr\b", xml_text, flags=re.IGNORECASE))
+    paragraph_count = len(re.findall(r"<w:p\b", xml_text, flags=re.IGNORECASE))
+    noautofit_count = len(re.findall(r"<a:noAutofit\b", xml_text, flags=re.IGNORECASE))
+    frame_ratio = (frame_count / paragraph_count) if paragraph_count > 0 else 0.0
+
+    if "abbyy" in creator or "abbyy" in last_modified_by:
+        return "abbyy"
+    if noautofit_count > 0:
+        return "abbyy"
+    if frame_ratio >= 0.3:
+        return "abbyy"
+    return "native_docx"
+
+
+def _resolve_runtime_formatting_preset(cfg: PipelineConfig, doc: Document, logger: logging.Logger) -> PipelineConfig:
+    preset = str(getattr(cfg, "formatting_preset", "off") or "off").strip().lower()
+    if preset != "auto":
+        return cfg
+
+    origin = _detect_document_origin(doc)
+    resolved = "abbyy_standard" if origin == "abbyy" else "native_docx"
+    resolved_cfg = apply_formatting_preset(cfg, resolved, replace_only_defaults=True)
+    logger.info(
+        "Formatting preset auto-detect: origin=%s; resolved_preset=%s; "
+        "mode=%s; abbyy_profile=%s; layout_check=%s; layout_auto_fix=%s",
+        origin,
+        resolved,
+        resolved_cfg.mode,
+        resolved_cfg.abbyy_profile,
+        bool(resolved_cfg.layout_check),
+        bool(resolved_cfg.layout_auto_fix),
+    )
+    return resolved_cfg
+
+
+def _attach_container_constraints(segments: list[Segment], cfg: PipelineConfig) -> int:
+    constrained = 0
+    expected_ratio = min(1.35, max(1.1, float(cfg.layout_expansion_warn_ratio)))
+
+    for seg in segments:
+        if not (seg.context.get("in_table") or seg.context.get("in_textbox") or seg.context.get("in_frame")):
+            continue
+
+        capacity = estimate_segment_capacity(seg)
+        if capacity is None or capacity <= 0:
+            continue
+
+        source = re.sub(r"\s+", " ", strip_bracket_tokens(seg.source_plain or "")).strip()
+        if not source:
+            continue
+        source_len = len(source)
+        expected_target_len = max(source_len, int(source_len * expected_ratio))
+        if expected_target_len < int(capacity * 0.9):
+            continue
+
+        seg.context["max_target_chars"] = max(8, int(capacity))
+        constrained += 1
+
+    return constrained
 
 
 def _build_document_glossary_context(
@@ -1156,6 +1227,21 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
                 int(oxml_stats.get("textbox_autofit_updated", 0)),
                 int(oxml_stats.get("table_cell_margins_normalized", 0)),
             )
+            if segments:
+                changed_total = sum(int(value) for value in oxml_stats.values() if isinstance(value, (int, float)))
+                if changed_total > 0:
+                    segments[0].issues.append(
+                        Issue(
+                            code="abbyy_normalization_applied",
+                            severity=Severity.INFO,
+                            message="ABBYY OXML normalization updated document constraints.",
+                            details={
+                                "segment_id": segments[0].segment_id,
+                                "profile": cfg.abbyy_profile,
+                                **{k: int(v) for k, v in oxml_stats.items() if isinstance(v, (int, float))},
+                            },
+                        )
+                    )
         except Exception as e:
             logger.warning(f"ABBYY OXML normalization failed: {e}")
 
@@ -1169,10 +1255,10 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
             total_applied = 0
             current_issues = layout_issues
             passes_ran = 0
-            for _ in range(max_passes):
+            for pass_number in range(1, max_passes + 1):
                 if not current_issues:
                     break
-                applied_fixes = fix_expansion_issues(segments, current_issues, cfg)
+                applied_fixes = fix_expansion_issues(segments, current_issues, cfg, pass_number=pass_number)
                 passes_ran += 1
                 total_applied += int(applied_fixes)
                 if applied_fixes <= 0:
@@ -1869,6 +1955,7 @@ def translate_docx(
     logger.info(
         "Mode: "
         f"{cfg.mode}; "
+        f"formatting_preset={cfg.formatting_preset}; "
         f"concurrency={cfg.concurrency}; "
         f"headers={cfg.include_headers}; "
         f"footers={cfg.include_footers}; "
@@ -1897,12 +1984,26 @@ def translate_docx(
     logger.info(f"TM ruleset version: {_TM_RULESET_VERSION}")
 
     doc = Document(str(input_path))
+    cfg = _resolve_runtime_formatting_preset(cfg, doc, logger)
+    logger.info(
+        "Effective formatting config: preset=%s; mode=%s; abbyy_profile=%s; "
+        "layout_check=%s; layout_auto_fix=%s; passes=%d",
+        cfg.formatting_preset,
+        cfg.mode,
+        cfg.abbyy_profile,
+        bool(cfg.layout_check),
+        bool(cfg.layout_auto_fix),
+        int(cfg.layout_auto_fix_passes),
+    )
     segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
     if max_segments is not None:
         if max_segments < 0:
             raise ValueError(f"max_segments must be >= 0, got {max_segments}")
         segments = segments[:max_segments]
         logger.info(f"Segment limit enabled: {len(segments)} segments")
+    constrained = _attach_container_constraints(segments, cfg)
+    if constrained > 0:
+        logger.info("Container SPACE_LIMIT hints attached: %d segments", constrained)
     logger.info(f"Segments найдено: {len(segments)}")
 
     usage_totals = UsageTotals()
@@ -1931,12 +2032,14 @@ def translate_docx(
         except Exception:
             return str(path)
 
+    format_report_path = run_paths.qa_report_path.with_name("format_report.html")
     status_writer.merge_paths(
         {
             "run_dir": str(run_paths.run_dir),
             "output": str(output_path),
             "qa_report": _to_dashboard_link(run_paths.qa_report_path),
             "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
+            "format_report": _to_dashboard_link(format_report_path),
             "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
             "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
             "checker_suggestions_safe": _to_dashboard_link(run_paths.checker_suggestions_safe_path),
@@ -2821,12 +2924,51 @@ def translate_docx(
         target_tagged_unshielded = unshield(seg.target_shielded_tagged, seg.token_map or {})
         seg.target_tagged = target_tagged_unshielded
 
+        inplace_ok = False
+        try:
+            inplace_ok = tagged_to_runs_inplace(
+                seg.paragraph_ref,
+                target_tagged_unshielded,
+                seg.spans,
+                inline_run_map=seg.inline_run_map,
+            )
+        except Exception as e:
+            seg.issues.append(
+                Issue(
+                    code="writeback_inplace_error",
+                    severity=Severity.WARN,
+                    message=f"In-place write-back failed; fallback to rebuild will be used: {e}",
+                    details={"segment_id": seg.segment_id, "location": seg.location},
+                )
+            )
+            inplace_ok = False
+
+        if inplace_ok:
+            seg.issues.append(
+                Issue(
+                    code="writeback_inplace_applied",
+                    severity=Severity.INFO,
+                    message="In-place write-back preserved original run structure.",
+                    details={"segment_id": seg.segment_id, "location": seg.location},
+                )
+            )
+            written += 1
+            continue
+
         try:
             tagged_to_runs(
                 seg.paragraph_ref,
                 target_tagged_unshielded,
                 seg.spans,
                 inline_run_map=seg.inline_run_map,
+            )
+            seg.issues.append(
+                Issue(
+                    code="writeback_inplace_fallback",
+                    severity=Severity.INFO,
+                    message="In-place write-back was not feasible; paragraph runs were rebuilt.",
+                    details={"segment_id": seg.segment_id, "location": seg.location},
+                )
             )
             written += 1
         except Exception as e:
@@ -2840,6 +2982,17 @@ def translate_docx(
             )
 
     logger.info(f"Written segments: {written}/{len(segments)}; complex in-place: {complex_translated}")
+
+    if cfg.translate_enable_formatting_fixes:
+        _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
+    else:
+        logger.info(
+            "Translate formatting fixes are disabled; skipping ABBYY/layout auto-fix pass "
+            "(abbyy_profile=%s, layout_check=%s, layout_auto_fix=%s).",
+            cfg.abbyy_profile,
+            bool(cfg.layout_check),
+            bool(cfg.layout_auto_fix),
+        )
 
     if cfg.translate_enable_formatting_fixes:
         if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
@@ -2863,17 +3016,6 @@ def translate_docx(
         attached = _attach_issues_to_segments(segments, consistency_issues)
         if consistency_issues:
             logger.info(f"Consistency check issues: {len(consistency_issues)} (attached={attached})")
-
-    if cfg.translate_enable_formatting_fixes:
-        _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
-    else:
-        logger.info(
-            "Translate formatting fixes are disabled; skipping ABBYY/layout auto-fix pass "
-            "(abbyy_profile=%s, layout_check=%s, layout_auto_fix=%s).",
-            cfg.abbyy_profile,
-            bool(cfg.layout_check),
-            bool(cfg.layout_auto_fix),
-        )
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info(f"Final run-level cleanup changes: {cleaned_runs}")
@@ -3273,10 +3415,13 @@ def translate_docx(
     status_writer.write(force=True)
     qa_html = run_paths.qa_report_path
     qa_jsonl = run_paths.qa_jsonl_path
+    format_html = qa_html.with_name("format_report.html")
     write_qa_report(segments, qa_html)
     write_qa_jsonl(segments, qa_jsonl)
+    write_format_report(segments, format_html)
     logger.info(f"QA report: {qa_html}")
     logger.info(f"QA jsonl: {qa_jsonl}")
+    logger.info(f"Formatting report: {format_html}")
 
     if cfg.translation_history_path:
         history_path = Path(cfg.translation_history_path)
@@ -3444,9 +3589,10 @@ def postformat_docx(
     logger.info("Postformat input: %s", input_path)
     logger.info("Postformat output: %s", output_path)
     logger.info(
-        "Postformat config: mode=%s; abbyy_profile=%s; layout_check=%s; "
+        "Postformat config: mode=%s; formatting_preset=%s; abbyy_profile=%s; layout_check=%s; "
         "layout_auto_fix=%s; font_shrink_body_pt=%.2f; font_shrink_table_pt=%.2f",
         cfg.mode,
+        cfg.formatting_preset,
         cfg.abbyy_profile,
         bool(cfg.layout_check),
         bool(cfg.layout_auto_fix),
@@ -3458,6 +3604,17 @@ def postformat_docx(
         raise RuntimeError("postformat currently supports DOCX input only.")
 
     doc = Document(str(input_path))
+    cfg = _resolve_runtime_formatting_preset(cfg, doc, logger)
+    logger.info(
+        "Effective formatting config: preset=%s; mode=%s; abbyy_profile=%s; "
+        "layout_check=%s; layout_auto_fix=%s; passes=%d",
+        cfg.formatting_preset,
+        cfg.mode,
+        cfg.abbyy_profile,
+        bool(cfg.layout_check),
+        bool(cfg.layout_auto_fix),
+        int(cfg.layout_auto_fix_passes),
+    )
     segments = collect_segments(doc, include_headers=cfg.include_headers, include_footers=cfg.include_footers)
     if max_segments is not None:
         if max_segments < 0:
@@ -3468,6 +3625,8 @@ def postformat_docx(
     marked = _mark_segments_as_postformatted(segments)
     logger.info("Postformat segments prepared: %d/%d", marked, len(segments))
 
+    _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
+
     if cfg.font_shrink_body_pt > 0 or cfg.font_shrink_table_pt > 0:
         shrunk = apply_global_font_shrink(segments, cfg)
         logger.info(
@@ -3476,8 +3635,6 @@ def postformat_docx(
             float(cfg.font_shrink_body_pt),
             float(cfg.font_shrink_table_pt),
         )
-
-    _apply_abbyy_and_layout_passes(doc, segments, cfg, logger)
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info("Postformat final run-level cleanup changes: %d", cleaned_runs)
@@ -3558,12 +3715,14 @@ def run_docx_checker_only(
         except Exception:
             return str(path)
 
+    format_report_path = run_paths.qa_report_path.with_name("format_report.html")
     status_writer.merge_paths(
         {
             "run_dir": str(run_paths.run_dir),
             "output": str(output_path),
             "qa_report": _to_dashboard_link(run_paths.qa_report_path),
             "qa_jsonl": _to_dashboard_link(run_paths.qa_jsonl_path),
+            "format_report": _to_dashboard_link(format_report_path),
             "dashboard_html": _to_dashboard_link(run_paths.dashboard_html_path),
             "checker_suggestions": _to_dashboard_link(run_paths.checker_suggestions_path),
             "checker_suggestions_safe": _to_dashboard_link(run_paths.checker_suggestions_safe_path),
@@ -4058,10 +4217,13 @@ def run_docx_checker_only(
     status_writer.write(force=True)
     qa_html = run_paths.qa_report_path
     qa_jsonl = run_paths.qa_jsonl_path
+    format_html = qa_html.with_name("format_report.html")
     write_qa_report(segments, qa_html)
     write_qa_jsonl(segments, qa_jsonl)
+    write_format_report(segments, format_html)
     logger.info("QA report: %s", qa_html)
     logger.info("QA jsonl: %s", qa_jsonl)
+    logger.info("Formatting report: %s", format_html)
 
     processed_segments = len(segments)
     status_writer.set_phase("done")

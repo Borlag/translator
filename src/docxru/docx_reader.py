@@ -18,6 +18,7 @@ _TOC_TITLE_RE = re.compile(r"\btable\s+of\s+contents\b", flags=re.IGNORECASE)
 _TOC_CONTINUED_RE = re.compile(r"\bcontents?\s*\(continued\)", flags=re.IGNORECASE)
 _TOC_PAGE_REF_RE = re.compile(r"\t+\s*[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
 _TOC_DOTS_PAGE_RE = re.compile(r"(?:\.\s*){6,}[0-9]{1,4}(?:\.[0-9]{1,3})?\s*$")
+_EMU_PER_TWIP = 635
 _logger = logging.getLogger(__name__)
 
 
@@ -100,6 +101,23 @@ def _iter_textbox_paragraphs(parent: Any) -> Iterator[tuple[int, int, Paragraph]
             p_i += 1
 
 
+def _extract_shape_extent_twips(node: Any) -> tuple[int | None, int | None]:
+    for probe in [node, *list(getattr(node, "iterancestors", lambda: [])())]:
+        for candidate in probe.iter():
+            tag = str(getattr(candidate, "tag", "")).lower()
+            if not tag.endswith("}extent"):
+                continue
+            try:
+                cx = int(str(candidate.get("cx")))
+                cy = int(str(candidate.get("cy")))
+            except (TypeError, ValueError):
+                continue
+            if cx <= 0 or cy <= 0:
+                continue
+            return int(cx / _EMU_PER_TWIP), int(cy / _EMU_PER_TWIP)
+    return None, None
+
+
 def collect_segments(
     doc: DocxDocument,
     include_headers: bool = False,
@@ -164,6 +182,11 @@ def collect_segments(
     def walk_textboxes(container: Any, base_loc: str, context: dict[str, Any]) -> None:
         paragraph_map = {(txbx_i, p_i): p for txbx_i, p_i, p in _iter_textbox_paragraphs(container)}
         for txbx_i, txbx_content in enumerate(iter_textbox_contents(container)):
+            textbox_id = f"{base_loc}/textbox{txbx_i}"
+            width_twips, height_twips = _extract_shape_extent_twips(txbx_content)
+            textbox_context = {**context, "in_textbox": True, "textbox_id": textbox_id}
+            if width_twips and height_twips:
+                textbox_context["textbox_extent_twips"] = {"width": width_twips, "height": height_twips}
             p_i = 0
             t_i = 0
             for child in txbx_content.iterchildren():
@@ -174,7 +197,7 @@ def collect_segments(
                         handle_paragraph(
                             paragraph,
                             f"{base_loc}/textbox{txbx_i}/p{p_i}",
-                            {**context, "in_textbox": True},
+                            textbox_context,
                         )
                     p_i += 1
                 elif tag.endswith("}tbl"):
@@ -192,7 +215,7 @@ def collect_segments(
                     walk_table(
                         textbox_table,
                         f"{base_loc}/textbox{txbx_i}/t{t_i}",
-                        {**context, "in_textbox": True, "table_index": t_i},
+                        {**textbox_context, "table_index": t_i},
                     )
                     t_i += 1
 

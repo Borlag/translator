@@ -279,78 +279,160 @@ def _estimate_overflow_ratio(issue: Issue | None) -> float:
     return max(1.0, target_len / approx_capacity)
 
 
-def _fix_table_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
+def _paragraph_average_font_pt(paragraph) -> float | None:
+    sizes: list[float] = []
+    for run in paragraph.runs:
+        if not (run.text or "").strip():
+            continue
+        current_size = _resolve_run_size_pt(run, paragraph)
+        if current_size is None:
+            continue
+        sizes.append(float(current_size))
+    if not sizes:
+        return None
+    return sum(sizes) / len(sizes)
+
+
+def _calculate_adaptive_reduction(
+    overflow_ratio: float,
+    current_font_pt: float,
+    *,
+    max_reduction: float = 3.0,
+) -> float:
+    if overflow_ratio <= 1.0:
+        return 0.0
+    needed = float(current_font_pt) * (1.0 - 1.0 / float(overflow_ratio))
+    return min(float(max_reduction), max(0.2, needed))
+
+
+def _fix_table_overflow(
+    seg: Segment,
+    cfg: PipelineConfig,
+    *,
+    issue: Issue | None = None,
+    pass_number: int = 1,
+) -> bool:
     if seg.paragraph_ref is None:
         return False
 
     changed = False
     cell = _paragraph_cell(seg.paragraph_ref)
     spacing_factor = float(cfg.layout_spacing_factor)
+    if pass_number >= 2:
+        spacing_factor *= 0.85
     if cell is not None:
         changed = _relax_table_row_exact_height(seg.paragraph_ref) or changed
         if len(cell.paragraphs) > 1:
             spacing_factor *= 0.85
         changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
         for paragraph in cell.paragraphs:
-            changed = reduce_character_spacing(paragraph, twips=-15) or changed
+            char_spacing_twips = -15 if pass_number <= 1 else -20
+            changed = reduce_character_spacing(paragraph, twips=char_spacing_twips) or changed
             changed = set_single_line_spacing(paragraph) or changed
     else:
         changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
-        changed = reduce_character_spacing(seg.paragraph_ref, twips=-15) or changed
+        char_spacing_twips = -15 if pass_number <= 1 else -20
+        changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
         changed = set_single_line_spacing(seg.paragraph_ref) or changed
 
-    table_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
     overflow_ratio = _estimate_overflow_ratio(issue)
-    if overflow_ratio > 1.0:
-        ratio_based_reduction = min(2.0, max(0.6, (overflow_ratio - 1.0) * 1.1))
-        table_font_reduction = max(table_font_reduction, ratio_based_reduction)
+    avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
+    ratio_based_reduction = _calculate_adaptive_reduction(
+        overflow_ratio,
+        avg_font_pt,
+        max_reduction=3.0 if pass_number <= 2 else 3.6,
+    )
+    table_font_reduction = max(float(cfg.layout_font_reduction_pt), ratio_based_reduction)
+    if pass_number >= 3:
+        table_font_reduction = max(table_font_reduction, 0.8)
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=table_font_reduction) or changed
     return changed
 
 
-def _fix_textbox_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
+def _fix_textbox_overflow(
+    seg: Segment,
+    cfg: PipelineConfig,
+    *,
+    issue: Issue | None = None,
+    pass_number: int = 1,
+) -> bool:
     if seg.paragraph_ref is None:
         return False
 
     changed = False
     textbox_spacing_factor = min(0.9, max(0.4, float(cfg.layout_spacing_factor)))
+    if pass_number >= 2:
+        textbox_spacing_factor *= 0.85
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=textbox_spacing_factor) or changed
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=-12) or changed
-    textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
+    char_spacing_twips = -12 if pass_number <= 1 else -18
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+    if pass_number >= 3:
+        changed = set_single_line_spacing(seg.paragraph_ref) or changed
     overflow_ratio = _estimate_overflow_ratio(issue)
-    if overflow_ratio > 1.0:
-        ratio_based_reduction = min(2.0, max(0.6, (overflow_ratio - 1.0) * 1.0))
-        textbox_font_reduction = max(textbox_font_reduction, ratio_based_reduction)
+    avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
+    ratio_based_reduction = _calculate_adaptive_reduction(
+        overflow_ratio,
+        avg_font_pt,
+        max_reduction=3.0 if pass_number <= 2 else 3.6,
+    )
+    textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), ratio_based_reduction)
+    if pass_number >= 3:
+        textbox_font_reduction = max(textbox_font_reduction, 0.7)
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=textbox_font_reduction) or changed
     return changed
 
 
-def _fix_frame_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
+def _fix_frame_overflow(
+    seg: Segment,
+    cfg: PipelineConfig,
+    *,
+    issue: Issue | None = None,
+    pass_number: int = 1,
+) -> bool:
     if seg.paragraph_ref is None:
         return False
 
     changed = False
     overflow_ratio = _estimate_overflow_ratio(issue)
-    if overflow_ratio >= 1.35 and bool(seg.context.get("in_table")):
+    if (overflow_ratio >= 1.35 and bool(seg.context.get("in_table"))) or pass_number >= 3:
         changed = _remove_paragraph_frame(seg.paragraph_ref) or changed
     changed = _relax_paragraph_frame_height_rule(seg.paragraph_ref) or changed
     frame_spacing_factor = min(0.92, max(0.5, float(cfg.layout_spacing_factor)))
+    if pass_number >= 2:
+        frame_spacing_factor *= 0.85
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=frame_spacing_factor) or changed
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=-12) or changed
+    char_spacing_twips = -12 if pass_number <= 1 else -18
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
     changed = set_single_line_spacing(seg.paragraph_ref) or changed
-    frame_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.4)
+    avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
+    ratio_based_reduction = _calculate_adaptive_reduction(
+        overflow_ratio,
+        avg_font_pt,
+        max_reduction=2.6 if pass_number <= 2 else 3.2,
+    )
+    frame_font_reduction = max(float(cfg.layout_font_reduction_pt), max(0.4, ratio_based_reduction))
+    if pass_number >= 3:
+        frame_font_reduction = max(frame_font_reduction, 0.6)
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=frame_font_reduction) or changed
     return changed
 
 
-def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig, *, pass_number: int = 1) -> bool:
     if seg.paragraph_ref is None:
         return False
 
     changed = False
-    changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=cfg.layout_spacing_factor) or changed
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=-10) or changed
-    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=cfg.layout_font_reduction_pt) or changed
+    spacing_factor = float(cfg.layout_spacing_factor)
+    if pass_number >= 2:
+        spacing_factor *= 0.9
+    changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
+    char_spacing_twips = -10 if pass_number <= 1 else -15
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+    base_reduction = max(0.2, float(cfg.layout_font_reduction_pt))
+    if pass_number >= 3:
+        base_reduction = max(base_reduction, 0.6)
+        changed = set_single_line_spacing(seg.paragraph_ref) or changed
+    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=base_reduction) or changed
     return changed
 
 
@@ -358,6 +440,8 @@ def fix_expansion_issues(
     segments: list[Segment],
     issues: list[Issue],
     cfg: PipelineConfig,
+    *,
+    pass_number: int = 1,
 ) -> int:
     if not segments or not issues:
         return 0
@@ -386,22 +470,22 @@ def fix_expansion_issues(
             issue.code == "length_ratio_high" and seg.context.get("in_table")
         ):
             strategy = "table"
-            changed = _fix_table_overflow(seg, cfg, issue=issue)
+            changed = _fix_table_overflow(seg, cfg, issue=issue, pass_number=pass_number)
         elif issue.code == "layout_textbox_overflow_risk" or (
             issue.code == "length_ratio_high" and seg.context.get("in_textbox")
         ):
             strategy = "textbox"
-            changed = _fix_textbox_overflow(seg, cfg, issue=issue)
+            changed = _fix_textbox_overflow(seg, cfg, issue=issue, pass_number=pass_number)
         elif issue.code == "layout_frame_overflow_risk" or (
             issue.code == "length_ratio_high" and seg.context.get("in_frame")
         ):
             strategy = "frame"
-            changed = _fix_frame_overflow(seg, cfg, issue=issue)
+            changed = _fix_frame_overflow(seg, cfg, issue=issue, pass_number=pass_number)
         elif issue.code == "length_ratio_high":
             # Do not apply generic destructive fixes to normal body paragraphs.
             continue
         else:
-            changed = _fix_generic_overflow(seg, cfg)
+            changed = _fix_generic_overflow(seg, cfg, pass_number=pass_number)
         if not changed:
             continue
 
@@ -416,6 +500,7 @@ def fix_expansion_issues(
                     "location": seg.location,
                     "source_issue_code": issue.code,
                     "strategy": strategy,
+                    "pass_number": int(pass_number),
                     "font_reduction_pt": float(cfg.layout_font_reduction_pt),
                     "spacing_factor": float(cfg.layout_spacing_factor),
                 },

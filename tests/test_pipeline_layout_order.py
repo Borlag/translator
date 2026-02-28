@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from docx import Document
+from docx.oxml import OxmlElement
 
 import docxru.pipeline as pipeline
 from docxru.config import PipelineConfig
@@ -40,8 +41,8 @@ def test_apply_abbyy_and_layout_passes_runs_normalization_before_layout(monkeypa
         call_order.append("attach")
         return 1
 
-    def _fake_fix(segments, issues, cfg):  # noqa: ANN001, ANN202
-        del segments, issues, cfg
+    def _fake_fix(segments, issues, cfg, *, pass_number=1):  # noqa: ANN001, ANN202
+        del segments, issues, cfg, pass_number
         call_order.append("fix")
         return 1
 
@@ -92,8 +93,8 @@ def test_apply_abbyy_and_layout_passes_can_recheck_multiple_fix_passes(monkeypat
             ]
         return []
 
-    def _fake_fix(segments, issues, cfg):  # noqa: ANN001, ANN202
-        del segments, issues, cfg
+    def _fake_fix(segments, issues, cfg, *, pass_number=1):  # noqa: ANN001, ANN202
+        del segments, issues, cfg, pass_number
         fix_calls["count"] += 1
         return 1
 
@@ -123,3 +124,36 @@ def test_apply_abbyy_and_layout_passes_can_recheck_multiple_fix_passes(monkeypat
 
     assert fix_calls["count"] == 1
     assert validate_calls["count"] == 2
+
+
+def test_attach_container_constraints_sets_space_limit_for_tight_textboxes():
+    doc = Document()
+    paragraph = doc.add_paragraph("Textbox host")
+    run = paragraph.add_run("")
+    extent = OxmlElement("wp:extent")
+    extent.set("cx", str(900 * 635))
+    extent.set("cy", str(260 * 635))
+    run._r.append(extent)
+
+    seg = Segment(
+        segment_id="s-space",
+        location="body/textbox0/p0",
+        context={"part": "body", "in_textbox": True},
+        source_plain="Main fitting assembly text for limited shape",
+        paragraph_ref=paragraph,
+    )
+
+    constrained = pipeline._attach_container_constraints([seg], PipelineConfig(layout_expansion_warn_ratio=1.2))
+    assert constrained == 1
+    assert int(seg.context.get("max_target_chars", 0)) > 0
+
+
+def test_resolve_runtime_formatting_preset_auto_detects_abbyy():
+    doc = Document()
+    doc.core_properties.author = "ABBYY FineReader"
+    cfg = PipelineConfig(formatting_preset="auto")
+
+    resolved = pipeline._resolve_runtime_formatting_preset(cfg, doc, logging.getLogger("test_auto_preset"))
+    assert resolved.formatting_preset == "abbyy_standard"
+    assert resolved.translate_enable_formatting_fixes is True
+    assert resolved.abbyy_profile == "aggressive"

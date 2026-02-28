@@ -148,6 +148,7 @@ class PipelineConfig:
     include_headers: bool = False
     include_footers: bool = False
     concurrency: int = 4
+    formatting_preset: str = "off"  # 'off' | 'native_docx' | 'abbyy_standard' | 'abbyy_aggressive' | 'auto'
     mode: str = "reflow"  # 'reflow' | 'com'
     translate_enable_formatting_fixes: bool = False
     com_textbox_min_font_pt: float = 8.0
@@ -185,6 +186,105 @@ class PipelineConfig:
     font_shrink_table_pt: float = 0.0
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
+
+
+_FORMATTING_PRESET_FIELDS: tuple[str, ...] = (
+    "translate_enable_formatting_fixes",
+    "abbyy_profile",
+    "layout_check",
+    "layout_auto_fix",
+    "layout_auto_fix_passes",
+    "font_shrink_body_pt",
+    "font_shrink_table_pt",
+    "mode",
+    "com_expand_overflowing_shapes",
+)
+
+_FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
+    "off": {
+        "translate_enable_formatting_fixes": False,
+        "abbyy_profile": "off",
+        "layout_check": False,
+        "layout_auto_fix": False,
+        "layout_auto_fix_passes": 1,
+        "font_shrink_body_pt": 0.0,
+        "font_shrink_table_pt": 0.0,
+        "mode": "reflow",
+        "com_expand_overflowing_shapes": False,
+    },
+    "native_docx": {
+        "translate_enable_formatting_fixes": True,
+        "abbyy_profile": "off",
+        "layout_check": True,
+        "layout_auto_fix": False,
+        "layout_auto_fix_passes": 1,
+        "font_shrink_body_pt": 0.0,
+        "font_shrink_table_pt": 0.0,
+        "mode": "reflow",
+        "com_expand_overflowing_shapes": False,
+    },
+    "abbyy_standard": {
+        "translate_enable_formatting_fixes": True,
+        "abbyy_profile": "aggressive",
+        "layout_check": True,
+        "layout_auto_fix": True,
+        "layout_auto_fix_passes": 2,
+        "font_shrink_body_pt": 0.0,
+        "font_shrink_table_pt": 0.5,
+        "mode": "reflow",
+        "com_expand_overflowing_shapes": False,
+    },
+    "abbyy_aggressive": {
+        "translate_enable_formatting_fixes": True,
+        "abbyy_profile": "full",
+        "layout_check": True,
+        "layout_auto_fix": True,
+        "layout_auto_fix_passes": 3,
+        "font_shrink_body_pt": 0.5,
+        "font_shrink_table_pt": 1.0,
+        "mode": "com",
+        "com_expand_overflowing_shapes": True,
+    },
+}
+
+
+def get_formatting_preset_defaults(preset: str) -> dict[str, Any]:
+    key = str(preset or "off").strip().lower()
+    if key == "auto":
+        key = "off"
+    values = _FORMATTING_PRESET_DEFAULTS.get(key)
+    if values is None:
+        values = _FORMATTING_PRESET_DEFAULTS["off"]
+    return dict(values)
+
+
+def apply_formatting_preset(
+    cfg: PipelineConfig,
+    preset: str,
+    *,
+    replace_only_defaults: bool = False,
+) -> PipelineConfig:
+    """Return a copy of cfg with selected formatting preset applied."""
+    preset_key = _normalize_choice(
+        preset,
+        field_name="formatting_preset",
+        allowed={"off", "native_docx", "abbyy_standard", "abbyy_aggressive", "auto"},
+        default="off",
+    )
+    if preset_key == "auto":
+        return cfg
+
+    target_defaults = get_formatting_preset_defaults(preset_key)
+    updates: dict[str, Any] = {}
+    if replace_only_defaults:
+        off_defaults = get_formatting_preset_defaults("off")
+        for field in _FORMATTING_PRESET_FIELDS:
+            if getattr(cfg, field) == off_defaults[field]:
+                updates[field] = target_defaults[field]
+    else:
+        updates.update(target_defaults)
+    updates["formatting_preset"] = preset_key
+    return cfg.__class__(**{**cfg.__dict__, **updates})
 
 
 def _resolve_optional_path(base_dir: Path, value: Any) -> str | None:
@@ -402,13 +502,20 @@ def load_config(path: str | Path) -> PipelineConfig:
     include_headers = bool(data.get("include_headers", False))
     include_footers = bool(data.get("include_footers", False))
     concurrency = int(data.get("concurrency", 4))
-    mode = str(data.get("mode", "reflow"))
+    formatting_preset = _normalize_choice(
+        data.get("formatting_preset", "off"),
+        field_name="formatting_preset",
+        allowed={"off", "native_docx", "abbyy_standard", "abbyy_aggressive", "auto"},
+        default="off",
+    )
+    preset_defaults = get_formatting_preset_defaults(formatting_preset)
+    mode = str(data.get("mode", preset_defaults["mode"]))
     qa_report_path = str(data.get("qa_report_path", "qa_report.html"))
     qa_jsonl_path = str(data.get("qa_jsonl_path", "qa.jsonl"))
     translation_history_path = _resolve_optional_path(cfg_path.parent, data.get("translation_history_path"))
     log_path = str(data.get("log_path", "run.log"))
     abbyy_profile = _normalize_choice(
-        data.get("abbyy_profile", "off"),
+        data.get("abbyy_profile", preset_defaults["abbyy_profile"]),
         field_name="abbyy_profile",
         allowed={"off", "safe", "aggressive", "full"},
         default="off",
@@ -440,18 +547,22 @@ def load_config(path: str | Path) -> PipelineConfig:
         cfg_path.parent,
         data.get("context_leakage_allowlist_path"),
     )
-    translate_enable_formatting_fixes = bool(data.get("translate_enable_formatting_fixes", False))
-    layout_check = bool(data.get("layout_check", False))
+    translate_enable_formatting_fixes = bool(
+        data.get("translate_enable_formatting_fixes", preset_defaults["translate_enable_formatting_fixes"])
+    )
+    layout_check = bool(data.get("layout_check", preset_defaults["layout_check"]))
     layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
-    layout_auto_fix = bool(data.get("layout_auto_fix", False))
-    layout_auto_fix_passes = max(1, int(data.get("layout_auto_fix_passes", 1)))
+    layout_auto_fix = bool(data.get("layout_auto_fix", preset_defaults["layout_auto_fix"]))
+    layout_auto_fix_passes = max(1, int(data.get("layout_auto_fix_passes", preset_defaults["layout_auto_fix_passes"])))
     layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
-    font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", 0.0)))
-    font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", 0.0)))
+    font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", preset_defaults["font_shrink_body_pt"])))
+    font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", preset_defaults["font_shrink_table_pt"])))
     com_textbox_min_font_pt = max(6.0, float(data.get("com_textbox_min_font_pt", 8.0)))
     com_textbox_max_shrink_steps = max(0, int(data.get("com_textbox_max_shrink_steps", 4)))
-    com_expand_overflowing_shapes = bool(data.get("com_expand_overflowing_shapes", False))
+    com_expand_overflowing_shapes = bool(
+        data.get("com_expand_overflowing_shapes", preset_defaults["com_expand_overflowing_shapes"])
+    )
     com_textbox_max_height_growth = max(1.0, float(data.get("com_textbox_max_height_growth", 1.5)))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
@@ -493,6 +604,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         include_headers=include_headers,
         include_footers=include_footers,
         concurrency=concurrency,
+        formatting_preset=formatting_preset,
         mode=mode,
         translate_enable_formatting_fixes=translate_enable_formatting_fixes,
         com_textbox_min_font_pt=com_textbox_min_font_pt,

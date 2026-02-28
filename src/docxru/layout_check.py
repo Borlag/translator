@@ -115,6 +115,18 @@ def _table_cell_width_twips(seg: Segment) -> int | None:
 
 
 def _textbox_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
+    from_context = seg.context.get("textbox_extent_twips")
+    if isinstance(from_context, dict):
+        width_twips = _try_parse_int(from_context.get("width"))
+        height_twips = _try_parse_int(from_context.get("height"))
+        if width_twips and height_twips and width_twips > 0 and height_twips > 0:
+            return width_twips, height_twips
+    elif isinstance(from_context, (list, tuple)) and len(from_context) >= 2:
+        width_twips = _try_parse_int(from_context[0])
+        height_twips = _try_parse_int(from_context[1])
+        if width_twips and height_twips and width_twips > 0 and height_twips > 0:
+            return width_twips, height_twips
+
     paragraph = seg.paragraph_ref
     if paragraph is None:
         return None, None
@@ -165,6 +177,32 @@ def _frame_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
     if height_twips is not None and height_twips <= 0:
         height_twips = None
     return width_twips, height_twips
+
+
+def estimate_segment_capacity(seg: Segment) -> int | None:
+    char_width_twips, char_height_twips = _segment_char_metrics(seg)
+    if seg.context.get("in_table"):
+        width_twips = _table_cell_width_twips(seg)
+        if width_twips is not None and width_twips > 0:
+            return max(1, int(width_twips / max(1, char_width_twips)))
+
+    if seg.context.get("in_textbox"):
+        width_twips, height_twips = _textbox_extent_twips(seg)
+        if width_twips and height_twips:
+            area = width_twips * height_twips
+            approx_char_area = max(1, char_width_twips * char_height_twips)
+            return max(1, int(area / approx_char_area))
+        if width_twips:
+            return max(1, int(width_twips / max(1, char_width_twips)))
+
+    if seg.context.get("in_frame"):
+        width_twips, height_twips = _frame_extent_twips(seg)
+        if width_twips and height_twips:
+            area = width_twips * height_twips
+            approx_char_area = max(1, char_width_twips * char_height_twips)
+            return max(1, int(area / approx_char_area))
+
+    return None
 
 
 def check_text_expansion(

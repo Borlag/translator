@@ -229,6 +229,13 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         ctx_parts.append(f"DOC_SECTION={part}")
     if context.get("is_toc_entry"):
         ctx_parts.append("TOC_ENTRY")
+    raw_max_chars = context.get("max_target_chars")
+    try:
+        max_chars = int(raw_max_chars)
+    except (TypeError, ValueError):
+        max_chars = 0
+    if max_chars > 0:
+        ctx_parts.append(f"SPACE_LIMIT: ~{max_chars} chars max, keep translation concise")
     if not context.get("in_table"):
         prev_text = _compact_prompt_snippet(context.get("prev_text"))
         next_text = _compact_prompt_snippet(context.get("next_text"))

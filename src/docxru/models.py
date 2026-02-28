@@ -37,6 +37,8 @@ class Span:
     span_id: int
     flags: tuple[str, ...]  # e.g. ("B", "I", "U", "SUP", "SUB")
     source_text: str
+    # Character lengths of original runs merged into this span.
+    original_run_lengths: tuple[int, ...] = ()
     style: RunStyleSnapshot = RunStyleSnapshot()
     # Full <w:rPr> XML snapshot for high-fidelity style restore.
     rpr_xml: str | None = None

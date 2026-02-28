@@ -127,7 +127,7 @@ def test_fix_expansion_issues_reduces_non_table_spacing():
     assert paragraph.paragraph_format.space_after is not None
     assert paragraph.paragraph_format.space_after.pt < 8
     assert run.font.size is not None
-    assert run.font.size.pt == pytest.approx(10.0)
+    assert run.font.size.pt == pytest.approx(10.5)
     assert any(
         issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "textbox"
         for issue in seg.issues
@@ -197,8 +197,8 @@ def test_fix_expansion_issues_table_shrink_scales_by_overflow_ratio():
 
     assert applied == 1
     assert run.font.size is not None
-    # ratio=4.0 should trigger near-max reduction (~2pt)
-    assert run.font.size.pt == pytest.approx(10.0)
+    # ratio=4.0 should trigger max adaptive reduction (~3pt)
+    assert run.font.size.pt == pytest.approx(9.0)
 
 
 def test_apply_global_font_shrink_uses_different_body_and_table_steps():

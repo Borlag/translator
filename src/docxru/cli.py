@@ -87,6 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Enable optional ABBYY-specific normalization profile.",
     )
+    t.add_argument(
+        "--formatting-preset",
+        choices=["off", "native_docx", "abbyy_standard", "abbyy_aggressive", "auto"],
+        default=None,
+        help="Override formatting preset from config.",
+    )
     t.add_argument("--concurrency", type=int, default=None, help="Override concurrency from config.")
     t.add_argument("--qa", default=None, help="Override QA report HTML path.")
     t.add_argument("--qa-jsonl", default=None, help="Override QA jsonl path.")
@@ -108,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["off", "safe", "aggressive", "full"],
         default=None,
         help="Override ABBYY normalization profile.",
+    )
+    pf.add_argument(
+        "--formatting-preset",
+        choices=["off", "native_docx", "abbyy_standard", "abbyy_aggressive", "auto"],
+        default=None,
+        help="Override formatting preset from config.",
     )
     pf.add_argument(
         "--max-segments",
@@ -225,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
             cfg = cfg.__class__(**{**cfg.__dict__, "tm": tm_cfg})
         if args.abbyy_profile is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "abbyy_profile": str(args.abbyy_profile)})
+        if args.formatting_preset is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "formatting_preset": str(args.formatting_preset)})
         if args.checker_openai_batch:
             checker_cfg = cfg.checker.__class__(**{**cfg.checker.__dict__, "openai_batch_enabled": True})
             cfg = cfg.__class__(**{**cfg.__dict__, "checker": checker_cfg})
@@ -260,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             cfg = cfg.__class__(**{**cfg.__dict__, "mode": args.mode})
         if args.abbyy_profile is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "abbyy_profile": str(args.abbyy_profile)})
+        if args.formatting_preset is not None:
+            cfg = cfg.__class__(**{**cfg.__dict__, "formatting_preset": str(args.formatting_preset)})
         if args.log is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "log_path": str(args.log)})
 

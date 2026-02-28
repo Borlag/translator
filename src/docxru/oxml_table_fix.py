@@ -77,6 +77,24 @@ def remove_frame_pr(document) -> int:
     return removed
 
 
+def relax_frame_pr_exact_height(document) -> int:
+    """Relax <w:framePr w:hRule='exact'> to atLeast while preserving frame geometry."""
+    changed = 0
+    p_pr_tag = qn("w:pPr")
+    frame_pr_tag = qn("w:framePr")
+    h_rule_attr = qn("w:hRule")
+    for p_pr in document.element.iter(p_pr_tag):
+        for frame_pr in list(p_pr):
+            if frame_pr.tag != frame_pr_tag:
+                continue
+            h_rule = str(frame_pr.get(h_rule_attr, "")).strip().lower()
+            if h_rule != "exact":
+                continue
+            frame_pr.set(h_rule_attr, "atLeast")
+            changed += 1
+    return changed
+
+
 def relax_exact_line_spacing(document) -> int:
     """Relax paragraph spacing lineRule='exact' to lineRule='atLeast'."""
     changed = 0
@@ -170,14 +188,46 @@ def set_textbox_autofit(document) -> int:
     return updated
 
 
+def normalize_table_cell_margins(document, *, max_margin_twips: int = 108) -> int:
+    """Cap excessive table-cell margins in w:tcMar to reduce avoidable text loss."""
+    normalized = 0
+    cap = max(29, int(max_margin_twips))
+    tc_mar_tag = qn("w:tcMar")
+    margin_tags = {
+        qn("w:left"),
+        qn("w:right"),
+        qn("w:top"),
+        qn("w:bottom"),
+        qn("w:start"),
+        qn("w:end"),
+    }
+    width_attr = qn("w:w")
+    type_attr = qn("w:type")
+    for tc_mar in document.element.iter(tc_mar_tag):
+        for margin in list(tc_mar):
+            if margin.tag not in margin_tags:
+                continue
+            try:
+                value = int(str(margin.get(width_attr)))
+            except (TypeError, ValueError):
+                continue
+            if value <= cap:
+                continue
+            margin.set(width_attr, str(cap))
+            if str(margin.get(type_attr, "")).strip().lower() != "dxa":
+                margin.set(type_attr, "dxa")
+            normalized += 1
+    return normalized
+
+
 def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     """Apply optional ABBYY-specific OXML cleanup by profile.
 
     Profiles:
     - off: no cleanup
     - safe: remove only strict row-height locks (w:trHeight with hRule='exact')
-    - aggressive: safe + remove paragraph frame locks (w:framePr)
-    - full: aggressive + enable textbox auto-fit via <a:normAutofit/>
+    - aggressive: safe + relax strict frame/line spacing constraints
+    - full: aggressive + enable textbox auto-fit via <a:normAutofit/> + normalize cell margins
     """
     mode = str(profile or "off").strip().lower()
     if mode not in {"off", "safe", "aggressive", "full"}:
@@ -186,16 +236,19 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     stats = {
         "tr_height_exact_removed": 0,
         "frame_pr_removed": 0,
+        "frame_pr_exact_relaxed": 0,
         "line_spacing_exact_relaxed": 0,
         "textbox_autofit_updated": 0,
+        "table_cell_margins_normalized": 0,
     }
     if mode == "off":
         return stats
 
     stats["tr_height_exact_removed"] = remove_exact_tr_height(document)
     if mode in {"aggressive", "full"}:
-        stats["frame_pr_removed"] = remove_frame_pr(document)
+        stats["frame_pr_exact_relaxed"] = relax_frame_pr_exact_height(document)
         stats["line_spacing_exact_relaxed"] = relax_exact_line_spacing(document)
     if mode == "full":
         stats["textbox_autofit_updated"] = set_textbox_autofit(document)
+        stats["table_cell_margins_normalized"] = normalize_table_cell_margins(document)
     return stats

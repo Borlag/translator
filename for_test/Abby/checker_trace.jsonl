@@ -1,0 +1,154 @@
+{"timestamp": "2026-02-27T21:35:06.721614+00:00", "event": "start", "mode": "openai_batch", "chunks_total": 50, "translatable_segments": 5906, "max_segments": 0}
+{"timestamp": "2026-02-27T21:35:06.725620+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1_120", "segments_sent": 120, "glossary_terms_count": 4}
+{"timestamp": "2026-02-27T21:35:06.726624+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_121_240", "segments_sent": 2, "glossary_terms_count": 4}
+{"timestamp": "2026-02-27T21:35:06.729634+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_241_360", "segments_sent": 120, "glossary_terms_count": 8}
+{"timestamp": "2026-02-27T21:35:06.734634+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_361_480", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.740442+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_481_600", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.745444+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_601_720", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.751473+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_721_840", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.757033+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_841_960", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.761333+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_961_1080", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.764333+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1081_1200", "segments_sent": 2, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.767333+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1201_1320", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.771840+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1321_1440", "segments_sent": 4, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.775346+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1441_1560", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.778348+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1561_1680", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.780346+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1681_1800", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.783853+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1801_1920", "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T21:35:06.785853+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_1921_2040", "segments_sent": 2, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.788356+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2041_2160", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.789864+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2161_2280", "segments_sent": 2, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.793867+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2281_2400", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.796865+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2401_2520", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.797865+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2521_2640", "segments_sent": 1, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.799865+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2641_2760", "segments_sent": 5, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.802370+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2761_2880", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.805878+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_2881_3000", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.808877+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3001_3120", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.812877+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3121_3240", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.816387+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3241_3360", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.817387+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3361_3480", "segments_sent": 4, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.820904+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3481_3600", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.823418+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3601_3720", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.827417+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3721_3840", "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T21:35:06.830417+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3841_3960", "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.833417+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_3961_4080", "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.837924+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4081_4200", "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.840430+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4201_4320", "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.842430+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4321_4440", "segments_sent": 4, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.844431+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4441_4560", "segments_sent": 2, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T21:35:06.845430+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4561_4680", "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.846430+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4681_4800", "segments_sent": 6, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.848449+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4801_4920", "segments_sent": 6, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.849957+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_4921_5040", "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.850958+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5041_5160", "segments_sent": 2, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.851958+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5161_5280", "segments_sent": 2, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.853959+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5281_5400", "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T21:35:06.855465+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5401_5520", "segments_sent": 4, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T21:35:06.856469+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5521_5640", "segments_sent": 4, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T21:35:06.857977+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5641_5760", "segments_sent": 2, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T21:35:06.858978+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5761_5880", "segments_sent": 2, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T21:35:06.859978+00:00", "event": "request", "mode": "openai_batch", "chunk_id": "segments_5881_5906", "segments_sent": 2, "glossary_terms_count": 16}
+{"timestamp": "2026-02-27T22:25:44.302011+00:00", "event": "batch_fallback_to_sync", "error": "OpenAI HTTPError 504: error code: 504"}
+{"timestamp": "2026-02-27T22:25:44.307240+00:00", "event": "start", "chunks_total": 50, "translatable_segments": 5906, "retry_attempts": 1, "max_segments": 0}
+{"timestamp": "2026-02-27T22:25:44.311390+00:00", "event": "request", "chunk_id": "segments_1_120", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 4}
+{"timestamp": "2026-02-27T22:27:11.478459+00:00", "event": "response", "chunk_id": "segments_1_120", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 10}
+{"timestamp": "2026-02-27T22:27:11.482107+00:00", "event": "request", "chunk_id": "segments_121_240", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 4}
+{"timestamp": "2026-02-27T22:27:40.072035+00:00", "event": "response", "chunk_id": "segments_121_240", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T22:27:40.076248+00:00", "event": "request", "chunk_id": "segments_241_360", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 8}
+{"timestamp": "2026-02-27T22:29:26.545404+00:00", "event": "response", "chunk_id": "segments_241_360", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T22:29:26.550096+00:00", "event": "request", "chunk_id": "segments_361_480", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:30:44.763869+00:00", "event": "response", "chunk_id": "segments_361_480", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 11}
+{"timestamp": "2026-02-27T22:30:44.769143+00:00", "event": "request", "chunk_id": "segments_481_600", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:31:57.993852+00:00", "event": "response", "chunk_id": "segments_481_600", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 3}
+{"timestamp": "2026-02-27T22:31:57.998623+00:00", "event": "request", "chunk_id": "segments_601_720", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:33:08.888569+00:00", "event": "response", "chunk_id": "segments_601_720", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:33:08.893819+00:00", "event": "request", "chunk_id": "segments_721_840", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:33:44.980005+00:00", "event": "response", "chunk_id": "segments_721_840", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 3}
+{"timestamp": "2026-02-27T22:33:44.985291+00:00", "event": "request", "chunk_id": "segments_841_960", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:34:41.090700+00:00", "event": "response", "chunk_id": "segments_841_960", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 10}
+{"timestamp": "2026-02-27T22:34:41.095959+00:00", "event": "request", "chunk_id": "segments_961_1080", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:35:24.311431+00:00", "event": "response", "chunk_id": "segments_961_1080", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:35:24.315111+00:00", "event": "request", "chunk_id": "segments_1081_1200", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:35:46.275114+00:00", "event": "response", "chunk_id": "segments_1081_1200", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T22:35:46.280417+00:00", "event": "request", "chunk_id": "segments_1201_1320", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:37:33.789220+00:00", "event": "response", "chunk_id": "segments_1201_1320", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 14}
+{"timestamp": "2026-02-27T22:37:33.793403+00:00", "event": "request", "chunk_id": "segments_1321_1440", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:38:04.673221+00:00", "event": "response", "chunk_id": "segments_1321_1440", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T22:38:04.679109+00:00", "event": "request", "chunk_id": "segments_1441_1560", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:39:13.174071+00:00", "event": "response", "chunk_id": "segments_1441_1560", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 6}
+{"timestamp": "2026-02-27T22:39:13.179288+00:00", "event": "request", "chunk_id": "segments_1561_1680", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:40:24.476597+00:00", "event": "response", "chunk_id": "segments_1561_1680", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:40:24.481922+00:00", "event": "request", "chunk_id": "segments_1681_1800", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:41:36.948257+00:00", "event": "response", "chunk_id": "segments_1681_1800", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:41:36.954111+00:00", "event": "request", "chunk_id": "segments_1801_1920", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 9}
+{"timestamp": "2026-02-27T22:43:03.487692+00:00", "event": "response", "chunk_id": "segments_1801_1920", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 12}
+{"timestamp": "2026-02-27T22:43:03.491905+00:00", "event": "request", "chunk_id": "segments_1921_2040", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:43:23.298105+00:00", "event": "response", "chunk_id": "segments_1921_2040", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T22:43:23.303836+00:00", "event": "request", "chunk_id": "segments_2041_2160", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:44:22.735936+00:00", "event": "response", "chunk_id": "segments_2041_2160", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 6}
+{"timestamp": "2026-02-27T22:44:22.740076+00:00", "event": "request", "chunk_id": "segments_2161_2280", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:44:43.294868+00:00", "event": "response", "chunk_id": "segments_2161_2280", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T22:44:43.300627+00:00", "event": "request", "chunk_id": "segments_2281_2400", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:46:06.672166+00:00", "event": "response", "chunk_id": "segments_2281_2400", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T22:46:06.678010+00:00", "event": "request", "chunk_id": "segments_2401_2520", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:46:56.709630+00:00", "event": "response", "chunk_id": "segments_2401_2520", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:46:56.713875+00:00", "event": "request", "chunk_id": "segments_2521_2640", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 1, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:47:08.174301+00:00", "event": "response", "chunk_id": "segments_2521_2640", "attempt": 1, "split_depth": 0, "segments_sent": 1, "edits_count": 1}
+{"timestamp": "2026-02-27T22:47:08.177814+00:00", "event": "request", "chunk_id": "segments_2641_2760", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 5, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:47:35.793904+00:00", "event": "response", "chunk_id": "segments_2641_2760", "attempt": 1, "split_depth": 0, "segments_sent": 5, "edits_count": 5}
+{"timestamp": "2026-02-27T22:47:35.799705+00:00", "event": "request", "chunk_id": "segments_2761_2880", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:48:59.203338+00:00", "event": "response", "chunk_id": "segments_2761_2880", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 10}
+{"timestamp": "2026-02-27T22:48:59.209640+00:00", "event": "request", "chunk_id": "segments_2881_3000", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:50:27.451206+00:00", "event": "response", "chunk_id": "segments_2881_3000", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 10}
+{"timestamp": "2026-02-27T22:50:27.457498+00:00", "event": "request", "chunk_id": "segments_3001_3120", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:51:07.856053+00:00", "event": "response", "chunk_id": "segments_3001_3120", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 4}
+{"timestamp": "2026-02-27T22:51:07.862821+00:00", "event": "request", "chunk_id": "segments_3121_3240", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:52:03.147145+00:00", "event": "response", "chunk_id": "segments_3121_3240", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T22:52:03.154478+00:00", "event": "request", "chunk_id": "segments_3241_3360", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:52:28.557417+00:00", "event": "response", "chunk_id": "segments_3241_3360", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 2}
+{"timestamp": "2026-02-27T22:52:28.562197+00:00", "event": "request", "chunk_id": "segments_3361_3480", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:52:53.804416+00:00", "event": "response", "chunk_id": "segments_3361_3480", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T22:52:53.811281+00:00", "event": "request", "chunk_id": "segments_3481_3600", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:54:23.411557+00:00", "event": "response", "chunk_id": "segments_3481_3600", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T22:54:23.417809+00:00", "event": "request", "chunk_id": "segments_3601_3720", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:55:24.978061+00:00", "event": "response", "chunk_id": "segments_3601_3720", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T22:55:24.984236+00:00", "event": "request", "chunk_id": "segments_3721_3840", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 11}
+{"timestamp": "2026-02-27T22:57:33.482776+00:00", "event": "response", "chunk_id": "segments_3721_3840", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 16}
+{"timestamp": "2026-02-27T22:57:33.489570+00:00", "event": "request", "chunk_id": "segments_3841_3960", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T22:59:32.988358+00:00", "event": "response", "chunk_id": "segments_3841_3960", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 14}
+{"timestamp": "2026-02-27T22:59:32.995143+00:00", "event": "request", "chunk_id": "segments_3961_4080", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T23:00:40.953756+00:00", "event": "response", "chunk_id": "segments_3961_4080", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 8}
+{"timestamp": "2026-02-27T23:00:40.960511+00:00", "event": "request", "chunk_id": "segments_4081_4200", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T23:02:04.080272+00:00", "event": "response", "chunk_id": "segments_4081_4200", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 7}
+{"timestamp": "2026-02-27T23:02:04.087528+00:00", "event": "request", "chunk_id": "segments_4201_4320", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 120, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T23:03:23.062121+00:00", "event": "response", "chunk_id": "segments_4201_4320", "attempt": 1, "split_depth": 0, "segments_sent": 120, "edits_count": 6}
+{"timestamp": "2026-02-27T23:03:23.067433+00:00", "event": "request", "chunk_id": "segments_4321_4440", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T23:03:56.888985+00:00", "event": "response", "chunk_id": "segments_4321_4440", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T23:03:56.895797+00:00", "event": "request", "chunk_id": "segments_4441_4560", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 13}
+{"timestamp": "2026-02-27T23:04:11.767347+00:00", "event": "response", "chunk_id": "segments_4441_4560", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:04:11.773164+00:00", "event": "request", "chunk_id": "segments_4561_4680", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:04:33.926574+00:00", "event": "response", "chunk_id": "segments_4561_4680", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T23:04:33.933477+00:00", "event": "request", "chunk_id": "segments_4681_4800", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 6, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:05:04.559097+00:00", "event": "response", "chunk_id": "segments_4681_4800", "attempt": 1, "split_depth": 0, "segments_sent": 6, "edits_count": 6}
+{"timestamp": "2026-02-27T23:05:04.564857+00:00", "event": "request", "chunk_id": "segments_4801_4920", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 6, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:05:57.802522+00:00", "event": "response", "chunk_id": "segments_4801_4920", "attempt": 1, "split_depth": 0, "segments_sent": 6, "edits_count": 6}
+{"timestamp": "2026-02-27T23:05:57.808240+00:00", "event": "request", "chunk_id": "segments_4921_5040", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:06:19.391933+00:00", "event": "response", "chunk_id": "segments_4921_5040", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T23:06:19.397762+00:00", "event": "request", "chunk_id": "segments_5041_5160", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:06:38.581084+00:00", "event": "response", "chunk_id": "segments_5041_5160", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:06:38.586973+00:00", "event": "request", "chunk_id": "segments_5161_5280", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:06:59.826306+00:00", "event": "response", "chunk_id": "segments_5161_5280", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:06:59.832672+00:00", "event": "request", "chunk_id": "segments_5281_5400", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 14}
+{"timestamp": "2026-02-27T23:07:22.035465+00:00", "event": "response", "chunk_id": "segments_5281_5400", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T23:07:22.041279+00:00", "event": "request", "chunk_id": "segments_5401_5520", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T23:07:43.942858+00:00", "event": "response", "chunk_id": "segments_5401_5520", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 4}
+{"timestamp": "2026-02-27T23:07:43.948658+00:00", "event": "request", "chunk_id": "segments_5521_5640", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 4, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T23:08:21.233330+00:00", "event": "response", "chunk_id": "segments_5521_5640", "attempt": 1, "split_depth": 0, "segments_sent": 4, "edits_count": 2}
+{"timestamp": "2026-02-27T23:08:21.239515+00:00", "event": "request", "chunk_id": "segments_5641_5760", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T23:08:36.216901+00:00", "event": "response", "chunk_id": "segments_5641_5760", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:08:36.222713+00:00", "event": "request", "chunk_id": "segments_5761_5880", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 15}
+{"timestamp": "2026-02-27T23:08:50.210379+00:00", "event": "response", "chunk_id": "segments_5761_5880", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:08:50.216178+00:00", "event": "request", "chunk_id": "segments_5881_5906", "attempt": 1, "retry_attempts": 1, "split_depth": 0, "segments_sent": 2, "glossary_terms_count": 16}
+{"timestamp": "2026-02-27T23:09:10.826416+00:00", "event": "response", "chunk_id": "segments_5881_5906", "attempt": 1, "split_depth": 0, "segments_sent": 2, "edits_count": 2}
+{"timestamp": "2026-02-27T23:09:10.831182+00:00", "event": "summary", "chunks_total": 50, "segments_checked": 3430, "skipped_chunks": 0, "skipped_segments": 0, "requests_total": 50, "requests_succeeded": 50, "requests_failed": 0, "chunks_failed": 0, "split_events": 0, "suggestions_total": 280, "stopped_due_to_limit": false}

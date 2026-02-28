@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from docx import Document
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from docxru.config import PipelineConfig
 from docxru.layout_check import (
+    check_frame_overflow,
     check_table_cell_overflow,
     check_text_expansion,
     check_textbox_overflow,
@@ -22,12 +24,15 @@ def _make_segment(
     paragraph_ref,
     in_table: bool = False,
     in_textbox: bool = False,
+    in_frame: bool = False,
 ) -> Segment:
     context = {"part": "body"}
     if in_table:
         context["in_table"] = True
     if in_textbox:
         context["in_textbox"] = True
+    if in_frame:
+        context["in_frame"] = True
     return Segment(
         segment_id=seg_id,
         location=f"body/p{seg_id}",
@@ -45,6 +50,15 @@ def _attach_extent(paragraph, *, width_twips: int, height_twips: int) -> None:
     extent.set("cx", str(int(width_twips) * 635))
     extent.set("cy", str(int(height_twips) * 635))
     run._r.append(extent)
+
+
+def _attach_frame(paragraph, *, width_twips: int, height_twips: int) -> None:
+    p_pr = paragraph._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:w"), str(int(width_twips)))
+    frame_pr.set(qn("w:h"), str(int(height_twips)))
+    frame_pr.set(qn("w:hRule"), "exact")
+    p_pr.append(frame_pr)
 
 
 def test_check_text_expansion_warns_on_high_ratio():
@@ -116,6 +130,28 @@ def test_check_textbox_overflow_fallback_by_ratio():
     issues = check_textbox_overflow(None, [seg])
     assert len(issues) == 1
     assert issues[0].code == "layout_textbox_overflow_risk"
+
+
+def test_check_frame_overflow_uses_framepr_dimensions():
+    doc = Document()
+    paragraph = doc.add_paragraph("Frame host")
+    _attach_frame(paragraph, width_twips=900, height_twips=260)
+
+    seg = _make_segment(
+        seg_id="3a",
+        source="Bolt",
+        target="Very long translated text that should overflow frame bounded paragraph area",
+        paragraph_ref=paragraph,
+        in_frame=True,
+    )
+
+    issues = check_frame_overflow(doc, [seg])
+    assert len(issues) == 1
+    details = issues[0].details
+    assert details["width_twips"] == 900
+    assert details["height_twips"] == 260
+    assert details["approx_capacity_chars"] < len(seg.target_tagged or "")
+    assert issues[0].code == "layout_frame_overflow_risk"
 
 
 def test_validate_layout_combines_checks():

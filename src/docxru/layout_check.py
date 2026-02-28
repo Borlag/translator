@@ -141,6 +141,32 @@ def _textbox_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
     return None, None
 
 
+def _frame_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
+    paragraph = seg.paragraph_ref
+    if paragraph is None:
+        return None, None
+
+    try:
+        p_elm = paragraph._p
+    except Exception:
+        return None, None
+
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None:
+        return None, None
+    frame_pr = p_pr.find(qn("w:framePr"))
+    if frame_pr is None:
+        return None, None
+
+    width_twips = _try_parse_int(frame_pr.get(qn("w:w")))
+    height_twips = _try_parse_int(frame_pr.get(qn("w:h")))
+    if width_twips is not None and width_twips <= 0:
+        width_twips = None
+    if height_twips is not None and height_twips <= 0:
+        height_twips = None
+    return width_twips, height_twips
+
+
 def check_text_expansion(
     segments: Iterable[Segment],
     *,
@@ -265,9 +291,53 @@ def check_textbox_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
     return issues
 
 
+def check_frame_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
+    del doc  # The check currently relies on paragraph refs from segments.
+    issues: list[Issue] = []
+    for seg in segments:
+        if not seg.context.get("in_frame"):
+            continue
+        target_text = _segment_target_text(seg)
+        if not target_text:
+            continue
+
+        width_twips, height_twips = _frame_extent_twips(seg)
+        if width_twips is None or height_twips is None:
+            continue
+
+        char_width_twips, char_height_twips = _segment_char_metrics(seg)
+        approx_char_area = max(1, char_width_twips * char_height_twips)
+        approx_capacity = max(1, int((width_twips * height_twips) / approx_char_area))
+        if len(target_text) <= int(approx_capacity * 1.15):
+            continue
+
+        source_text = _segment_source_text(seg)
+        ratio = len(target_text) / max(1, len(source_text)) if source_text else 0.0
+        issues.append(
+            Issue(
+                code="layout_frame_overflow_risk",
+                severity=Severity.WARN,
+                message="Frame-anchored paragraph may overflow available frame area.",
+                details={
+                    "segment_id": seg.segment_id,
+                    "location": seg.location,
+                    "width_twips": width_twips,
+                    "height_twips": height_twips,
+                    "approx_capacity_chars": approx_capacity,
+                    "char_width_twips": char_width_twips,
+                    "char_height_twips": char_height_twips,
+                    "target_len": len(target_text),
+                    "ratio": round(ratio, 3),
+                },
+            )
+        )
+    return issues
+
+
 def validate_layout(doc, segments: list[Segment], cfg: PipelineConfig) -> list[Issue]:
     return [
         *check_text_expansion(segments, warn_ratio=cfg.layout_expansion_warn_ratio),
         *check_table_cell_overflow(doc, segments),
         *check_textbox_overflow(doc, segments),
+        *check_frame_overflow(doc, segments),
     ]

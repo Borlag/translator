@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
 
@@ -19,14 +20,72 @@ def _issue(seg_id: str, code: str = "length_ratio_high") -> Issue:
     )
 
 
-def test_fix_expansion_issues_reduces_font_and_emits_issue():
+def test_fix_expansion_issues_reduces_frame_font_and_emits_issue():
+    doc = Document()
+    paragraph = doc.add_paragraph()
+    p_pr = paragraph._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:hRule"), "exact")
+    p_pr.append(frame_pr)
+    run = paragraph.add_run("Long translated text")
+    run.font.size = Pt(12)
+
+    seg = Segment(
+        segment_id="s1",
+        location="body/p1",
+        context={"part": "body", "in_frame": True},
+        source_plain="text",
+        paragraph_ref=paragraph,
+        target_tagged="Long translated text",
+    )
+    cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5)
+
+    applied = fix_expansion_issues([seg], [_issue("s1", code="layout_frame_overflow_risk")], cfg)
+    assert applied == 1
+    assert run.font.size is not None
+    assert run.font.size.pt == pytest.approx(11.5)
+    frame_after = paragraph._p.get_or_add_pPr().find(qn("w:framePr"))
+    assert frame_after is not None
+    assert frame_after.get(qn("w:hRule")) == "atLeast"
+    assert any(
+        issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "frame" for issue in seg.issues
+    )
+
+
+def test_fix_expansion_issues_can_detach_high_overflow_frame():
+    doc = Document()
+    paragraph = doc.add_paragraph()
+    p_pr = paragraph._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:hRule"), "exact")
+    p_pr.append(frame_pr)
+    paragraph.add_run("Long translated text")
+
+    seg = Segment(
+        segment_id="s1-frame-detach",
+        location="body/p1",
+        context={"part": "body", "in_frame": True, "in_table": True},
+        source_plain="text",
+        paragraph_ref=paragraph,
+        target_tagged="Long translated text",
+    )
+    issue = _issue("s1-frame-detach", code="layout_frame_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 40, "target_len": 80})
+    cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5)
+
+    applied = fix_expansion_issues([seg], [issue], cfg)
+    assert applied == 1
+    assert paragraph._p.get_or_add_pPr().find(qn("w:framePr")) is None
+
+
+def test_fix_expansion_issues_skips_generic_length_ratio_for_body_paragraphs():
     doc = Document()
     paragraph = doc.add_paragraph()
     run = paragraph.add_run("Long translated text")
     run.font.size = Pt(12)
 
     seg = Segment(
-        segment_id="s1",
+        segment_id="s1-generic",
         location="body/p1",
         context={"part": "body"},
         source_plain="text",
@@ -35,11 +94,12 @@ def test_fix_expansion_issues_reduces_font_and_emits_issue():
     )
     cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5)
 
-    applied = fix_expansion_issues([seg], [_issue("s1")], cfg)
-    assert applied == 1
+    applied = fix_expansion_issues([seg], [_issue("s1-generic", code="length_ratio_high")], cfg)
+
+    assert applied == 0
     assert run.font.size is not None
-    assert run.font.size.pt == pytest.approx(11.5)
-    assert any(issue.code == "layout_auto_fix_applied" for issue in seg.issues)
+    assert run.font.size.pt == pytest.approx(12.0)
+    assert not any(issue.code == "layout_auto_fix_applied" for issue in seg.issues)
 
 
 def test_fix_expansion_issues_reduces_non_table_spacing():
@@ -77,6 +137,11 @@ def test_fix_expansion_issues_reduces_non_table_spacing():
 def test_fix_expansion_issues_reduces_table_spacing():
     doc = Document()
     table = doc.add_table(rows=1, cols=1)
+    tr_pr = table.rows[0]._tr.get_or_add_trPr()
+    tr_height = OxmlElement("w:trHeight")
+    tr_height.set(qn("w:hRule"), "exact")
+    tr_height.set(qn("w:val"), "240")
+    tr_pr.append(tr_height)
     paragraph = table.cell(0, 0).paragraphs[0]
     paragraph.text = "Translated"
     paragraph.paragraph_format.space_before = Pt(12)
@@ -102,10 +167,38 @@ def test_fix_expansion_issues_reduces_table_spacing():
     spacing = paragraph.runs[0]._r.get_or_add_rPr().find(qn("w:spacing"))
     assert spacing is not None
     assert spacing.get(qn("w:val")) == "-15"
+    assert table.rows[0]._tr.get_or_add_trPr().find(qn("w:trHeight")) is None
     assert any(
         issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "table"
         for issue in seg.issues
     )
+
+
+def test_fix_expansion_issues_table_shrink_scales_by_overflow_ratio():
+    doc = Document()
+    table = doc.add_table(rows=1, cols=1)
+    paragraph = table.cell(0, 0).paragraphs[0]
+    run = paragraph.add_run("Translated")
+    run.font.size = Pt(12)
+
+    seg = Segment(
+        segment_id="s2b",
+        location="body/t0/r0/c0/p0",
+        context={"part": "body", "in_table": True},
+        source_plain="source",
+        paragraph_ref=paragraph,
+        target_tagged="translated",
+    )
+    issue = _issue("s2b", code="layout_table_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 40, "target_len": 160})
+    cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5)
+
+    applied = fix_expansion_issues([seg], [issue], cfg)
+
+    assert applied == 1
+    assert run.font.size is not None
+    # ratio=4.0 should trigger near-max reduction (~2pt)
+    assert run.font.size.pt == pytest.approx(10.0)
 
 
 def test_apply_global_font_shrink_uses_different_body_and_table_steps():

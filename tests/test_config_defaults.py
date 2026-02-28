@@ -44,10 +44,13 @@ def test_load_config_defaults_pdf_section(tmp_path):
 def test_pipeline_config_font_shrink_defaults_are_disabled():
     cfg = PipelineConfig()
     assert cfg.translate_enable_formatting_fixes is False
+    assert cfg.layout_auto_fix_passes == 1
     assert cfg.font_shrink_body_pt == 0.0
     assert cfg.font_shrink_table_pt == 0.0
     assert cfg.com_textbox_min_font_pt == 8.0
-    assert cfg.com_textbox_max_shrink_steps == 2
+    assert cfg.com_textbox_max_shrink_steps == 4
+    assert cfg.com_expand_overflowing_shapes is False
+    assert cfg.com_textbox_max_height_growth == 1.5
 
 
 def test_load_config_reads_font_shrink_values(tmp_path):
@@ -56,6 +59,7 @@ def test_load_config_reads_font_shrink_values(tmp_path):
         "llm:\n"
         "  provider: mock\n"
         "abbyy_profile: full\n"
+        "layout_auto_fix_passes: 3\n"
         "font_shrink_body_pt: 1.5\n"
         "font_shrink_table_pt: 2.5\n",
         encoding="utf-8",
@@ -63,6 +67,7 @@ def test_load_config_reads_font_shrink_values(tmp_path):
 
     cfg = load_config(config_path)
     assert cfg.abbyy_profile == "full"
+    assert cfg.layout_auto_fix_passes == 3
     assert cfg.font_shrink_body_pt == 1.5
     assert cfg.font_shrink_table_pt == 2.5
 
@@ -73,13 +78,17 @@ def test_load_config_reads_com_textbox_settings(tmp_path):
         "llm:\n"
         "  provider: mock\n"
         "com_textbox_min_font_pt: 7.5\n"
-        "com_textbox_max_shrink_steps: 4\n",
+        "com_textbox_max_shrink_steps: 5\n"
+        "com_expand_overflowing_shapes: true\n"
+        "com_textbox_max_height_growth: 1.8\n",
         encoding="utf-8",
     )
 
     cfg = load_config(config_path)
     assert cfg.com_textbox_min_font_pt == 7.5
-    assert cfg.com_textbox_max_shrink_steps == 4
+    assert cfg.com_textbox_max_shrink_steps == 5
+    assert cfg.com_expand_overflowing_shapes is True
+    assert cfg.com_textbox_max_height_growth == 1.8
 
 
 def test_load_config_reads_translate_formatting_gate(tmp_path):

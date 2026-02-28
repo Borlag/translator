@@ -137,6 +137,65 @@ def _paragraph_cell(paragraph) -> _Cell | None:
     return None
 
 
+def _relax_paragraph_frame_height_rule(paragraph) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None:
+        return False
+    frame_pr = p_pr.find(qn("w:framePr"))
+    if frame_pr is None:
+        return False
+    h_rule_attr = qn("w:hRule")
+    h_rule = str(frame_pr.get(h_rule_attr, "")).strip().lower()
+    if h_rule != "exact":
+        return False
+    frame_pr.set(h_rule_attr, "atLeast")
+    return True
+
+
+def _remove_paragraph_frame(paragraph) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None:
+        return False
+    frame_pr = p_pr.find(qn("w:framePr"))
+    if frame_pr is None:
+        return False
+    p_pr.remove(frame_pr)
+    return True
+
+
+def _relax_table_row_exact_height(paragraph) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    tr_height_tag = qn("w:trHeight")
+    tr_pr_tag = qn("w:trPr")
+    h_rule_attr = qn("w:hRule")
+
+    for ancestor in p_elm.iterancestors():
+        tag = str(getattr(ancestor, "tag", "")).lower()
+        if not tag.endswith("}tr"):
+            continue
+        tr_pr = ancestor.find(tr_pr_tag)
+        if tr_pr is None:
+            return False
+        changed = False
+        for child in list(tr_pr):
+            if child.tag != tr_height_tag:
+                continue
+            if str(child.get(h_rule_attr, "")).strip().lower() != "exact":
+                continue
+            tr_pr.remove(child)
+            changed = True
+        return changed
+    return False
+
+
 def reduce_paragraph_spacing(paragraph, factor: float = 0.8) -> bool:
     changed = False
     ratio = min(1.0, max(0.1, float(factor)))
@@ -170,6 +229,11 @@ def set_single_line_spacing(paragraph) -> bool:
 def insert_soft_wraps(paragraph, max_line_chars: int = 34) -> bool:
     if not paragraph.runs:
         return False
+    non_empty_runs = [run for run in paragraph.runs if (run.text or "").strip()]
+    # Rewriting run text can destroy inline formatting in rich paragraphs,
+    # so soft wraps are applied only to simple single-run paragraphs.
+    if len(non_empty_runs) != 1:
+        return False
     text = "".join(run.text or "" for run in paragraph.runs)
     if len(text.strip()) <= max_line_chars:
         return False
@@ -201,7 +265,21 @@ def insert_soft_wraps(paragraph, max_line_chars: int = 34) -> bool:
     return True
 
 
-def _fix_table_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+def _estimate_overflow_ratio(issue: Issue | None) -> float:
+    if issue is None:
+        return 1.0
+    details = issue.details or {}
+    try:
+        target_len = float(details.get("target_len", 0) or 0)
+        approx_capacity = float(details.get("approx_capacity_chars", 0) or 0)
+    except (TypeError, ValueError):
+        return 1.0
+    if approx_capacity <= 0.0 or target_len <= 0.0:
+        return 1.0
+    return max(1.0, target_len / approx_capacity)
+
+
+def _fix_table_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
     if seg.paragraph_ref is None:
         return False
 
@@ -209,6 +287,7 @@ def _fix_table_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
     cell = _paragraph_cell(seg.paragraph_ref)
     spacing_factor = float(cfg.layout_spacing_factor)
     if cell is not None:
+        changed = _relax_table_row_exact_height(seg.paragraph_ref) or changed
         if len(cell.paragraphs) > 1:
             spacing_factor *= 0.85
         changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
@@ -221,12 +300,15 @@ def _fix_table_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
         changed = set_single_line_spacing(seg.paragraph_ref) or changed
 
     table_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
+    overflow_ratio = _estimate_overflow_ratio(issue)
+    if overflow_ratio > 1.0:
+        ratio_based_reduction = min(2.0, max(0.6, (overflow_ratio - 1.0) * 1.1))
+        table_font_reduction = max(table_font_reduction, ratio_based_reduction)
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=table_font_reduction) or changed
-    changed = insert_soft_wraps(seg.paragraph_ref, max_line_chars=30) or changed
     return changed
 
 
-def _fix_textbox_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
+def _fix_textbox_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
     if seg.paragraph_ref is None:
         return False
 
@@ -235,8 +317,29 @@ def _fix_textbox_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=textbox_spacing_factor) or changed
     changed = reduce_character_spacing(seg.paragraph_ref, twips=-12) or changed
     textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.6)
+    overflow_ratio = _estimate_overflow_ratio(issue)
+    if overflow_ratio > 1.0:
+        ratio_based_reduction = min(2.0, max(0.6, (overflow_ratio - 1.0) * 1.0))
+        textbox_font_reduction = max(textbox_font_reduction, ratio_based_reduction)
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=textbox_font_reduction) or changed
-    changed = insert_soft_wraps(seg.paragraph_ref, max_line_chars=28) or changed
+    return changed
+
+
+def _fix_frame_overflow(seg: Segment, cfg: PipelineConfig, *, issue: Issue | None = None) -> bool:
+    if seg.paragraph_ref is None:
+        return False
+
+    changed = False
+    overflow_ratio = _estimate_overflow_ratio(issue)
+    if overflow_ratio >= 1.35 and bool(seg.context.get("in_table")):
+        changed = _remove_paragraph_frame(seg.paragraph_ref) or changed
+    changed = _relax_paragraph_frame_height_rule(seg.paragraph_ref) or changed
+    frame_spacing_factor = min(0.92, max(0.5, float(cfg.layout_spacing_factor)))
+    changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=frame_spacing_factor) or changed
+    changed = reduce_character_spacing(seg.paragraph_ref, twips=-12) or changed
+    changed = set_single_line_spacing(seg.paragraph_ref) or changed
+    frame_font_reduction = max(float(cfg.layout_font_reduction_pt), 0.4)
+    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=frame_font_reduction) or changed
     return changed
 
 
@@ -248,7 +351,6 @@ def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig) -> bool:
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=cfg.layout_spacing_factor) or changed
     changed = reduce_character_spacing(seg.paragraph_ref, twips=-10) or changed
     changed = reduce_font_size(seg.paragraph_ref, reduction_pt=cfg.layout_font_reduction_pt) or changed
-    changed = insert_soft_wraps(seg.paragraph_ref) or changed
     return changed
 
 
@@ -265,6 +367,7 @@ def fix_expansion_issues(
         "length_ratio_high",
         "layout_table_overflow_risk",
         "layout_textbox_overflow_risk",
+        "layout_frame_overflow_risk",
     }
     fixed_segment_ids: set[str] = set()
 
@@ -283,12 +386,20 @@ def fix_expansion_issues(
             issue.code == "length_ratio_high" and seg.context.get("in_table")
         ):
             strategy = "table"
-            changed = _fix_table_overflow(seg, cfg)
+            changed = _fix_table_overflow(seg, cfg, issue=issue)
         elif issue.code == "layout_textbox_overflow_risk" or (
             issue.code == "length_ratio_high" and seg.context.get("in_textbox")
         ):
             strategy = "textbox"
-            changed = _fix_textbox_overflow(seg, cfg)
+            changed = _fix_textbox_overflow(seg, cfg, issue=issue)
+        elif issue.code == "layout_frame_overflow_risk" or (
+            issue.code == "length_ratio_high" and seg.context.get("in_frame")
+        ):
+            strategy = "frame"
+            changed = _fix_frame_overflow(seg, cfg, issue=issue)
+        elif issue.code == "length_ratio_high":
+            # Do not apply generic destructive fixes to normal body paragraphs.
+            continue
         else:
             changed = _fix_generic_overflow(seg, cfg)
         if not changed:

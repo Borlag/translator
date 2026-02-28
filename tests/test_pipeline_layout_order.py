@@ -72,3 +72,54 @@ def test_apply_abbyy_and_layout_passes_runs_normalization_before_layout(monkeypa
     )
 
     assert call_order == ["normalize", "validate", "attach", "fix"]
+
+
+def test_apply_abbyy_and_layout_passes_can_recheck_multiple_fix_passes(monkeypatch):
+    validate_calls = {"count": 0}
+    fix_calls = {"count": 0}
+
+    def _fake_validate(doc, segments, cfg):  # noqa: ANN001, ANN202
+        del doc, cfg
+        validate_calls["count"] += 1
+        if validate_calls["count"] == 1:
+            return [
+                Issue(
+                    code="layout_table_overflow_risk",
+                    severity=Severity.WARN,
+                    message="overflow",
+                    details={"segment_id": segments[0].segment_id},
+                )
+            ]
+        return []
+
+    def _fake_fix(segments, issues, cfg):  # noqa: ANN001, ANN202
+        del segments, issues, cfg
+        fix_calls["count"] += 1
+        return 1
+
+    monkeypatch.setattr(pipeline, "validate_layout", _fake_validate)
+    monkeypatch.setattr(pipeline, "fix_expansion_issues", _fake_fix)
+
+    doc = Document()
+    paragraph = doc.add_paragraph("Text")
+    segments = [
+        Segment(
+            segment_id="s2",
+            location="body/p2",
+            context={"part": "body", "in_table": True},
+            source_plain="Text",
+            paragraph_ref=paragraph,
+            target_tagged="Long translated text",
+        )
+    ]
+    cfg = PipelineConfig(layout_check=True, layout_auto_fix=True, layout_auto_fix_passes=2)
+
+    pipeline._apply_abbyy_and_layout_passes(
+        doc,
+        segments,
+        cfg,
+        logging.getLogger("test_pipeline_layout_order"),
+    )
+
+    assert fix_calls["count"] == 1
+    assert validate_calls["count"] == 2

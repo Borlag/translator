@@ -5,7 +5,7 @@ from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-from docxru.oxml_table_fix import normalize_abbyy_oxml, set_textbox_autofit
+from docxru.oxml_table_fix import normalize_abbyy_oxml, normalize_table_cell_margins, set_textbox_autofit
 
 
 def _append_exact_tr_height(doc: Document):
@@ -23,6 +23,8 @@ def _append_frame_pr(doc: Document):
     p_pr = p._p.get_or_add_pPr()
     frame_pr = OxmlElement("w:framePr")
     frame_pr.set(qn("w:w"), "100")
+    frame_pr.set(qn("w:h"), "240")
+    frame_pr.set(qn("w:hRule"), "exact")
     p_pr.append(frame_pr)
     return p_pr
 
@@ -101,14 +103,16 @@ def test_normalize_abbyy_oxml_safe_removes_exact_trheight_only():
 
     assert stats["tr_height_exact_removed"] == 1
     assert stats["frame_pr_removed"] == 0
+    assert stats["frame_pr_exact_relaxed"] == 0
     assert stats["line_spacing_exact_relaxed"] == 0
     assert stats["textbox_autofit_updated"] == 0
+    assert stats["table_cell_margins_normalized"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
     assert p_pr.find(qn("w:framePr")) is not None
     assert spacing.get(qn("w:lineRule")) == "exact"
 
 
-def test_normalize_abbyy_oxml_aggressive_removes_framepr_too():
+def test_normalize_abbyy_oxml_aggressive_relaxes_framepr_height_rule():
     doc = Document()
     tr_pr = _append_exact_tr_height(doc)
     p_pr = _append_frame_pr(doc)
@@ -117,11 +121,15 @@ def test_normalize_abbyy_oxml_aggressive_removes_framepr_too():
     stats = normalize_abbyy_oxml(doc, profile="aggressive")
 
     assert stats["tr_height_exact_removed"] == 1
-    assert stats["frame_pr_removed"] == 1
+    assert stats["frame_pr_removed"] == 0
+    assert stats["frame_pr_exact_relaxed"] == 1
     assert stats["line_spacing_exact_relaxed"] == 1
     assert stats["textbox_autofit_updated"] == 0
+    assert stats["table_cell_margins_normalized"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
-    assert p_pr.find(qn("w:framePr")) is None
+    frame_pr = p_pr.find(qn("w:framePr"))
+    assert frame_pr is not None
+    assert frame_pr.get(qn("w:hRule")) == "atLeast"
     assert spacing.get(qn("w:lineRule")) == "atLeast"
 
 
@@ -135,14 +143,35 @@ def test_normalize_abbyy_oxml_full_applies_textbox_autofit():
     stats = normalize_abbyy_oxml(doc, profile="full")
 
     assert stats["tr_height_exact_removed"] == 1
-    assert stats["frame_pr_removed"] == 1
+    assert stats["frame_pr_removed"] == 0
+    assert stats["frame_pr_exact_relaxed"] == 1
     assert stats["line_spacing_exact_relaxed"] == 1
     assert stats["textbox_autofit_updated"] == 1
+    assert stats["table_cell_margins_normalized"] == 0
     assert tr_pr.find(qn("w:trHeight")) is None
-    assert p_pr.find(qn("w:framePr")) is None
+    frame_pr = p_pr.find(qn("w:framePr"))
+    assert frame_pr is not None
+    assert frame_pr.get(qn("w:hRule")) == "atLeast"
     assert spacing.get(qn("w:lineRule")) == "atLeast"
     assert _has_child(body_pr, "noAutofit") is False
     assert _has_child(body_pr, "normAutofit") is True
+
+
+def test_normalize_table_cell_margins_caps_excessive_values():
+    doc = Document()
+    cell = doc.add_table(rows=1, cols=1).cell(0, 0)
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_mar = OxmlElement("w:tcMar")
+    left = OxmlElement("w:left")
+    left.set(qn("w:type"), "dxa")
+    left.set(qn("w:w"), "480")
+    tc_mar.append(left)
+    tc_pr.append(tc_mar)
+
+    changed = normalize_table_cell_margins(doc, max_margin_twips=108)
+
+    assert changed == 1
+    assert left.get(qn("w:w")) == "108"
 
 
 def test_normalize_abbyy_oxml_rejects_invalid_profile():

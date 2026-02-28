@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from docx.document import Document as DocxDocument
+from docx.oxml.ns import qn
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
@@ -123,6 +124,9 @@ def collect_segments(
             ctx["paragraph_style"] = style_name
         if _looks_like_toc_style(style_name) or _looks_like_toc_text(text):
             ctx["is_toc_entry"] = True
+        p_pr = getattr(getattr(p, "_p", None), "pPr", None)
+        if p_pr is not None and p_pr.find(qn("w:framePr")) is not None:
+            ctx["in_frame"] = True
 
         seg_id = _stable_segment_id(location, text)
         segments.append(

@@ -98,7 +98,9 @@ concurrency: 4
 mode: reflow              # reflow | com
 translate_enable_formatting_fixes: false # keep translate conservative; run docxru postformat for layout fixes
 com_textbox_min_font_pt: 8.0
-com_textbox_max_shrink_steps: 2
+com_textbox_max_shrink_steps: 4
+com_expand_overflowing_shapes: false
+com_textbox_max_height_growth: 1.5
 abbyy_profile: "off"        # off | safe | aggressive | full
 glossary_lemma_check: "off" # off | warn | retry
 short_translation_min_ratio: 0.35
@@ -113,6 +115,7 @@ context_leakage_allowlist_path: null
 layout_check: false         # run layout risk checks after translation
 layout_expansion_warn_ratio: 1.5
 layout_auto_fix: false      # apply optional spacing/font fixes for risky segments
+layout_auto_fix_passes: 1   # guard loop: re-check and re-apply targeted fixes N times
 layout_font_reduction_pt: 0.5
 layout_spacing_factor: 0.8
 

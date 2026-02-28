@@ -60,8 +60,10 @@ def _autofit_textbox_shape(
     *,
     min_font_size_pt: float,
     max_shrink_steps: int,
+    expand_overflowing: bool,
+    max_height_growth: float,
 ) -> dict[str, int]:
-    stats = {"textboxes_seen": 0, "textboxes_autofit": 0, "textboxes_shrunk": 0}
+    stats = {"textboxes_seen": 0, "textboxes_autofit": 0, "textboxes_shrunk": 0, "textboxes_expanded": 0}
     text_frame = getattr(shape, "TextFrame", None)
     if text_frame is None:
         return stats
@@ -118,6 +120,37 @@ def _autofit_textbox_shape(
 
     if shrunk:
         stats["textboxes_shrunk"] = 1
+
+    still_overflowing = bool(getattr(text_frame, "Overflowing", False))
+    if still_overflowing and expand_overflowing:
+        expanded = False
+        try:
+            original_height = float(getattr(shape, "Height", 0) or 0)
+        except Exception:
+            original_height = 0.0
+        growth_limit = max(1.0, float(max_height_growth))
+        max_height = original_height * growth_limit
+        if original_height > 0.0 and max_height > original_height:
+            current_height = original_height
+            for _ in range(24):
+                if current_height >= max_height:
+                    break
+                next_height = min(max_height, current_height + 7.2)
+                if next_height <= current_height + 1e-6:
+                    break
+                try:
+                    shape.Height = next_height
+                except Exception:
+                    break
+                current_height = float(getattr(shape, "Height", next_height) or next_height)
+                expanded = True
+                try:
+                    if not bool(getattr(text_frame, "Overflowing", False)):
+                        break
+                except Exception:
+                    break
+        if expanded:
+            stats["textboxes_expanded"] = 1
     return stats
 
 
@@ -126,13 +159,17 @@ def _autofit_document_textboxes(
     *,
     min_font_size_pt: float,
     max_shrink_steps: int,
+    expand_overflowing: bool,
+    max_height_growth: float,
 ) -> dict[str, int]:
-    stats = {"textboxes_seen": 0, "textboxes_autofit": 0, "textboxes_shrunk": 0}
+    stats = {"textboxes_seen": 0, "textboxes_autofit": 0, "textboxes_shrunk": 0, "textboxes_expanded": 0}
     for shape in _iter_document_shapes(doc):
         part = _autofit_textbox_shape(
             shape,
             min_font_size_pt=min_font_size_pt,
             max_shrink_steps=max_shrink_steps,
+            expand_overflowing=expand_overflowing,
+            max_height_growth=max_height_growth,
         )
         for key, value in part.items():
             stats[key] += int(value)
@@ -144,7 +181,9 @@ def update_fields_via_com(
     *,
     autofit_textboxes: bool = True,
     min_font_size_pt: float = 8.0,
-    max_shrink_steps: int = 2,
+    max_shrink_steps: int = 4,
+    expand_overflowing: bool = False,
+    max_height_growth: float = 1.5,
 ) -> dict[str, int]:
     """Windows-only: open DOCX in Word via COM and update fields/TOC.
 
@@ -166,6 +205,7 @@ def update_fields_via_com(
         "textboxes_seen": 0,
         "textboxes_autofit": 0,
         "textboxes_shrunk": 0,
+        "textboxes_expanded": 0,
     }
 
     p = str(Path(docx_path).resolve())
@@ -194,6 +234,8 @@ def update_fields_via_com(
                 doc,
                 min_font_size_pt=float(min_font_size_pt),
                 max_shrink_steps=int(max_shrink_steps),
+                expand_overflowing=bool(expand_overflowing),
+                max_height_growth=max(1.0, float(max_height_growth)),
             )
             for key, value in text_stats.items():
                 stats[key] = stats.get(key, 0) + int(value)

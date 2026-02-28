@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from docx import Document
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from docxru.docx_reader import collect_segments
 
@@ -63,3 +64,17 @@ def test_collect_segments_marks_toc_like_entries():
     entry = next(seg for seg in segments if "Repair No. 1-1 Lower Bearing" in seg.source_plain)
     assert title.context.get("is_toc_entry") is True
     assert entry.context.get("is_toc_entry") is True
+
+
+def test_collect_segments_marks_frame_paragraphs():
+    doc = Document()
+    paragraph = doc.add_paragraph("Frame anchored paragraph")
+    p_pr = paragraph._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:w"), "1200")
+    frame_pr.set(qn("w:h"), "360")
+    p_pr.append(frame_pr)
+
+    segments = collect_segments(doc, include_headers=False, include_footers=False)
+    frame_seg = next(seg for seg in segments if seg.source_plain == "Frame anchored paragraph")
+    assert frame_seg.context.get("in_frame") is True

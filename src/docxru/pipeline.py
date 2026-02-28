@@ -1146,12 +1146,15 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
             oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
             logger.info(
                 "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d; "
-                "lineSpacing_exact_relaxed=%d; textbox_autofit_updated=%d",
+                "framePr_exact_relaxed=%d; lineSpacing_exact_relaxed=%d; textbox_autofit_updated=%d; "
+                "tableCellMargins_normalized=%d",
                 cfg.abbyy_profile,
                 int(oxml_stats.get("tr_height_exact_removed", 0)),
                 int(oxml_stats.get("frame_pr_removed", 0)),
+                int(oxml_stats.get("frame_pr_exact_relaxed", 0)),
                 int(oxml_stats.get("line_spacing_exact_relaxed", 0)),
                 int(oxml_stats.get("textbox_autofit_updated", 0)),
+                int(oxml_stats.get("table_cell_margins_normalized", 0)),
             )
         except Exception as e:
             logger.warning(f"ABBYY OXML normalization failed: {e}")
@@ -1162,8 +1165,27 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
         if layout_issues:
             logger.info(f"Layout validation issues: {len(layout_issues)} (attached={attached})")
         if cfg.layout_auto_fix and layout_issues:
-            applied_fixes = fix_expansion_issues(segments, layout_issues, cfg)
-            logger.info(f"Layout auto-fixes applied: {applied_fixes}")
+            max_passes = max(1, int(getattr(cfg, "layout_auto_fix_passes", 1)))
+            total_applied = 0
+            current_issues = layout_issues
+            passes_ran = 0
+            for _ in range(max_passes):
+                if not current_issues:
+                    break
+                applied_fixes = fix_expansion_issues(segments, current_issues, cfg)
+                passes_ran += 1
+                total_applied += int(applied_fixes)
+                if applied_fixes <= 0:
+                    break
+                if passes_ran >= max_passes:
+                    break
+                current_issues = validate_layout(doc, segments, cfg)
+            logger.info(
+                "Layout auto-fixes applied: %d (passes=%d/%d)",
+                int(total_applied),
+                int(passes_ran),
+                int(max_passes),
+            )
 
 
 def _run_word_com_postprocess(output_path: Path, cfg: PipelineConfig, logger) -> None:
@@ -1176,15 +1198,18 @@ def _run_word_com_postprocess(output_path: Path, cfg: PipelineConfig, logger) ->
             output_path,
             min_font_size_pt=float(cfg.com_textbox_min_font_pt),
             max_shrink_steps=int(cfg.com_textbox_max_shrink_steps),
+            expand_overflowing=bool(cfg.com_expand_overflowing_shapes),
+            max_height_growth=float(cfg.com_textbox_max_height_growth),
         )
         logger.info(
             "Word COM post-process: fields_updated=%d; tocs_updated=%d; "
-            "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d",
+            "textboxes_seen=%d; textboxes_autofit=%d; textboxes_shrunk=%d; textboxes_expanded=%d",
             int(com_stats.get("fields_updated", 0)),
             int(com_stats.get("tocs_updated", 0)),
             int(com_stats.get("textboxes_seen", 0)),
             int(com_stats.get("textboxes_autofit", 0)),
             int(com_stats.get("textboxes_shrunk", 0)),
+            int(com_stats.get("textboxes_expanded", 0)),
         )
     except Exception as e:
         logger.warning(f"Word COM post-process failed: {e}")

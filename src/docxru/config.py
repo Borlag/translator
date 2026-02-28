@@ -151,7 +151,9 @@ class PipelineConfig:
     mode: str = "reflow"  # 'reflow' | 'com'
     translate_enable_formatting_fixes: bool = False
     com_textbox_min_font_pt: float = 8.0
-    com_textbox_max_shrink_steps: int = 2
+    com_textbox_max_shrink_steps: int = 4
+    com_expand_overflowing_shapes: bool = False
+    com_textbox_max_height_growth: float = 1.5
     qa_report_path: str = "qa_report.html"
     qa_jsonl_path: str = "qa.jsonl"
     # Optional append-only translation history for human review and term/context lookup.
@@ -174,6 +176,7 @@ class PipelineConfig:
     layout_check: bool = False
     layout_expansion_warn_ratio: float = 1.5
     layout_auto_fix: bool = False
+    layout_auto_fix_passes: int = 1
     layout_font_reduction_pt: float = 0.5
     layout_spacing_factor: float = 0.8
     # Optional unconditional post-writeback font shrink.
@@ -441,12 +444,15 @@ def load_config(path: str | Path) -> PipelineConfig:
     layout_check = bool(data.get("layout_check", False))
     layout_expansion_warn_ratio = float(data.get("layout_expansion_warn_ratio", 1.5))
     layout_auto_fix = bool(data.get("layout_auto_fix", False))
+    layout_auto_fix_passes = max(1, int(data.get("layout_auto_fix_passes", 1)))
     layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
     font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", 0.0)))
     font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", 0.0)))
     com_textbox_min_font_pt = max(6.0, float(data.get("com_textbox_min_font_pt", 8.0)))
-    com_textbox_max_shrink_steps = max(0, int(data.get("com_textbox_max_shrink_steps", 2)))
+    com_textbox_max_shrink_steps = max(0, int(data.get("com_textbox_max_shrink_steps", 4)))
+    com_expand_overflowing_shapes = bool(data.get("com_expand_overflowing_shapes", False))
+    com_textbox_max_height_growth = max(1.0, float(data.get("com_textbox_max_height_growth", 1.5)))
 
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
@@ -491,6 +497,8 @@ def load_config(path: str | Path) -> PipelineConfig:
         translate_enable_formatting_fixes=translate_enable_formatting_fixes,
         com_textbox_min_font_pt=com_textbox_min_font_pt,
         com_textbox_max_shrink_steps=com_textbox_max_shrink_steps,
+        com_expand_overflowing_shapes=com_expand_overflowing_shapes,
+        com_textbox_max_height_growth=com_textbox_max_height_growth,
         qa_report_path=qa_report_path,
         qa_jsonl_path=qa_jsonl_path,
         translation_history_path=translation_history_path,
@@ -509,6 +517,7 @@ def load_config(path: str | Path) -> PipelineConfig:
         layout_check=layout_check,
         layout_expansion_warn_ratio=layout_expansion_warn_ratio,
         layout_auto_fix=layout_auto_fix,
+        layout_auto_fix_passes=layout_auto_fix_passes,
         layout_font_reduction_pt=layout_font_reduction_pt,
         layout_spacing_factor=layout_spacing_factor,
         font_shrink_body_pt=font_shrink_body_pt,

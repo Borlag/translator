@@ -1,142 +1,148 @@
-Plan: Автоматическое исправление форматирования переведённых DOCX
+Контекст / Проблема
+Пайплайн перевода EN→RU создает DOCX-файлы, требующие значительных ручных правок форматирования перед передачей заказчику. Причины:
 
-Контекст
-Переведённые документы (EN→RU, из ABBYY FineReader) содержат массовые проблемы форматирования:
+Write-back уничтожает runs — tagged_to_runs() удаляет ВСЕ runs параграфа и пересоздает их через paragraph.add_run(). Теряются character styles, тонкие свойства rPr, нумерация runs.
+Все фиксы отключены по умолчанию — layout_check: false, layout_auto_fix: false, abbyy_profile: "off", translate_enable_formatting_fixes: false. Код есть, но не работает.
+ABBYY-ограничения — FineReader ставит noAutofit, hRule="exact" → текст обрезается при расширении RU.
+Нет учёта ограничений контейнера при переводе — LLM не знает, что текст в узком textbox, и делает длинный перевод.
+Порядок обработки субоптимален — в postformat_docx font shrink до layout check.
 
-Скрытый/обрезанный текст в текстбоксах — русский текст длиннее, не помещается в фиксированные текстбоксы
-Переполнение ячеек таблиц — текст выходит за границы
-Слишком крупный шрифт для контейнеров после перевода
-Смещение текста — абсолютное позиционирование от ABBYY
-Разрывы предложений — неудачные переносы строк
-Артефакты ABBYY — exact row heights, framePr, exact line spacing блокирующие авто-подгонку
-Главная причина: ABBYY FineReader ставит <a:noAutofit/> в текстбоксах, что запрещает Word автоматически уменьшать шрифт для вмещения текста. Плюс жёсткие constraints (exact heights, framePr).
+Фазы реализации
 
-Текущее состояние — в проекте уже есть layout_check/layout_fix/com_word/oxml_table_fix, но:
-
-layout_check и layout_auto_fix выключены по умолчанию
-Фикс шрифта плоский (−0.5pt), без учёта геометрии контейнера
-com_word.py ограничен 2 шагами shrink
-oxml_table_fix.py не трогает текстбоксы вообще
-Нет инъекции normAutofit в bodyPr
-Подход: Гибридный (python-docx/lxml + Word COM)
-Pass 1: XML-level фиксы (быстро, детерминировано, ~5 сек) Pass 2: Word COM верификация + точечные фиксы (30-120 сек, Windows-only)
-
-Волна 1: Инъекция autofit в текстбоксы (наибольший эффект)
-Файл: src/docxru/oxml_table_fix.py
-Добавить функцию set_textbox_autofit(document, mode="normAutofit"):
-
-Итерировать все <a:bodyPr> элементы в документе
-Заменить <a:noAutofit/> на <a:normAutofit/> (Word будет авто-уменьшать шрифт)
-Обрабатывать как DrawingML (wsp:bodyPr), так и legacy VML (v:textbox)
-Применять только к текстбоксам с непустым w:txbxContent
-Расширить normalize_abbyy_oxml() новым профилем "full":
-
-full = aggressive + textbox autofit + нормализация отступов таблиц
+Фаза 1: Умные пресеты + правильный порядок обработки
+Импакт: ВЫСОКИЙ | Риск: НИЗКИЙ | Усилия: 1-2 дня
+Самый быстрый выигрыш — просто включить существующий код.
+1A. Пресеты в конфиге
 Файл: src/docxru/config.py
-Новые поля в PipelineConfig:
+Добавить поле formatting_preset в PipelineConfig:
+formatting_preset: str = "off"   # "off" | "native_docx" | "abbyy_standard" | "abbyy_aggressive" | "auto"
+Таблица пресетов (значения-по-умолчанию, переопределяемые YAML):
+Параметрoffnative_docxabbyy_standardabbyy_aggressivetranslate_enable_formatting_fixesfalsetruetruetrueabbyy_profileoffoffaggressivefulllayout_checkfalsetruetruetruelayout_auto_fixfalsefalsetruetruelayout_auto_fix_passes1123font_shrink_body_pt0.00.00.00.5font_shrink_table_pt0.00.00.51.0modereflowreflowreflowcom
+В load_config(): применить пресет как базовые значения, потом перезаписать явные ключи из YAML.
+1B. Автодетекция источника документа
+Файл: src/docxru/pipeline.py — новая функция _detect_document_origin(doc) -> str:
 
-layout_textbox_autofit: bool = True           # инъекция normAutofit
-layout_textbox_min_font_pt: float = 7.0       # мин. размер шрифта для textbox
-layout_com_max_shrink_steps: int = 4          # шаги уменьшения в COM
-layout_textbox_expand_height: bool = False    # разрешить рост высоты (off по умолчанию)
-layout_textbox_max_height_growth: float = 1.5 # макс. рост высоты
-layout_table_normalize_margins: bool = True   # уменьшить избыточные margins ячеек
-Файл: src/docxru/pipeline.py (строки ~2769-2810)
-Вставить после ABBYY normalization, перед save:
+Проверить core_properties.creator / last_modified_by на "ABBYY"
+Посчитать <w:framePr> — если >30% параграфов, вероятно ABBYY
+Проверить наличие <a:noAutofit/> в textbox'ах
+При formatting_preset: "auto" автоматически выбрать abbyy_standard или native_docx
 
-python
-if cfg.layout_textbox_autofit:
-    autofit_count = set_textbox_autofit(doc, mode="normAutofit")
-```
+1C. Исправить порядок в postformat_docx()
+Файл: src/docxru/pipeline.py (строки 3468-3489)
+Текущий порядок (НЕВЕРНЫЙ):
 
----
+apply_global_font_shrink ← font shrink ПЕРВЫЙ
+_apply_abbyy_and_layout_passes ← layout check ВТОРОЙ
 
-## Волна 2: Умные контейнер-специфичные фиксы
+Правильный порядок:
 
-### Файл: `src/docxru/layout_fix.py`
+_apply_abbyy_and_layout_passes ← сначала убрать ограничения + найти и пофиксить overflow
+apply_global_font_shrink ← потом уменьшить шрифт для оставшихся сегментов
 
-Рефакторинг `fix_expansion_issues()` — диспетчеризация по типу контейнера:
 
-**Для текстбоксов** (`fix_textbox_overflow`):
-1. Вычислить площадь текстбокса из `wp:extent`
-2. Оценить нужную площадь из длины текста + метрик шрифта
-3. Рассчитать коэффициент масштабирования (sqrt от отношения площадей)
-4. Пропорционально уменьшить шрифт всех runs (min 7pt)
-5. Обнулить spacing before/after внутри текстбокса
+Фаза 2: In-place write-back (сохранение runs)
+Импакт: ОЧЕНЬ ВЫСОКИЙ | Риск: СРЕДНИЙ | Усилия: 4-5 дней
+Самое фундаментальное улучшение — не уничтожать runs, а заменять текст на месте.
+2A. Запись границ runs в Span
+Файл: src/docxru/models.py — добавить поле в Span:
+pythonoriginal_run_lengths: tuple[int, ...] = ()  # длины текста каждого run, слитого в этот span
+2B. Захват границ в paragraph_to_tagged()
+Файл: src/docxru/tagging.py (строки 222-256)
+При мерже runs (строка 253-254) вести список длин каждого run:
 
-**Для ячеек таблиц** (`fix_table_cell_overflow`):
-1. Обнулить paragraph spacing
-2. Сжать character spacing (−15 twips вместо −10)
-3. Установить line spacing = 1.0 × font size
-4. Пропорционально уменьшить шрифт (до −2pt, min 6pt)
+Новый run добавляется к span → добавить len(text) в список
+При создании Span (строка 265) передать original_run_lengths=tuple(lengths)
 
-### Файл: `src/docxru/oxml_table_fix.py`
+2C. Новая функция tagged_to_runs_inplace()
+Файл: src/docxru/tagging.py
+Алгоритм:
 
-Добавить `normalize_table_cell_margins(document)`:
-- Уменьшить избыточные `w:tcMar` в ячейках с переполнением
-- Минимальный margin = 29 twips (~0.5mm)
+Распарсить translated tagged text → pieces: list[(text, span_id)] (та же логика что в tagged_to_runs, строки 393-417)
+Проверить feasibility: количество span_id совпадает, нет структурных изменений → если нет, return False
+Для каждого span: найти исходные runs в параграфе по тексту
+Распределить переведённый текст пропорционально original_run_lengths:
 
----
+Span покрывал 3 runs с длинами [10, 5, 15] → перевод длиной 36 символов → runs получают [12, 6, 18]
 
-## Волна 3: Расширение текстбоксов по высоте (опционально)
 
-### Файл: `src/docxru/layout_fix.py` или `src/docxru/oxml_table_fix.py`
+Заменить run.text напрямую — все rPr, character styles, language metadata сохраняются
+Return True
 
-Добавить `expand_textbox_extent(segment, max_height_growth)`:
-- Увеличить `wp:extent cy` и `a:ext cy` синхронно
-- Только высота, не ширина (ширина ломает колонки)
-- Максимальный рост ограничен `max_height_growth` (1.5x)
-- **Выключено по умолчанию** — может повлиять на общую компоновку страницы
+Fallback на tagged_to_runs() при:
 
----
+Количество span_id в переводе ≠ в оригинале
+Есть inline OBJ токены, переместившиеся между spans
+Гиперссылки изменили границы
 
-## Волна 4: Усиленный COM pass
+2D. Интеграция в pipeline
+Файл: src/docxru/pipeline.py (строки 2824-2830)
+python# Пробуем in-place, если не получилось — fallback на полный rebuild
+inplace_ok = tagged_to_runs_inplace(seg.paragraph_ref, target_tagged_unshielded, seg.spans, ...)
+if not inplace_ok:
+    tagged_to_runs(seg.paragraph_ref, target_tagged_unshielded, seg.spans, ...)
+Ожидание: 60-70% сегментов пойдут через in-place путь. Для них ВСЁ форматирование сохраняется идеально.
 
-### Файл: `src/docxru/com_word.py`
+Фаза 3: LLM учитывает ограничения контейнера
+Импакт: ВЫСОКИЙ | Риск: НИЗКИЙ | Усилия: 1-2 дня
+3A. Предварительный анализ контейнеров
+Файл: src/docxru/pipeline.py — новая функция _attach_container_constraints(segments, cfg):
 
-1. Увеличить `max_shrink_steps` с 2 до 4
-2. Добавить `_expand_overflowing_shapes(doc)`:
-   - Для shape'ов где `TextFrame.Overflowing == True` после autofit+shrink
-   - Увеличивать `shape.Height` на 7.2 points (0.1 дюйма) итеративно
-   - Лимит: `max_height_growth` от оригинала
-3. Обновить `update_fields_via_com()`:
-   - Новые параметры: `expand_overflowing`, `max_height_growth`
-   - Передать настройки из конфига
+Для сегментов в table/textbox/frame: вычислить max_target_chars из размеров контейнера
+Использовать функции из layout_check.py для получения размеров
+Добавить в seg.context["max_target_chars"] только если ожидаемый RU текст близок к лимиту
 
----
+3B. Подсказка в LLM промпте
+Файл: src/docxru/llm.py (функция build_user_prompt, строка 215)
+После сборки ctx_parts добавить:
+pythonmax_chars = context.get("max_target_chars")
+if max_chars:
+    ctx_parts.append(f"SPACE_LIMIT: ~{max_chars} chars max, keep translation concise")
+LLM будет стараться делать более компактный перевод для ограниченных контейнеров.
 
-## Интеграция в pipeline (итоговый порядок)
-```
-1. Write-back перевода в параграфы
-2. Global font shrink (если font_shrink_*_pt > 0)
-3. Layout check → layout auto-fix (контейнер-специфичный)
-4. ABBYY OXML normalization (профиль из конфига)
-5. Textbox autofit injection (layout_textbox_autofit)
-6. Table margin normalization (layout_table_normalize_margins)
-7. Final run-level cleanup
-8. Save DOCX
-9. Word COM pass (mode="com"): fields + TOC + autofit + expand
-Тестирование
-Unit-тесты для каждой новой функции (test_layout_fixer.py):
-test_set_textbox_autofit_replaces_noAutofit
-test_set_textbox_autofit_skips_already_autofit
-test_fix_textbox_overflow_proportional_shrink
-test_normalize_table_cell_margins
-test_expand_textbox_extent
-Интеграционный тест с ABBYY sample:
-Загрузить samples/...abby_short.docx
-Применить полную нормализацию
-Проверить что нет <a:noAutofit/> в результате
-Визуальная проверка — прогнать translated.docx через новый pipeline и сравнить с оригиналом
-Критические файлы
-Файл	Изменения
-src/docxru/oxml_table_fix.py	+set_textbox_autofit(), +normalize_table_cell_margins(), расширить normalize_abbyy_oxml() профилем "full"
-src/docxru/layout_fix.py	Рефакторинг fix_expansion_issues(), +fix_textbox_overflow(), +fix_table_cell_overflow() усиленный, +expand_textbox_extent()
-src/docxru/config.py	+6 новых полей в PipelineConfig + load_config()
-src/docxru/pipeline.py	Вставить вызовы новых функций (строки ~2769-2810)
-src/docxru/com_word.py	Усилить shrink steps, +_expand_overflowing_shapes(), обновить update_fields_via_com()
-tests/test_layout_fixer.py	Новый файл с тестами
-Оценка затрат
-Стоимость: $0 (все инструменты бесплатные — python-docx, lxml, pywin32)
-Время реализации: 4 волны, каждая независима
-Волна 1 даёт ~70% эффекта — одна замена noAutofit → normAutofit решает основную проблему текстбоксов
+Фаза 4: Адаптивное уменьшение шрифта
+Импакт: СРЕДНИЙ | Риск: НИЗКИЙ | Усилия: 1 день
+Файл: src/docxru/layout_fix.py
+Вместо фиксированного layout_font_reduction_pt для всех — пропорциональное уменьшение:
+pythondef _calculate_adaptive_reduction(overflow_ratio, current_font_pt, max_reduction=3.0):
+    if overflow_ratio <= 1.0: return 0.0
+    needed = current_font_pt * (1.0 - 1.0/overflow_ratio)
+    return min(max_reduction, max(0.2, needed))
+
+20% overflow при 10pt → ~1.7pt уменьшение
+50% overflow при 10pt → ~3pt (capped)
+Нет overflow → 0pt
+
+Применить в _fix_table_overflow, _fix_textbox_overflow, _fix_frame_overflow.
+
+Фаза 5: Эскалация фиксов в multi-pass
+Импакт: СРЕДНИЙ | Риск: НИЗКИЙ | Усилия: 0.5 дня
+Файл: src/docxru/layout_fix.py
+Передавать pass_number в fix_expansion_issues():
+
+Pass 1: spacing + пропорциональный font shrink
+Pass 2: character spacing -15tw + aggressive spacing
+Pass 3: убрать frame constraints + минимальный line spacing
+
+Файл: src/docxru/pipeline.py — передавать номер прохода из цикла в _apply_abbyy_and_layout_passes.
+
+Фаза 6: Отчёт о форматировании
+Импакт: СРЕДНИЙ (workflow) | Риск: НИЗКИЙ | Усилия: 1 день
+Новый файл: src/docxru/format_report.py
+Генерация отчёта рядом с qa_report.html:
+
+Список сегментов с уменьшенным шрифтом (было → стало)
+Сегменты с изменённым spacing
+Сегменты с ABBYY-нормализацией
+Сегменты с ОСТАЮЩИМСЯ overflow risk после всех фиксов ← самое полезное
+Сегменты где in-place write-back не удался (fallback на rebuild)
+
+Это позволяет ревьюеру сразу видеть, какие места проверять вручную.
+
+Критические файлы для изменения
+ФайлЧто меняетсяsrc/docxru/config.pyformatting_preset, пресеты в load_config()src/docxru/models.pySpan.original_run_lengthssrc/docxru/tagging.pyparagraph_to_tagged() — захват длин; tagged_to_runs_inplace() — новая функцияsrc/docxru/pipeline.pyИнтеграция in-place, _detect_document_origin(), _attach_container_constraints(), порядок в postformat_docx()src/docxru/llm.pySPACE_LIMIT hint в build_user_prompt()src/docxru/layout_fix.pyАдаптивный shrink, эскалация по pass_numbersrc/docxru/format_report.pyНовый: генерация отчёта
+Верификация
+
+Unit тесты: расширить test_tagging_roundtrip.py для in-place path; добавить test_config_presets.py; расширить test_layout_fix.py для adaptive shrink
+Интеграционный тест: обработать известный ABBYY DOCX с formatting_preset: abbyy_standard, сравнить overflow count до и после
+Визуальная проверка: открыть результат в Word, проверить что текст не обрезан в textbox'ах и таблицах
+A/B сравнение: перевести тот же документ с formatting_preset: off vs abbyy_standard, подсчитать количество мест требующих ручной правки

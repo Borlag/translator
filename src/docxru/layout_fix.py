@@ -9,14 +9,17 @@ from .config import PipelineConfig
 from .models import Issue, Segment, Severity
 
 
-def reduce_font_size(paragraph, reduction_pt: float = 0.5) -> bool:
+def reduce_font_size(paragraph, reduction_pt: float = 0.5, *, min_font_pt: float = 6.0) -> bool:
     changed = False
     step = max(0.1, float(reduction_pt))
+    floor_pt = max(6.0, float(min_font_pt))
     for run in paragraph.runs:
         current = run.font.size.pt if run.font.size is not None else None
         if current is None:
             continue
-        updated = max(6.0, float(current) - step)
+        if float(current) <= floor_pt + 1e-6:
+            continue
+        updated = max(floor_pt, float(current) - step)
         if updated < float(current):
             run.font.size = Pt(updated)
             changed = True
@@ -25,9 +28,12 @@ def reduce_font_size(paragraph, reduction_pt: float = 0.5) -> bool:
         return True
 
     # If explicit run sizes are missing, apply a small fallback size to text runs.
-    fallback = max(6.0, 10.0 - step)
+    fallback = max(floor_pt, 10.0 - step)
     for run in paragraph.runs:
         if not (run.text or "").strip():
+            continue
+        current_size = _resolve_run_size_pt(run, paragraph)
+        if current_size is not None and float(current_size) <= floor_pt + 1e-6:
             continue
         run.font.size = Pt(fallback)
         changed = True
@@ -61,7 +67,7 @@ def apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> in
     if body_shrink <= 0.0 and table_shrink <= 0.0:
         return 0
 
-    min_font_pt = 6.0
+    min_font_pt = max(6.0, float(getattr(cfg, "font_shrink_min_font_pt", 6.0)))
     changed_segments = 0
     for seg in segments:
         paragraph = seg.paragraph_ref
@@ -79,6 +85,8 @@ def apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> in
                 continue
             current_size = _resolve_run_size_pt(run, paragraph)
             if current_size is None:
+                continue
+            if current_size <= min_font_pt + 1e-6:
                 continue
             new_size = max(min_font_pt, current_size - shrink)
             if new_size + 1e-6 >= current_size:
@@ -316,6 +324,7 @@ def _fix_table_overflow(
         return False
 
     changed = False
+    overflow_ratio = _estimate_overflow_ratio(issue)
     cell = _paragraph_cell(seg.paragraph_ref)
     spacing_factor = float(cfg.layout_spacing_factor)
     if pass_number >= 2:
@@ -326,16 +335,19 @@ def _fix_table_overflow(
             spacing_factor *= 0.85
         changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
         for paragraph in cell.paragraphs:
-            char_spacing_twips = -15 if pass_number <= 1 else -20
-            changed = reduce_character_spacing(paragraph, twips=char_spacing_twips) or changed
-            changed = set_single_line_spacing(paragraph) or changed
+            if pass_number >= 3 and overflow_ratio >= 1.8:
+                char_spacing_twips = -12 if pass_number == 3 else -15
+                changed = reduce_character_spacing(paragraph, twips=char_spacing_twips) or changed
+            if pass_number >= 3 and overflow_ratio >= 1.8:
+                changed = set_single_line_spacing(paragraph) or changed
     else:
         changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
-        char_spacing_twips = -15 if pass_number <= 1 else -20
-        changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
-        changed = set_single_line_spacing(seg.paragraph_ref) or changed
+        if pass_number >= 3 and overflow_ratio >= 1.8:
+            char_spacing_twips = -12 if pass_number == 3 else -15
+            changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+        if pass_number >= 3 and overflow_ratio >= 1.8:
+            changed = set_single_line_spacing(seg.paragraph_ref) or changed
 
-    overflow_ratio = _estimate_overflow_ratio(issue)
     avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
     ratio_based_reduction = _calculate_adaptive_reduction(
         overflow_ratio,
@@ -345,7 +357,11 @@ def _fix_table_overflow(
     table_font_reduction = max(float(cfg.layout_font_reduction_pt), ratio_based_reduction)
     if pass_number >= 3:
         table_font_reduction = max(table_font_reduction, 0.8)
-    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=table_font_reduction) or changed
+    changed = reduce_font_size(
+        seg.paragraph_ref,
+        reduction_pt=table_font_reduction,
+        min_font_pt=float(getattr(cfg, "layout_min_font_pt", 6.0)),
+    ) or changed
     return changed
 
 
@@ -360,15 +376,16 @@ def _fix_textbox_overflow(
         return False
 
     changed = False
+    overflow_ratio = _estimate_overflow_ratio(issue)
     textbox_spacing_factor = min(0.9, max(0.4, float(cfg.layout_spacing_factor)))
     if pass_number >= 2:
         textbox_spacing_factor *= 0.85
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=textbox_spacing_factor) or changed
-    char_spacing_twips = -12 if pass_number <= 1 else -18
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+    if pass_number >= 3 and overflow_ratio >= 1.6:
+        char_spacing_twips = -10 if pass_number == 3 else -12
+        changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
     if pass_number >= 3:
         changed = set_single_line_spacing(seg.paragraph_ref) or changed
-    overflow_ratio = _estimate_overflow_ratio(issue)
     avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
     ratio_based_reduction = _calculate_adaptive_reduction(
         overflow_ratio,
@@ -378,7 +395,11 @@ def _fix_textbox_overflow(
     textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), ratio_based_reduction)
     if pass_number >= 3:
         textbox_font_reduction = max(textbox_font_reduction, 0.7)
-    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=textbox_font_reduction) or changed
+    changed = reduce_font_size(
+        seg.paragraph_ref,
+        reduction_pt=textbox_font_reduction,
+        min_font_pt=float(getattr(cfg, "layout_min_font_pt", 6.0)),
+    ) or changed
     return changed
 
 
@@ -401,9 +422,11 @@ def _fix_frame_overflow(
     if pass_number >= 2:
         frame_spacing_factor *= 0.85
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=frame_spacing_factor) or changed
-    char_spacing_twips = -12 if pass_number <= 1 else -18
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
-    changed = set_single_line_spacing(seg.paragraph_ref) or changed
+    if pass_number >= 3 and overflow_ratio >= 1.5:
+        char_spacing_twips = -10 if pass_number == 3 else -12
+        changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+    if pass_number >= 3 and overflow_ratio >= 1.5:
+        changed = set_single_line_spacing(seg.paragraph_ref) or changed
     avg_font_pt = _paragraph_average_font_pt(seg.paragraph_ref) or 10.0
     ratio_based_reduction = _calculate_adaptive_reduction(
         overflow_ratio,
@@ -413,7 +436,11 @@ def _fix_frame_overflow(
     frame_font_reduction = max(float(cfg.layout_font_reduction_pt), max(0.4, ratio_based_reduction))
     if pass_number >= 3:
         frame_font_reduction = max(frame_font_reduction, 0.6)
-    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=frame_font_reduction) or changed
+    changed = reduce_font_size(
+        seg.paragraph_ref,
+        reduction_pt=frame_font_reduction,
+        min_font_pt=float(getattr(cfg, "layout_min_font_pt", 6.0)),
+    ) or changed
     return changed
 
 
@@ -426,13 +453,17 @@ def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig, *, pass_number: int
     if pass_number >= 2:
         spacing_factor *= 0.9
     changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
-    char_spacing_twips = -10 if pass_number <= 1 else -15
-    changed = reduce_character_spacing(seg.paragraph_ref, twips=char_spacing_twips) or changed
+    if pass_number >= 3:
+        changed = reduce_character_spacing(seg.paragraph_ref, twips=-10) or changed
     base_reduction = max(0.2, float(cfg.layout_font_reduction_pt))
     if pass_number >= 3:
         base_reduction = max(base_reduction, 0.6)
         changed = set_single_line_spacing(seg.paragraph_ref) or changed
-    changed = reduce_font_size(seg.paragraph_ref, reduction_pt=base_reduction) or changed
+    changed = reduce_font_size(
+        seg.paragraph_ref,
+        reduction_pt=base_reduction,
+        min_font_pt=float(getattr(cfg, "layout_min_font_pt", 6.0)),
+    ) or changed
     return changed
 
 

@@ -29,6 +29,24 @@ def _append_frame_pr(doc: Document):
     return p_pr
 
 
+def _append_framed_paragraph_with_spacing(doc: Document, *, y_twips: int):
+    p = doc.add_paragraph("Framed paragraph")
+    p_pr = p._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:w"), "100")
+    frame_pr.set(qn("w:h"), "240")
+    frame_pr.set(qn("w:hRule"), "exact")
+    frame_pr.set(qn("w:y"), str(int(y_twips)))
+    frame_pr.set(qn("w:vAnchor"), "page")
+    frame_pr.set(qn("w:hAnchor"), "page")
+    p_pr.append(frame_pr)
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:line"), "240")
+    spacing.set(qn("w:lineRule"), "exact")
+    p_pr.append(spacing)
+    return frame_pr, spacing
+
+
 def _append_exact_line_spacing(doc: Document):
     p = doc.add_paragraph("Line spacing sample")
     p_pr = p._p.get_or_add_pPr()
@@ -131,6 +149,24 @@ def test_normalize_abbyy_oxml_aggressive_relaxes_framepr_height_rule():
     assert frame_pr is not None
     assert frame_pr.get(qn("w:hRule")) == "atLeast"
     assert spacing.get(qn("w:lineRule")) == "atLeast"
+
+
+def test_normalize_abbyy_oxml_aggressive_preserves_page_anchored_framed_lines():
+    doc = Document()
+    top_frame, top_spacing = _append_framed_paragraph_with_spacing(doc, y_twips=800)
+    body_frame, body_spacing = _append_framed_paragraph_with_spacing(doc, y_twips=5000)
+    bottom_frame, bottom_spacing = _append_framed_paragraph_with_spacing(doc, y_twips=15100)
+
+    stats = normalize_abbyy_oxml(doc, profile="aggressive")
+
+    assert stats["frame_pr_exact_relaxed"] == 0
+    assert stats["line_spacing_exact_relaxed"] == 0
+    assert top_frame.get(qn("w:hRule")) == "exact"
+    assert top_spacing.get(qn("w:lineRule")) == "exact"
+    assert body_frame.get(qn("w:hRule")) == "exact"
+    assert body_spacing.get(qn("w:lineRule")) == "exact"
+    assert bottom_frame.get(qn("w:hRule")) == "exact"
+    assert bottom_spacing.get(qn("w:lineRule")) == "exact"
 
 
 def test_normalize_abbyy_oxml_full_applies_textbox_autofit():

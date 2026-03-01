@@ -180,10 +180,14 @@ class PipelineConfig:
     layout_auto_fix_passes: int = 1
     layout_font_reduction_pt: float = 0.5
     layout_spacing_factor: float = 0.8
+    # Readability floor for layout auto-fix shrink operations.
+    layout_min_font_pt: float = 6.0
     # Optional unconditional post-writeback font shrink.
     # 0.0 disables shrinking for the corresponding scope.
     font_shrink_body_pt: float = 0.0
     font_shrink_table_pt: float = 0.0
+    # Readability floor for unconditional post-writeback shrink.
+    font_shrink_min_font_pt: float = 6.0
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
 
@@ -196,6 +200,8 @@ _FORMATTING_PRESET_FIELDS: tuple[str, ...] = (
     "layout_auto_fix_passes",
     "font_shrink_body_pt",
     "font_shrink_table_pt",
+    "layout_min_font_pt",
+    "font_shrink_min_font_pt",
     "mode",
     "com_expand_overflowing_shapes",
 )
@@ -209,6 +215,8 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 1,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.0,
+        "layout_min_font_pt": 6.0,
+        "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
     },
@@ -220,6 +228,8 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 1,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.0,
+        "layout_min_font_pt": 6.0,
+        "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
     },
@@ -231,6 +241,8 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 2,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.5,
+        "layout_min_font_pt": 9.5,
+        "font_shrink_min_font_pt": 9.5,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
     },
@@ -242,6 +254,8 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 3,
         "font_shrink_body_pt": 0.5,
         "font_shrink_table_pt": 1.0,
+        "layout_min_font_pt": 8.0,
+        "font_shrink_min_font_pt": 8.0,
         "mode": "com",
         "com_expand_overflowing_shapes": True,
     },
@@ -556,8 +570,13 @@ def load_config(path: str | Path) -> PipelineConfig:
     layout_auto_fix_passes = max(1, int(data.get("layout_auto_fix_passes", preset_defaults["layout_auto_fix_passes"])))
     layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
+    layout_min_font_pt = max(6.0, float(data.get("layout_min_font_pt", preset_defaults["layout_min_font_pt"])))
     font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", preset_defaults["font_shrink_body_pt"])))
     font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", preset_defaults["font_shrink_table_pt"])))
+    font_shrink_min_font_pt = max(
+        6.0,
+        float(data.get("font_shrink_min_font_pt", preset_defaults["font_shrink_min_font_pt"])),
+    )
     com_textbox_min_font_pt = max(6.0, float(data.get("com_textbox_min_font_pt", 8.0)))
     com_textbox_max_shrink_steps = max(0, int(data.get("com_textbox_max_shrink_steps", 4)))
     com_expand_overflowing_shapes = bool(
@@ -632,7 +651,9 @@ def load_config(path: str | Path) -> PipelineConfig:
         layout_auto_fix_passes=layout_auto_fix_passes,
         layout_font_reduction_pt=layout_font_reduction_pt,
         layout_spacing_factor=layout_spacing_factor,
+        layout_min_font_pt=layout_min_font_pt,
         font_shrink_body_pt=font_shrink_body_pt,
         font_shrink_table_pt=font_shrink_table_pt,
+        font_shrink_min_font_pt=font_shrink_min_font_pt,
         pattern_set=pattern_set,
     )

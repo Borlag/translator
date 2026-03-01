@@ -118,6 +118,7 @@ layout_auto_fix: false      # apply optional spacing/font fixes for risky segmen
 layout_auto_fix_passes: 1   # guard loop: re-check and re-apply targeted fixes N times
 layout_font_reduction_pt: 0.5
 layout_spacing_factor: 0.8
+layout_min_font_pt: 6.0     # readability floor for layout auto-fix shrink
 
 qa_report_path: qa_report.html
 qa_jsonl_path: qa.jsonl

@@ -5,6 +5,11 @@ from docx.oxml.ns import qn
 from docx.table import Table, _Cell
 
 
+_DEFAULT_PAGE_HEIGHT_TWIPS = 16840
+_EDGE_TOP_RATIO = 0.11
+_EDGE_BOTTOM_RATIO = 0.89
+
+
 def _get_or_add(parent, tag: str):
     child = parent.find(qn(tag))
     if child is None:
@@ -77,12 +82,62 @@ def remove_frame_pr(document) -> int:
     return removed
 
 
-def relax_frame_pr_exact_height(document) -> int:
+def _resolve_page_height_twips(document) -> int:
+    pg_sz_tag = qn("w:pgSz")
+    page_height_attr = qn("w:h")
+    heights: list[int] = []
+    for pg_sz in document.element.iter(pg_sz_tag):
+        raw = pg_sz.get(page_height_attr)
+        if raw is None:
+            continue
+        try:
+            value = int(str(raw))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            heights.append(value)
+    if not heights:
+        return _DEFAULT_PAGE_HEIGHT_TWIPS
+    heights.sort()
+    return heights[len(heights) // 2]
+
+
+def _is_page_edge_frame(frame_pr, *, page_height_twips: int) -> bool:
+    if not _is_page_anchored_frame(frame_pr):
+        return False
+    raw_y = frame_pr.get(qn("w:y"))
+    if raw_y is None:
+        return False
+    try:
+        y_value = int(str(raw_y))
+    except (TypeError, ValueError):
+        return False
+
+    top_limit = max(720, int(float(page_height_twips) * _EDGE_TOP_RATIO))
+    bottom_limit = min(page_height_twips - 720, int(float(page_height_twips) * _EDGE_BOTTOM_RATIO))
+    if bottom_limit <= top_limit:
+        return False
+    return y_value <= top_limit or y_value >= bottom_limit
+
+
+def _is_page_anchored_frame(frame_pr) -> bool:
+    v_anchor = str(frame_pr.get(qn("w:vAnchor"), "")).strip().lower()
+    h_anchor = str(frame_pr.get(qn("w:hAnchor"), "")).strip().lower()
+    return v_anchor == "page" and h_anchor == "page"
+
+
+def relax_frame_pr_exact_height(
+    document,
+    *,
+    preserve_page_edge_frames: bool = False,
+    preserve_page_anchored_frames: bool = False,
+) -> int:
     """Relax <w:framePr w:hRule='exact'> to atLeast while preserving frame geometry."""
     changed = 0
     p_pr_tag = qn("w:pPr")
     frame_pr_tag = qn("w:framePr")
     h_rule_attr = qn("w:hRule")
+    page_height_twips = _resolve_page_height_twips(document) if preserve_page_edge_frames else 0
     for p_pr in document.element.iter(p_pr_tag):
         for frame_pr in list(p_pr):
             if frame_pr.tag != frame_pr_tag:
@@ -90,22 +145,50 @@ def relax_frame_pr_exact_height(document) -> int:
             h_rule = str(frame_pr.get(h_rule_attr, "")).strip().lower()
             if h_rule != "exact":
                 continue
+            if preserve_page_anchored_frames and _is_page_anchored_frame(frame_pr):
+                continue
+            if preserve_page_edge_frames and _is_page_edge_frame(frame_pr, page_height_twips=page_height_twips):
+                continue
             frame_pr.set(h_rule_attr, "atLeast")
             changed += 1
     return changed
 
 
-def relax_exact_line_spacing(document) -> int:
+def relax_exact_line_spacing(
+    document,
+    *,
+    preserve_page_edge_frames: bool = False,
+    preserve_page_anchored_frames: bool = False,
+) -> int:
     """Relax paragraph spacing lineRule='exact' to lineRule='atLeast'."""
     changed = 0
+    p_pr_tag = qn("w:pPr")
+    frame_pr_tag = qn("w:framePr")
     spacing_tag = qn("w:spacing")
     line_rule_attr = qn("w:lineRule")
-    for spacing in document.element.iter(spacing_tag):
-        line_rule = str(spacing.get(line_rule_attr, "")).strip().lower()
-        if line_rule != "exact":
-            continue
-        spacing.set(line_rule_attr, "atLeast")
-        changed += 1
+    page_height_twips = _resolve_page_height_twips(document) if preserve_page_edge_frames else 0
+    for p_pr in document.element.iter(p_pr_tag):
+        frame_pr = p_pr.find(frame_pr_tag)
+        for spacing in list(p_pr):
+            if spacing.tag != spacing_tag:
+                continue
+            line_rule = str(spacing.get(line_rule_attr, "")).strip().lower()
+            if line_rule != "exact":
+                continue
+            if (
+                preserve_page_anchored_frames
+                and frame_pr is not None
+                and _is_page_anchored_frame(frame_pr)
+            ):
+                continue
+            if (
+                preserve_page_edge_frames
+                and frame_pr is not None
+                and _is_page_edge_frame(frame_pr, page_height_twips=page_height_twips)
+            ):
+                continue
+            spacing.set(line_rule_attr, "atLeast")
+            changed += 1
     return changed
 
 
@@ -227,6 +310,7 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
     - off: no cleanup
     - safe: remove only strict row-height locks (w:trHeight with hRule='exact')
     - aggressive: safe + relax strict frame/line spacing constraints
+      (keeps page-anchored frame locks to avoid textbox/header overlap regressions)
     - full: aggressive + enable textbox auto-fit via <a:normAutofit/> + normalize cell margins
     """
     mode = str(profile or "off").strip().lower()
@@ -246,8 +330,16 @@ def normalize_abbyy_oxml(document, *, profile: str) -> dict[str, int]:
 
     stats["tr_height_exact_removed"] = remove_exact_tr_height(document)
     if mode in {"aggressive", "full"}:
-        stats["frame_pr_exact_relaxed"] = relax_frame_pr_exact_height(document)
-        stats["line_spacing_exact_relaxed"] = relax_exact_line_spacing(document)
+        stats["frame_pr_exact_relaxed"] = relax_frame_pr_exact_height(
+            document,
+            preserve_page_edge_frames=True,
+            preserve_page_anchored_frames=True,
+        )
+        stats["line_spacing_exact_relaxed"] = relax_exact_line_spacing(
+            document,
+            preserve_page_edge_frames=True,
+            preserve_page_anchored_frames=True,
+        )
     if mode == "full":
         stats["textbox_autofit_updated"] = set_textbox_autofit(document)
         stats["table_cell_margins_normalized"] = normalize_table_cell_margins(document)

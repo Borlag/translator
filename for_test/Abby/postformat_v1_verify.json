@@ -1,0 +1,55 @@
+{
+  "input_path": "for_test\\Abby\\merged_stylefix.docx",
+  "output_path": "for_test\\Abby\\merged_stylefix_postformat_v1.docx",
+  "basic": {
+    "input": {
+      "body_paragraphs": 6205,
+      "tables": 264,
+      "all_paragraphs_including_tables": 15779
+    },
+    "output": {
+      "body_paragraphs": 6205,
+      "tables": 264,
+      "all_paragraphs_including_tables": 15779
+    }
+  },
+  "basic_diff": {
+    "body_paragraphs": 0,
+    "tables": 0,
+    "all_paragraphs_including_tables": 0
+  },
+  "word_xml_counts": {
+    "input": {
+      "drawing": 16410,
+      "pict": 16051,
+      "br_any": 3637,
+      "br_column": 0,
+      "hyperlink": 647,
+      "fldChar": 0,
+      "instrText": 0,
+      "sectPr": 469
+    },
+    "output": {
+      "drawing": 16410,
+      "pict": 16051,
+      "br_any": 3637,
+      "br_column": 0,
+      "hyperlink": 647,
+      "fldChar": 0,
+      "instrText": 0,
+      "sectPr": 469
+    }
+  },
+  "word_xml_diff": {
+    "drawing": 0,
+    "pict": 0,
+    "br_any": 0,
+    "br_column": 0,
+    "hyperlink": 0,
+    "fldChar": 0,
+    "instrText": 0,
+    "sectPr": 0
+  },
+  "marker_leak_paragraphs": 0,
+  "text_mismatches": []
+}

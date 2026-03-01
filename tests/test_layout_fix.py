@@ -163,10 +163,9 @@ def test_fix_expansion_issues_reduces_table_spacing():
     after = paragraph.paragraph_format.space_after
     assert before is not None and before.pt < 12
     assert after is not None and after.pt < 10
-    assert paragraph.paragraph_format.line_spacing == pytest.approx(1.0)
+    assert paragraph.paragraph_format.line_spacing is None
     spacing = paragraph.runs[0]._r.get_or_add_rPr().find(qn("w:spacing"))
-    assert spacing is not None
-    assert spacing.get(qn("w:val")) == "-15"
+    assert spacing is None
     assert table.rows[0]._tr.get_or_add_trPr().find(qn("w:trHeight")) is None
     assert any(
         issue.code == "layout_auto_fix_applied" and issue.details.get("strategy") == "table"
@@ -199,6 +198,35 @@ def test_fix_expansion_issues_table_shrink_scales_by_overflow_ratio():
     assert run.font.size is not None
     # ratio=4.0 should trigger max adaptive reduction (~3pt)
     assert run.font.size.pt == pytest.approx(9.0)
+
+
+def test_fix_expansion_issues_table_applies_char_spacing_only_on_late_pass():
+    doc = Document()
+    table = doc.add_table(rows=1, cols=1)
+    paragraph = table.cell(0, 0).paragraphs[0]
+    paragraph.text = "Translated long content"
+    run = paragraph.runs[0]
+    run.font.size = Pt(10)
+
+    seg = Segment(
+        segment_id="s2c",
+        location="body/t0/r0/c0/p0",
+        context={"part": "body", "in_table": True},
+        source_plain="source",
+        paragraph_ref=paragraph,
+        target_tagged="translated",
+    )
+    issue = _issue("s2c", code="layout_table_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 20, "target_len": 120})
+    cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5)
+
+    applied = fix_expansion_issues([seg], [issue], cfg, pass_number=3)
+
+    assert applied == 1
+    assert paragraph.paragraph_format.line_spacing == pytest.approx(1.0)
+    spacing = paragraph.runs[0]._r.get_or_add_rPr().find(qn("w:spacing"))
+    assert spacing is not None
+    assert spacing.get(qn("w:val")) == "-12"
 
 
 def test_apply_global_font_shrink_uses_different_body_and_table_steps():
@@ -259,3 +287,54 @@ def test_apply_global_font_shrink_skips_non_translated_segments():
 
     assert changed == 0
     assert run.font.size is not None and run.font.size.pt == pytest.approx(12.0)
+
+
+def test_apply_global_font_shrink_respects_min_font_floor():
+    doc = Document()
+    p = doc.add_paragraph()
+    run_small = p.add_run("Small")
+    run_small.font.size = Pt(8.5)
+    run_big = p.add_run(" Big")
+    run_big.font.size = Pt(10.0)
+
+    seg = Segment(
+        segment_id="s-floor",
+        location="body/p1",
+        context={"part": "body"},
+        source_plain="Source",
+        paragraph_ref=p,
+        target_tagged="Small Big",
+    )
+    cfg = PipelineConfig(font_shrink_body_pt=1.0, font_shrink_min_font_pt=8.5)
+
+    changed = apply_global_font_shrink([seg], cfg)
+
+    assert changed == 1
+    assert run_small.font.size is not None and run_small.font.size.pt == pytest.approx(8.5)
+    assert run_big.font.size is not None and run_big.font.size.pt == pytest.approx(9.0)
+
+
+def test_fix_expansion_issues_respects_layout_min_font_floor():
+    doc = Document()
+    table = doc.add_table(rows=1, cols=1)
+    paragraph = table.cell(0, 0).paragraphs[0]
+    run = paragraph.add_run("Translated")
+    run.font.size = Pt(9.0)
+
+    seg = Segment(
+        segment_id="s-floor-layout",
+        location="body/t0/r0/c0/p0",
+        context={"part": "body", "in_table": True},
+        source_plain="source",
+        paragraph_ref=paragraph,
+        target_tagged="translated",
+    )
+    issue = _issue("s-floor-layout", code="layout_table_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 20, "target_len": 200})
+    cfg = PipelineConfig(layout_auto_fix=True, layout_font_reduction_pt=0.5, layout_min_font_pt=8.5)
+
+    applied = fix_expansion_issues([seg], [issue], cfg)
+
+    assert applied == 1
+    assert run.font.size is not None
+    assert run.font.size.pt == pytest.approx(8.5)

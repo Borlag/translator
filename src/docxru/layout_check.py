@@ -11,6 +11,10 @@ from .token_shield import strip_bracket_tokens
 
 _SPACE_RE = re.compile(r"\s+")
 _EMU_PER_TWIP = 635
+_VML_DIM_RE = re.compile(
+    r"(?:^|;)\s*(width|height)\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(pt|in|cm|mm|px)\b",
+    re.IGNORECASE,
+)
 _APPROX_CHAR_WIDTH_TWIPS = 120
 _APPROX_CHAR_HEIGHT_TWIPS = 220
 _FONT_WIDTH_FACTORS = {
@@ -136,6 +140,54 @@ def _textbox_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
     except Exception:
         return None, None
 
+    def _local_name(node) -> str:
+        tag = str(getattr(node, "tag", "") or "")
+        if not tag:
+            return ""
+        if "}" in tag:
+            return tag.split("}", 1)[1]
+        if ":" in tag:
+            return tag.split(":", 1)[1]
+        return tag
+
+    def _parse_len_to_twips(value: float, unit: str) -> int | None:
+        if value <= 0:
+            return None
+        u = (unit or "").strip().lower()
+        if u == "pt":
+            return int(value * 20.0)
+        if u == "in":
+            return int(value * 1440.0)
+        if u == "cm":
+            return int(value * (1440.0 / 2.54))
+        if u == "mm":
+            return int(value * (1440.0 / 25.4))
+        if u == "px":
+            # 96dpi fallback: 1px = 0.75pt = 15 twips.
+            return int(value * 15.0)
+        return None
+
+    def _parse_vml_style_extent(style: str) -> tuple[int | None, int | None]:
+        if not style:
+            return None, None
+        width_twips = None
+        height_twips = None
+        for match in _VML_DIM_RE.finditer(style):
+            key = (match.group(1) or "").strip().lower()
+            try:
+                val = float(match.group(2))
+            except (TypeError, ValueError):
+                continue
+            unit = (match.group(3) or "").strip().lower()
+            twips = _parse_len_to_twips(val, unit)
+            if twips is None or twips <= 0:
+                continue
+            if key == "width":
+                width_twips = twips
+            elif key == "height":
+                height_twips = twips
+        return width_twips, height_twips
+
     for ancestor in [p_elm, *list(p_elm.iterancestors())]:
         for node in ancestor.iter():
             tag = str(getattr(node, "tag", "")).lower()
@@ -149,6 +201,13 @@ def _textbox_extent_twips(seg: Segment) -> tuple[int | None, int | None]:
             width_twips = int(cx / _EMU_PER_TWIP)
             height_twips = int(cy / _EMU_PER_TWIP)
             if width_twips > 0 and height_twips > 0:
+                return width_twips, height_twips
+
+        # VML shape fallback: width/height are often stored in style attribute.
+        if _local_name(ancestor) == "shape":
+            style = str(ancestor.get("style") or "").strip()
+            width_twips, height_twips = _parse_vml_style_extent(style)
+            if width_twips is not None or height_twips is not None:
                 return width_twips, height_twips
     return None, None
 
@@ -298,7 +357,8 @@ def check_textbox_overflow(doc, segments: Iterable[Segment]) -> list[Issue]:
         if approx_capacity is not None:
             overflow = len(target_text) > int(approx_capacity * 1.1)
         else:
-            overflow = ratio > 1.6 and (len(target_text) - len(source_text)) >= 20
+            delta = len(target_text) - len(source_text)
+            overflow = (len(source_text) >= 10 and ratio > 1.3 and delta >= 8) or (ratio > 1.6 and delta >= 20)
         if not overflow:
             continue
 

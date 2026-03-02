@@ -3,6 +3,7 @@ from __future__ import annotations
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph as DocxParagraph
 
 from docxru.config import PipelineConfig
 from docxru.layout_check import (
@@ -50,6 +51,24 @@ def _attach_extent(paragraph, *, width_twips: int, height_twips: int) -> None:
     extent.set("cx", str(int(width_twips) * 635))
     extent.set("cy", str(int(height_twips) * 635))
     run._r.append(extent)
+
+
+def _make_vml_textbox_paragraph(doc: Document, *, style: str, text: str):
+    host = doc.add_paragraph("Host")
+    run = host.add_run("")
+    shape = OxmlElement("w:shape")
+    shape.set("style", style)
+    txbx_content = OxmlElement("w:txbxContent")
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = text
+    r.append(t)
+    p.append(r)
+    txbx_content.append(p)
+    shape.append(txbx_content)
+    run._r.append(shape)
+    return DocxParagraph(p, doc)
 
 
 def _attach_frame(paragraph, *, width_twips: int, height_twips: int) -> None:
@@ -116,6 +135,23 @@ def test_check_textbox_overflow_uses_extent_dimensions():
     assert details["width_twips"] == 960
     assert details["height_twips"] == 300
     assert details["approx_capacity_chars"] < len(seg.target_tagged or "")
+
+
+def test_check_textbox_overflow_parses_vml_style_dimensions():
+    doc = Document()
+    tb_paragraph = _make_vml_textbox_paragraph(doc, style="width:100pt;height:10pt", text="Textbox")
+    seg = _make_segment(
+        seg_id="2b",
+        source="Bolt",
+        target="Very long translated text that should overflow vml style sized textbox",
+        paragraph_ref=tb_paragraph,
+        in_textbox=True,
+    )
+
+    issues = check_textbox_overflow(doc, [seg])
+    assert len(issues) == 1
+    assert issues[0].details["width_twips"] == 2000
+    assert issues[0].details["height_twips"] == 200
 
 
 def test_check_textbox_overflow_fallback_by_ratio():

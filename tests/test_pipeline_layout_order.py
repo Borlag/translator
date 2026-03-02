@@ -13,10 +13,13 @@ from docxru.models import Issue, Segment, Severity
 def test_apply_abbyy_and_layout_passes_runs_normalization_before_layout(monkeypatch):
     call_order: list[str] = []
 
-    def _fake_normalize(doc, *, profile):  # noqa: ANN001, ANN202
+    def _fake_normalize(doc, *, profile, **kwargs):  # noqa: ANN001, ANN202
         del doc
         call_order.append("normalize")
         assert profile == "full"
+        assert "frame_expand_width_factor" in kwargs
+        assert "frame_expand_height_factor" in kwargs
+        assert "frame_vertical_gap_twips" in kwargs
         return {
             "tr_height_exact_removed": 1,
             "frame_pr_removed": 1,
@@ -156,4 +159,4 @@ def test_resolve_runtime_formatting_preset_auto_detects_abbyy():
     resolved = pipeline._resolve_runtime_formatting_preset(cfg, doc, logging.getLogger("test_auto_preset"))
     assert resolved.formatting_preset == "abbyy_standard"
     assert resolved.translate_enable_formatting_fixes is True
-    assert resolved.abbyy_profile == "aggressive"
+    assert resolved.abbyy_profile == "full"

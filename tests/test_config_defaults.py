@@ -46,6 +46,12 @@ def test_pipeline_config_font_shrink_defaults_are_disabled():
     assert cfg.formatting_preset == "off"
     assert cfg.translate_enable_formatting_fixes is False
     assert cfg.layout_auto_fix_passes == 1
+    assert cfg.layout_frame_expand_width_factor == 1.0
+    assert cfg.layout_frame_expand_height_factor == 1.0
+    assert cfg.layout_frame_vertical_gap_cm == 0.0
+    assert cfg.layout_overflow_box_auto_expand is True
+    assert cfg.layout_overflow_box_max_height_growth == 1.6
+    assert cfg.layout_overflow_font_drop_pt == 0.0
     assert cfg.font_shrink_body_pt == 0.0
     assert cfg.font_shrink_table_pt == 0.0
     assert cfg.com_textbox_min_font_pt == 8.0
@@ -70,6 +76,12 @@ def test_load_config_applies_abbyy_aggressive_formatting_preset(tmp_path):
     assert cfg.layout_check is True
     assert cfg.layout_auto_fix is True
     assert cfg.layout_auto_fix_passes == 3
+    assert cfg.layout_frame_expand_width_factor == 1.0
+    assert cfg.layout_frame_expand_height_factor == 1.0
+    assert cfg.layout_frame_vertical_gap_cm == 0.5
+    assert cfg.layout_overflow_box_auto_expand is True
+    assert cfg.layout_overflow_box_max_height_growth == 1.8
+    assert cfg.layout_overflow_font_drop_pt == 2.0
     assert cfg.font_shrink_body_pt == 0.5
     assert cfg.font_shrink_table_pt == 1.0
     assert cfg.mode == "com"
@@ -110,6 +122,40 @@ def test_load_config_reads_font_shrink_values(tmp_path):
     assert cfg.layout_auto_fix_passes == 3
     assert cfg.font_shrink_body_pt == 1.5
     assert cfg.font_shrink_table_pt == 2.5
+
+
+def test_load_config_reads_frame_geometry_options(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "llm:\n"
+        "  provider: mock\n"
+        "layout_frame_expand_width_factor: 1.12\n"
+        "layout_frame_expand_height_factor: 1.2\n"
+        "layout_frame_vertical_gap_cm: 1.0\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path)
+    assert cfg.layout_frame_expand_width_factor == 1.12
+    assert cfg.layout_frame_expand_height_factor == 1.2
+    assert cfg.layout_frame_vertical_gap_cm == 1.0
+
+
+def test_load_config_reads_overflow_box_expand_and_font_drop_options(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "llm:\n"
+        "  provider: mock\n"
+        "layout_overflow_box_auto_expand: false\n"
+        "layout_overflow_box_max_height_growth: 1.9\n"
+        "layout_overflow_font_drop_pt: 2.0\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path)
+    assert cfg.layout_overflow_box_auto_expand is False
+    assert cfg.layout_overflow_box_max_height_growth == 1.9
+    assert cfg.layout_overflow_font_drop_pt == 2.0
 
 
 def test_load_config_reads_com_textbox_settings(tmp_path):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
@@ -7,6 +9,17 @@ from docx.table import _Cell
 
 from .config import PipelineConfig
 from .models import Issue, Segment, Severity
+
+_TEXTBOX_INSET_DEFAULT_CAP_EMU = 25400  # ~2pt (1pt = 12700 EMU)
+_DEFAULT_FRAME_HEIGHT_TWIPS = 240
+_MIN_TEXTBOX_GROWTH_FACTOR = 1.03
+_MIN_FRAME_GROWTH_FACTOR = 1.02
+_MAX_TEXTBOX_GROWTH_FACTOR = 2.0
+_MAX_FRAME_GROWTH_FACTOR = 2.0
+_VML_HEIGHT_RE = re.compile(
+    r"((?:^|;)\s*height\s*:\s*)([0-9]+(?:\.[0-9]+)?)(pt|in|cm|mm|px)?",
+    re.IGNORECASE,
+)
 
 
 def reduce_font_size(paragraph, reduction_pt: float = 0.5, *, min_font_pt: float = 6.0) -> bool:
@@ -28,14 +41,18 @@ def reduce_font_size(paragraph, reduction_pt: float = 0.5, *, min_font_pt: float
         return True
 
     # If explicit run sizes are missing, apply a small fallback size to text runs.
-    fallback = max(floor_pt, 10.0 - step)
     for run in paragraph.runs:
         if not (run.text or "").strip():
             continue
         current_size = _resolve_run_size_pt(run, paragraph)
-        if current_size is not None and float(current_size) <= floor_pt + 1e-6:
-            continue
-        run.font.size = Pt(fallback)
+        if current_size is not None:
+            if float(current_size) <= floor_pt + 1e-6:
+                continue
+            fallback = max(floor_pt, float(current_size) - step)
+        else:
+            # Last-resort fallback if style font cannot be resolved.
+            fallback = max(floor_pt, 10.0 - step)
+        run.font.size = Pt(float(fallback))
         changed = True
     return changed
 
@@ -60,6 +77,19 @@ def _resolve_run_size_pt(run, paragraph) -> float | None:
     return None
 
 
+def _is_service_manual_title_paragraph(paragraph) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None or p_pr.find(qn("w:framePr")) is None:
+        return False
+    text = " ".join("".join((run.text or "") for run in paragraph.runs).lower().split())
+    if not text:
+        return False
+    return "руководство по техническому обслуживанию компонентов" in text
+
+
 def apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> int:
     """Unconditionally reduce font sizes after write-back for translated segments."""
     body_shrink = max(0.0, float(cfg.font_shrink_body_pt))
@@ -72,6 +102,8 @@ def apply_global_font_shrink(segments: list[Segment], cfg: PipelineConfig) -> in
     for seg in segments:
         paragraph = seg.paragraph_ref
         if paragraph is None or seg.target_tagged is None:
+            continue
+        if _is_service_manual_title_paragraph(paragraph):
             continue
 
         in_table_like = bool(seg.context.get("in_table") or seg.context.get("in_textbox"))
@@ -138,6 +170,221 @@ def reduce_character_spacing(paragraph, twips: int = -10) -> bool:
     return changed
 
 
+def _local_name(node) -> str:
+    tag = str(getattr(node, "tag", "") or "")
+    if not tag:
+        return ""
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    if ":" in tag:
+        return tag.split(":", 1)[1]
+    return tag
+
+
+def _iter_textbox_body_pr_nodes(paragraph):
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return
+    # Keep scan scope tight to textbox-related containers only.
+    container_hints = {"txbx", "textbox", "shape", "wsp", "drawing", "pict"}
+    for ancestor in [p_elm, *list(p_elm.iterancestors())]:
+        if _local_name(ancestor) not in container_hints:
+            continue
+        for node in ancestor.iter():
+            if _local_name(node) == "bodyPr":
+                yield node
+
+
+def _iter_vml_textbox_nodes(paragraph):
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return
+    for ancestor in [p_elm, *list(p_elm.iterancestors())]:
+        if _local_name(ancestor) == "textbox":
+            yield ancestor
+
+
+def _set_body_pr_norm_autofit(body_pr) -> bool:
+    no_autofit_nodes = []
+    has_norm_autofit = False
+    for child in list(body_pr):
+        name = _local_name(child)
+        if name == "noAutofit":
+            no_autofit_nodes.append(child)
+        elif name == "normAutofit":
+            has_norm_autofit = True
+    if not no_autofit_nodes:
+        return False
+    for node in no_autofit_nodes:
+        body_pr.remove(node)
+    if not has_norm_autofit:
+        body_pr.append(OxmlElement("a:normAutofit"))
+    return True
+
+
+def _enable_textbox_norm_autofit(paragraph) -> bool:
+    changed = False
+    seen: set[int] = set()
+    for body_pr in _iter_textbox_body_pr_nodes(paragraph):
+        nid = id(body_pr)
+        if nid in seen:
+            continue
+        seen.add(nid)
+        changed = _set_body_pr_norm_autofit(body_pr) or changed
+    return changed
+
+
+def _tighten_textbox_insets(paragraph, *, cap_emu: int) -> bool:
+    changed = False
+    cap = max(0, int(cap_emu))
+    seen: set[int] = set()
+    for body_pr in _iter_textbox_body_pr_nodes(paragraph):
+        nid = id(body_pr)
+        if nid in seen:
+            continue
+        seen.add(nid)
+        for attr in ("lIns", "rIns", "tIns", "bIns"):
+            raw = body_pr.get(attr)
+            if raw is None:
+                continue
+            try:
+                val = int(str(raw))
+            except (TypeError, ValueError):
+                continue
+            if val <= cap:
+                continue
+            body_pr.set(attr, str(cap))
+            changed = True
+
+    # For VML textboxes reclaim default internal paddings as well.
+    for tb in _iter_vml_textbox_nodes(paragraph):
+        raw_inset = str(tb.get("inset", "") or "").strip()
+        if raw_inset == "0,0,0,0":
+            continue
+        tb.set("inset", "0,0,0,0")
+        changed = True
+    return changed
+
+
+def _iter_vml_shape_nodes(paragraph):
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return
+    for ancestor in [p_elm, *list(p_elm.iterancestors())]:
+        if _local_name(ancestor) == "shape":
+            yield ancestor
+
+
+def _frame_pr_node(paragraph):
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return None
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None:
+        return None
+    return p_pr.find(qn("w:framePr"))
+
+
+def _expand_frame_height(paragraph, *, growth_factor: float) -> bool:
+    frame_pr = _frame_pr_node(paragraph)
+    if frame_pr is None:
+        return False
+    raw_h = frame_pr.get(qn("w:h"))
+    try:
+        current_h = int(str(raw_h)) if raw_h is not None else _DEFAULT_FRAME_HEIGHT_TWIPS
+    except (TypeError, ValueError):
+        current_h = _DEFAULT_FRAME_HEIGHT_TWIPS
+    if current_h <= 0:
+        current_h = _DEFAULT_FRAME_HEIGHT_TWIPS
+    factor = max(_MIN_FRAME_GROWTH_FACTOR, min(_MAX_FRAME_GROWTH_FACTOR, float(growth_factor)))
+    new_h = int(round(float(current_h) * factor))
+    if new_h <= current_h:
+        return False
+    frame_pr.set(qn("w:h"), str(int(new_h)))
+    frame_pr.set(qn("w:hRule"), "atLeast")
+    return True
+
+
+def _expand_textbox_extents(paragraph, *, growth_factor: float) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    factor = max(_MIN_TEXTBOX_GROWTH_FACTOR, min(_MAX_TEXTBOX_GROWTH_FACTOR, float(growth_factor)))
+    changed = False
+    seen: set[int] = set()
+    container_hints = {"drawing", "inline", "anchor", "shape", "wsp", "textbox", "txbx", "pict"}
+    for ancestor in [p_elm, *list(p_elm.iterancestors())]:
+        if ancestor is not p_elm and _local_name(ancestor) not in container_hints:
+            continue
+        for node in ancestor.iter():
+            if _local_name(node) != "extent":
+                continue
+            nid = id(node)
+            if nid in seen:
+                continue
+            seen.add(nid)
+            raw_cy = node.get("cy")
+            try:
+                cy = int(str(raw_cy))
+            except (TypeError, ValueError):
+                continue
+            if cy <= 0:
+                continue
+            new_cy = int(round(float(cy) * factor))
+            if new_cy <= cy:
+                continue
+            node.set("cy", str(int(new_cy)))
+            changed = True
+    return changed
+
+
+def _expand_vml_shape_style_height(paragraph, *, growth_factor: float) -> bool:
+    factor = max(_MIN_TEXTBOX_GROWTH_FACTOR, min(_MAX_TEXTBOX_GROWTH_FACTOR, float(growth_factor)))
+    changed = False
+    seen: set[int] = set()
+    for shape in _iter_vml_shape_nodes(paragraph):
+        nid = id(shape)
+        if nid in seen:
+            continue
+        seen.add(nid)
+        style = str(shape.get("style") or "")
+        if not style:
+            continue
+        match = _VML_HEIGHT_RE.search(style)
+        if match is None:
+            continue
+        try:
+            height_val = float(match.group(2))
+        except (TypeError, ValueError):
+            continue
+        if height_val <= 0.0:
+            continue
+        new_val = float(height_val) * factor
+        if new_val <= height_val + 1e-6:
+            continue
+        unit = match.group(3) or ""
+        replacement = f"{match.group(1)}{new_val:.2f}{unit}"
+        updated_style = style[: match.start()] + replacement + style[match.end() :]
+        if updated_style == style:
+            continue
+        shape.set("style", updated_style)
+        changed = True
+    return changed
+
+
+def _growth_factor_from_overflow(
+    overflow_ratio: float,
+    *,
+    max_growth_factor: float,
+    min_growth_factor: float,
+) -> float:
+    if overflow_ratio <= 1.01:
+        return 1.0
+    # Sublinear growth prevents huge jumps on noisy estimates.
+    suggested = float(overflow_ratio) ** 0.68
+    return min(float(max_growth_factor), max(float(min_growth_factor), suggested))
+
+
 def _paragraph_cell(paragraph) -> _Cell | None:
     parent = getattr(paragraph, "_parent", None)
     if isinstance(parent, _Cell):
@@ -174,6 +421,23 @@ def _remove_paragraph_frame(paragraph) -> bool:
     if frame_pr is None:
         return False
     p_pr.remove(frame_pr)
+    return True
+
+
+def _relax_paragraph_exact_line_spacing(paragraph) -> bool:
+    p_elm = getattr(paragraph, "_p", None)
+    if p_elm is None:
+        return False
+    p_pr = getattr(p_elm, "pPr", None)
+    if p_pr is None:
+        return False
+    spacing = p_pr.find(qn("w:spacing"))
+    if spacing is None:
+        return False
+    line_rule_attr = qn("w:lineRule")
+    if str(spacing.get(line_rule_attr, "") or "").strip().lower() != "exact":
+        return False
+    spacing.set(line_rule_attr, "atLeast")
     return True
 
 
@@ -277,14 +541,30 @@ def _estimate_overflow_ratio(issue: Issue | None) -> float:
     if issue is None:
         return 1.0
     details = issue.details or {}
+    # Preferred source: explicit capacity-based estimate from layout checks.
     try:
         target_len = float(details.get("target_len", 0) or 0)
         approx_capacity = float(details.get("approx_capacity_chars", 0) or 0)
+        if approx_capacity > 0.0 and target_len > 0.0:
+            return max(1.0, target_len / approx_capacity)
     except (TypeError, ValueError):
-        return 1.0
-    if approx_capacity <= 0.0 or target_len <= 0.0:
-        return 1.0
-    return max(1.0, target_len / approx_capacity)
+        pass
+    # Fallback: ratio from expansion checker.
+    try:
+        ratio = float(details.get("ratio", 0) or 0)
+        if ratio > 0.0:
+            return max(1.0, ratio)
+    except (TypeError, ValueError):
+        pass
+    # Last fallback: plain target/source lengths.
+    try:
+        source_len = float(details.get("source_len", 0) or 0)
+        target_len = float(details.get("target_len", 0) or 0)
+        if source_len > 0.0 and target_len > 0.0:
+            return max(1.0, target_len / source_len)
+    except (TypeError, ValueError):
+        pass
+    return 1.0
 
 
 def _paragraph_average_font_pt(paragraph) -> float | None:
@@ -335,12 +615,14 @@ def _fix_table_overflow(
             spacing_factor *= 0.85
         changed = reduce_cell_spacing(cell, factor=spacing_factor) or changed
         for paragraph in cell.paragraphs:
+            changed = _relax_paragraph_exact_line_spacing(paragraph) or changed
             if pass_number >= 3 and overflow_ratio >= 1.8:
                 char_spacing_twips = -12 if pass_number == 3 else -15
                 changed = reduce_character_spacing(paragraph, twips=char_spacing_twips) or changed
             if pass_number >= 3 and overflow_ratio >= 1.8:
                 changed = set_single_line_spacing(paragraph) or changed
     else:
+        changed = _relax_paragraph_exact_line_spacing(seg.paragraph_ref) or changed
         changed = reduce_paragraph_spacing(seg.paragraph_ref, factor=spacing_factor) or changed
         if pass_number >= 3 and overflow_ratio >= 1.8:
             char_spacing_twips = -12 if pass_number == 3 else -15
@@ -370,6 +652,7 @@ def _fix_textbox_overflow(
     cfg: PipelineConfig,
     *,
     issue: Issue | None = None,
+    allow_container_expand: bool = True,
     pass_number: int = 1,
 ) -> bool:
     if seg.paragraph_ref is None:
@@ -377,6 +660,20 @@ def _fix_textbox_overflow(
 
     changed = False
     overflow_ratio = _estimate_overflow_ratio(issue)
+    inset_cap = int(getattr(cfg, "layout_textbox_inset_cap_emu", _TEXTBOX_INSET_DEFAULT_CAP_EMU))
+    auto_expand = bool(getattr(cfg, "layout_overflow_box_auto_expand", True))
+    max_growth = max(1.0, float(getattr(cfg, "layout_overflow_box_max_height_growth", 1.6)))
+    changed = _relax_paragraph_exact_line_spacing(seg.paragraph_ref) or changed
+    changed = _enable_textbox_norm_autofit(seg.paragraph_ref) or changed
+    changed = _tighten_textbox_insets(seg.paragraph_ref, cap_emu=inset_cap) or changed
+    if allow_container_expand and auto_expand and overflow_ratio > 1.05:
+        growth_factor = _growth_factor_from_overflow(
+            overflow_ratio,
+            max_growth_factor=max_growth,
+            min_growth_factor=_MIN_TEXTBOX_GROWTH_FACTOR,
+        )
+        changed = _expand_textbox_extents(seg.paragraph_ref, growth_factor=growth_factor) or changed
+        changed = _expand_vml_shape_style_height(seg.paragraph_ref, growth_factor=growth_factor) or changed
     textbox_spacing_factor = min(0.9, max(0.4, float(cfg.layout_spacing_factor)))
     if pass_number >= 2:
         textbox_spacing_factor *= 0.85
@@ -393,6 +690,9 @@ def _fix_textbox_overflow(
         max_reduction=3.0 if pass_number <= 2 else 3.6,
     )
     textbox_font_reduction = max(float(cfg.layout_font_reduction_pt), ratio_based_reduction)
+    forced_drop_pt = max(0.0, float(getattr(cfg, "layout_overflow_font_drop_pt", 0.0)))
+    if pass_number == 1 and overflow_ratio > 1.05 and forced_drop_pt > 0.0:
+        textbox_font_reduction = forced_drop_pt
     if pass_number >= 3:
         textbox_font_reduction = max(textbox_font_reduction, 0.7)
     changed = reduce_font_size(
@@ -415,6 +715,16 @@ def _fix_frame_overflow(
 
     changed = False
     overflow_ratio = _estimate_overflow_ratio(issue)
+    auto_expand = bool(getattr(cfg, "layout_overflow_box_auto_expand", True))
+    max_growth = max(1.0, float(getattr(cfg, "layout_overflow_box_max_height_growth", 1.6)))
+    changed = _relax_paragraph_exact_line_spacing(seg.paragraph_ref) or changed
+    if auto_expand and overflow_ratio > 1.05:
+        growth_factor = _growth_factor_from_overflow(
+            overflow_ratio,
+            max_growth_factor=max_growth,
+            min_growth_factor=_MIN_FRAME_GROWTH_FACTOR,
+        )
+        changed = _expand_frame_height(seg.paragraph_ref, growth_factor=growth_factor) or changed
     if (overflow_ratio >= 1.35 and bool(seg.context.get("in_table"))) or pass_number >= 3:
         changed = _remove_paragraph_frame(seg.paragraph_ref) or changed
     changed = _relax_paragraph_frame_height_rule(seg.paragraph_ref) or changed
@@ -434,6 +744,9 @@ def _fix_frame_overflow(
         max_reduction=2.6 if pass_number <= 2 else 3.2,
     )
     frame_font_reduction = max(float(cfg.layout_font_reduction_pt), max(0.4, ratio_based_reduction))
+    forced_drop_pt = max(0.0, float(getattr(cfg, "layout_overflow_font_drop_pt", 0.0)))
+    if pass_number == 1 and overflow_ratio > 1.05 and forced_drop_pt > 0.0:
+        frame_font_reduction = forced_drop_pt
     if pass_number >= 3:
         frame_font_reduction = max(frame_font_reduction, 0.6)
     changed = reduce_font_size(
@@ -449,6 +762,7 @@ def _fix_generic_overflow(seg: Segment, cfg: PipelineConfig, *, pass_number: int
         return False
 
     changed = False
+    changed = _relax_paragraph_exact_line_spacing(seg.paragraph_ref) or changed
     spacing_factor = float(cfg.layout_spacing_factor)
     if pass_number >= 2:
         spacing_factor *= 0.9
@@ -485,6 +799,7 @@ def fix_expansion_issues(
         "layout_frame_overflow_risk",
     }
     fixed_segment_ids: set[str] = set()
+    expanded_textbox_keys: set[str] = set()
 
     for issue in issues:
         if issue.code not in actionable_codes:
@@ -506,7 +821,17 @@ def fix_expansion_issues(
             issue.code == "length_ratio_high" and seg.context.get("in_textbox")
         ):
             strategy = "textbox"
-            changed = _fix_textbox_overflow(seg, cfg, issue=issue, pass_number=pass_number)
+            textbox_key = str(seg.context.get("textbox_id") or seg.location).strip()
+            allow_expand = textbox_key not in expanded_textbox_keys
+            changed = _fix_textbox_overflow(
+                seg,
+                cfg,
+                issue=issue,
+                allow_container_expand=allow_expand,
+                pass_number=pass_number,
+            )
+            if allow_expand and textbox_key:
+                expanded_textbox_keys.add(textbox_key)
         elif issue.code == "layout_frame_overflow_risk" or (
             issue.code == "length_ratio_high" and seg.context.get("in_frame")
         ):

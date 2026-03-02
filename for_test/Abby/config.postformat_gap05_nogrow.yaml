@@ -1,0 +1,7 @@
+﻿llm:
+  provider: mock
+
+formatting_preset: auto
+layout_frame_expand_width_factor: 1.0
+layout_frame_expand_height_factor: 1.0
+layout_frame_vertical_gap_cm: 0.5

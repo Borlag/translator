@@ -20,6 +20,15 @@ def _issue(seg_id: str, code: str = "length_ratio_high") -> Issue:
     )
 
 
+def _attach_extent(paragraph, *, width_twips: int, height_twips: int):
+    run = paragraph.add_run("")
+    extent = OxmlElement("wp:extent")
+    extent.set("cx", str(int(width_twips) * 635))
+    extent.set("cy", str(int(height_twips) * 635))
+    run._r.append(extent)
+    return extent
+
+
 def test_fix_expansion_issues_reduces_frame_font_and_emits_issue():
     doc = Document()
     paragraph = doc.add_paragraph()
@@ -314,6 +323,33 @@ def test_apply_global_font_shrink_respects_min_font_floor():
     assert run_big.font.size is not None and run_big.font.size.pt == pytest.approx(9.0)
 
 
+def test_apply_global_font_shrink_skips_service_manual_title_frames():
+    doc = Document()
+    p = doc.add_paragraph()
+    p_pr = p._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:hRule"), "auto")
+    p_pr.append(frame_pr)
+    run = p.add_run("Руководство по техническому обслуживанию компонентов 32-12-22")
+    run.font.size = Pt(12.0)
+
+    seg = Segment(
+        segment_id="s-title",
+        location="body/p-title",
+        context={"part": "body"},
+        source_plain="Source",
+        paragraph_ref=p,
+        target_tagged="Руководство по техническому обслуживанию компонентов 32-12-22",
+    )
+    cfg = PipelineConfig(font_shrink_body_pt=60.0, font_shrink_table_pt=60.0, font_shrink_min_font_pt=9.0)
+
+    changed = apply_global_font_shrink([seg], cfg)
+
+    assert changed == 0
+    assert run.font.size is not None and run.font.size.pt == pytest.approx(12.0)
+    assert all(issue.code != "global_font_shrink_applied" for issue in seg.issues)
+
+
 def test_fix_expansion_issues_respects_layout_min_font_floor():
     doc = Document()
     table = doc.add_table(rows=1, cols=1)
@@ -338,3 +374,78 @@ def test_fix_expansion_issues_respects_layout_min_font_floor():
     assert applied == 1
     assert run.font.size is not None
     assert run.font.size.pt == pytest.approx(8.5)
+
+
+def test_fix_expansion_issues_textbox_can_expand_height_and_force_two_point_drop():
+    doc = Document()
+    paragraph = doc.add_paragraph("Textbox host")
+    extent = _attach_extent(paragraph, width_twips=900, height_twips=300)
+    run = paragraph.add_run("Translated text")
+    run.font.size = Pt(11)
+
+    seg = Segment(
+        segment_id="s-tx-grow",
+        location="body/textbox0/p0",
+        context={"part": "body", "in_textbox": True},
+        source_plain="source",
+        paragraph_ref=paragraph,
+        target_tagged="translated text expanded",
+    )
+    issue = _issue("s-tx-grow", code="layout_textbox_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 50, "target_len": 120})
+    cfg = PipelineConfig(
+        layout_auto_fix=True,
+        layout_font_reduction_pt=0.5,
+        layout_overflow_box_auto_expand=True,
+        layout_overflow_box_max_height_growth=1.8,
+        layout_overflow_font_drop_pt=2.0,
+        layout_min_font_pt=8.5,
+    )
+
+    applied = fix_expansion_issues([seg], [issue], cfg, pass_number=1)
+
+    assert applied == 1
+    assert run.font.size is not None
+    assert run.font.size.pt == pytest.approx(9.0)
+    assert int(extent.get("cy")) > int(300 * 635)
+
+
+def test_fix_expansion_issues_frame_can_expand_height_and_force_two_point_drop():
+    doc = Document()
+    paragraph = doc.add_paragraph("Frame host")
+    p_pr = paragraph._p.get_or_add_pPr()
+    frame_pr = OxmlElement("w:framePr")
+    frame_pr.set(qn("w:w"), "3000")
+    frame_pr.set(qn("w:h"), "1000")
+    frame_pr.set(qn("w:hRule"), "exact")
+    p_pr.append(frame_pr)
+    run = paragraph.add_run("Translated text")
+    run.font.size = Pt(11)
+
+    seg = Segment(
+        segment_id="s-frame-grow",
+        location="body/p2",
+        context={"part": "body", "in_frame": True},
+        source_plain="source",
+        paragraph_ref=paragraph,
+        target_tagged="translated text expanded",
+    )
+    issue = _issue("s-frame-grow", code="layout_frame_overflow_risk")
+    issue.details.update({"approx_capacity_chars": 60, "target_len": 150})
+    cfg = PipelineConfig(
+        layout_auto_fix=True,
+        layout_font_reduction_pt=0.5,
+        layout_overflow_box_auto_expand=True,
+        layout_overflow_box_max_height_growth=1.8,
+        layout_overflow_font_drop_pt=2.0,
+        layout_min_font_pt=8.5,
+    )
+
+    applied = fix_expansion_issues([seg], [issue], cfg, pass_number=1)
+
+    assert applied == 1
+    assert run.font.size is not None
+    assert run.font.size.pt == pytest.approx(9.0)
+    grown_frame = paragraph._p.get_or_add_pPr().find(qn("w:framePr"))
+    assert grown_frame is not None
+    assert int(grown_frame.get(qn("w:h"))) > 1000

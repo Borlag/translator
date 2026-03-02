@@ -118,6 +118,12 @@ layout_auto_fix: false      # apply optional spacing/font fixes for risky segmen
 layout_auto_fix_passes: 1   # guard loop: re-check and re-apply targeted fixes N times
 layout_font_reduction_pt: 0.5
 layout_spacing_factor: 0.8
+layout_frame_expand_width_factor: 1.0  # >1.0 expands page-anchored frame width (e.g. 1.05)
+layout_frame_expand_height_factor: 1.0 # >1.0 expands page-anchored frame height (e.g. 1.10)
+layout_frame_vertical_gap_cm: 0.0      # 0.5 or 1.0 to enforce vertical gap between overlapping frames
+layout_overflow_box_auto_expand: true  # auto-expand textbox/frame height when overflow is detected
+layout_overflow_box_max_height_growth: 1.6 # cap for dynamic height growth
+layout_overflow_font_drop_pt: 0.0      # set 2.0 to force 11->9 style shrink on overflow blocks
 layout_min_font_pt: 6.0     # readability floor for layout auto-fix shrink
 
 qa_report_path: qa_report.html

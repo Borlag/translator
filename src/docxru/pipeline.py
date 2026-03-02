@@ -1214,10 +1214,20 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
     # are computed from the relaxed document model.
     if cfg.abbyy_profile != "off":
         try:
-            oxml_stats = normalize_abbyy_oxml(doc, profile=cfg.abbyy_profile)
+            frame_gap_twips = int(round(float(getattr(cfg, "layout_frame_vertical_gap_cm", 0.0)) * 1440.0 / 2.54))
+            oxml_stats = normalize_abbyy_oxml(
+                doc,
+                profile=cfg.abbyy_profile,
+                frame_expand_width_factor=float(getattr(cfg, "layout_frame_expand_width_factor", 1.0)),
+                frame_expand_height_factor=float(getattr(cfg, "layout_frame_expand_height_factor", 1.0)),
+                frame_vertical_gap_twips=frame_gap_twips,
+            )
             logger.info(
                 "ABBYY OXML normalization (%s): trHeight_exact_removed=%d; framePr_removed=%d; "
                 "framePr_exact_relaxed=%d; lineSpacing_exact_relaxed=%d; textbox_autofit_updated=%d; "
+                "textbox_insets_normalized=%d; frameWidth_expanded=%d; frameHeight_expanded=%d; "
+                "frameVertical_reflowed=%d; frameAutoHeight_set=%d; frameVAnchorMargin_set=%d; "
+                "frameVTextDistance_set=%d; frameHeader_blocks=%d; frameHeader_yNudged=%d; "
                 "tableCellMargins_normalized=%d",
                 cfg.abbyy_profile,
                 int(oxml_stats.get("tr_height_exact_removed", 0)),
@@ -1225,6 +1235,15 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
                 int(oxml_stats.get("frame_pr_exact_relaxed", 0)),
                 int(oxml_stats.get("line_spacing_exact_relaxed", 0)),
                 int(oxml_stats.get("textbox_autofit_updated", 0)),
+                int(oxml_stats.get("textbox_insets_normalized", 0)),
+                int(oxml_stats.get("frame_width_expanded", 0)),
+                int(oxml_stats.get("frame_height_expanded", 0)),
+                int(oxml_stats.get("frame_vertical_reflowed", 0)),
+                int(oxml_stats.get("frame_auto_height_set", 0)),
+                int(oxml_stats.get("frame_vertical_anchor_margin_set", 0)),
+                int(oxml_stats.get("frame_vertical_text_distance_set", 0)),
+                int(oxml_stats.get("frame_header_blocks_detected", 0)),
+                int(oxml_stats.get("frame_header_y_nudged", 0)),
                 int(oxml_stats.get("table_cell_margins_normalized", 0)),
             )
             if segments:

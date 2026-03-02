@@ -180,6 +180,21 @@ class PipelineConfig:
     layout_auto_fix_passes: int = 1
     layout_font_reduction_pt: float = 0.5
     layout_spacing_factor: float = 0.8
+    # Cap textbox internal padding (DrawingML a:bodyPr insets) in EMU.
+    # 0 means max squeeze (to zero); 25400 (~2pt) is usually a safe default.
+    layout_textbox_inset_cap_emu: int = 25400
+    # Optional frame geometry tuning for page-anchored framePr blocks.
+    # Factors <= 1 disable growth for that axis.
+    layout_frame_expand_width_factor: float = 1.0
+    layout_frame_expand_height_factor: float = 1.0
+    # Minimal vertical gap between overlapping framePr blocks in centimeters.
+    # 0 disables vertical redistribution.
+    layout_frame_vertical_gap_cm: float = 0.0
+    # Dynamic overflow handling for frame/textbox containers.
+    layout_overflow_box_auto_expand: bool = True
+    layout_overflow_box_max_height_growth: float = 1.6
+    # Optional forced font drop for frame/textbox overflow fixes (pt).
+    layout_overflow_font_drop_pt: float = 0.0
     # Readability floor for layout auto-fix shrink operations.
     layout_min_font_pt: float = 6.0
     # Optional unconditional post-writeback font shrink.
@@ -200,6 +215,13 @@ _FORMATTING_PRESET_FIELDS: tuple[str, ...] = (
     "layout_auto_fix_passes",
     "font_shrink_body_pt",
     "font_shrink_table_pt",
+    "layout_textbox_inset_cap_emu",
+    "layout_frame_expand_width_factor",
+    "layout_frame_expand_height_factor",
+    "layout_frame_vertical_gap_cm",
+    "layout_overflow_box_auto_expand",
+    "layout_overflow_box_max_height_growth",
+    "layout_overflow_font_drop_pt",
     "layout_min_font_pt",
     "font_shrink_min_font_pt",
     "mode",
@@ -215,6 +237,13 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 1,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.0,
+        "layout_textbox_inset_cap_emu": 25400,
+        "layout_frame_expand_width_factor": 1.0,
+        "layout_frame_expand_height_factor": 1.0,
+        "layout_frame_vertical_gap_cm": 0.0,
+        "layout_overflow_box_auto_expand": False,
+        "layout_overflow_box_max_height_growth": 1.6,
+        "layout_overflow_font_drop_pt": 0.0,
         "layout_min_font_pt": 6.0,
         "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
@@ -228,6 +257,13 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 1,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.0,
+        "layout_textbox_inset_cap_emu": 25400,
+        "layout_frame_expand_width_factor": 1.0,
+        "layout_frame_expand_height_factor": 1.0,
+        "layout_frame_vertical_gap_cm": 0.0,
+        "layout_overflow_box_auto_expand": False,
+        "layout_overflow_box_max_height_growth": 1.6,
+        "layout_overflow_font_drop_pt": 0.0,
         "layout_min_font_pt": 6.0,
         "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
@@ -235,14 +271,21 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "abbyy_standard": {
         "translate_enable_formatting_fixes": True,
-        "abbyy_profile": "aggressive",
+        "abbyy_profile": "full",
         "layout_check": True,
         "layout_auto_fix": True,
         "layout_auto_fix_passes": 2,
         "font_shrink_body_pt": 0.0,
         "font_shrink_table_pt": 0.5,
-        "layout_min_font_pt": 9.5,
-        "font_shrink_min_font_pt": 9.5,
+        "layout_textbox_inset_cap_emu": 25400,
+        "layout_frame_expand_width_factor": 1.0,
+        "layout_frame_expand_height_factor": 1.0,
+        "layout_frame_vertical_gap_cm": 0.5,
+        "layout_overflow_box_auto_expand": True,
+        "layout_overflow_box_max_height_growth": 1.8,
+        "layout_overflow_font_drop_pt": 2.0,
+        "layout_min_font_pt": 9.0,
+        "font_shrink_min_font_pt": 9.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
     },
@@ -254,6 +297,13 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "layout_auto_fix_passes": 3,
         "font_shrink_body_pt": 0.5,
         "font_shrink_table_pt": 1.0,
+        "layout_textbox_inset_cap_emu": 25400,
+        "layout_frame_expand_width_factor": 1.0,
+        "layout_frame_expand_height_factor": 1.0,
+        "layout_frame_vertical_gap_cm": 0.5,
+        "layout_overflow_box_auto_expand": True,
+        "layout_overflow_box_max_height_growth": 1.8,
+        "layout_overflow_font_drop_pt": 2.0,
         "layout_min_font_pt": 8.0,
         "font_shrink_min_font_pt": 8.0,
         "mode": "com",
@@ -570,6 +620,43 @@ def load_config(path: str | Path) -> PipelineConfig:
     layout_auto_fix_passes = max(1, int(data.get("layout_auto_fix_passes", preset_defaults["layout_auto_fix_passes"])))
     layout_font_reduction_pt = float(data.get("layout_font_reduction_pt", 0.5))
     layout_spacing_factor = float(data.get("layout_spacing_factor", 0.8))
+    layout_textbox_inset_cap_emu = max(
+        0,
+        int(data.get("layout_textbox_inset_cap_emu", preset_defaults.get("layout_textbox_inset_cap_emu", 25400))),
+    )
+    layout_frame_expand_width_factor = max(
+        1.0,
+        float(data.get("layout_frame_expand_width_factor", preset_defaults.get("layout_frame_expand_width_factor", 1.0))),
+    )
+    layout_frame_expand_height_factor = max(
+        1.0,
+        float(
+            data.get(
+                "layout_frame_expand_height_factor",
+                preset_defaults.get("layout_frame_expand_height_factor", 1.0),
+            )
+        ),
+    )
+    layout_frame_vertical_gap_cm = max(
+        0.0,
+        float(data.get("layout_frame_vertical_gap_cm", preset_defaults.get("layout_frame_vertical_gap_cm", 0.0))),
+    )
+    layout_overflow_box_auto_expand = bool(
+        data.get("layout_overflow_box_auto_expand", preset_defaults.get("layout_overflow_box_auto_expand", True))
+    )
+    layout_overflow_box_max_height_growth = max(
+        1.0,
+        float(
+            data.get(
+                "layout_overflow_box_max_height_growth",
+                preset_defaults.get("layout_overflow_box_max_height_growth", 1.6),
+            )
+        ),
+    )
+    layout_overflow_font_drop_pt = max(
+        0.0,
+        float(data.get("layout_overflow_font_drop_pt", preset_defaults.get("layout_overflow_font_drop_pt", 0.0))),
+    )
     layout_min_font_pt = max(6.0, float(data.get("layout_min_font_pt", preset_defaults["layout_min_font_pt"])))
     font_shrink_body_pt = max(0.0, float(data.get("font_shrink_body_pt", preset_defaults["font_shrink_body_pt"])))
     font_shrink_table_pt = max(0.0, float(data.get("font_shrink_table_pt", preset_defaults["font_shrink_table_pt"])))
@@ -651,6 +738,13 @@ def load_config(path: str | Path) -> PipelineConfig:
         layout_auto_fix_passes=layout_auto_fix_passes,
         layout_font_reduction_pt=layout_font_reduction_pt,
         layout_spacing_factor=layout_spacing_factor,
+        layout_textbox_inset_cap_emu=layout_textbox_inset_cap_emu,
+        layout_frame_expand_width_factor=layout_frame_expand_width_factor,
+        layout_frame_expand_height_factor=layout_frame_expand_height_factor,
+        layout_frame_vertical_gap_cm=layout_frame_vertical_gap_cm,
+        layout_overflow_box_auto_expand=layout_overflow_box_auto_expand,
+        layout_overflow_box_max_height_growth=layout_overflow_box_max_height_growth,
+        layout_overflow_font_drop_pt=layout_overflow_font_drop_pt,
         layout_min_font_pt=layout_min_font_pt,
         font_shrink_body_pt=font_shrink_body_pt,
         font_shrink_table_pt=font_shrink_table_pt,

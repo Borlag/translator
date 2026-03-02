@@ -3602,6 +3602,7 @@ def postformat_docx(
     cfg: PipelineConfig,
     *,
     max_segments: int | None = None,
+    strip_blanks: bool = False,
 ) -> None:
     """Run layout/formatting post-processing on an already translated DOCX."""
     logger = setup_logging(Path(cfg.log_path))
@@ -3623,6 +3624,21 @@ def postformat_docx(
         raise RuntimeError("postformat currently supports DOCX input only.")
 
     doc = Document(str(input_path))
+
+    if strip_blanks:
+        from .strip_blanks import strip_blanks_and_breaks
+
+        sb_stats = strip_blanks_and_breaks(doc)
+        sb_removed = int(sb_stats.get("removed_body", 0)) + int(sb_stats.get("removed_table", 0))
+        sb_breaks = int(sb_stats.get("breaks_replaced_with_space", 0)) + int(sb_stats.get("breaks_removed", 0))
+        logger.info(
+            "Strip blanks: %d empty paragraphs removed (body=%d, tables=%d), %d soft breaks cleaned",
+            sb_removed,
+            int(sb_stats.get("removed_body", 0)),
+            int(sb_stats.get("removed_table", 0)),
+            sb_breaks,
+        )
+
     cfg = _resolve_runtime_formatting_preset(cfg, doc, logger)
     logger.info(
         "Effective formatting config: preset=%s; mode=%s; abbyy_profile=%s; "

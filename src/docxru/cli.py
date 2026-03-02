@@ -128,6 +128,56 @@ def build_parser() -> argparse.ArgumentParser:
         help="Process only first N segments (quick iteration mode).",
     )
     pf.add_argument("--log", default=None, help="Override log path.")
+    pf.add_argument(
+        "--strip-blanks",
+        action="store_true",
+        help="Strip excessive empty paragraphs and soft line breaks before formatting passes.",
+    )
+
+    sb = sub.add_parser("strip-blanks", help="Remove excessive empty paragraphs and soft line breaks from DOCX.")
+    sb.add_argument("--input", "-i", required=True, help="Path to input .docx")
+    sb.add_argument("--output", "-o", required=True, help="Path to output .docx")
+    sb.add_argument(
+        "--max-consecutive",
+        type=int,
+        default=1,
+        help="For groups of 2+ empty paragraphs, keep at most this many (default: 1).",
+    )
+    sb.add_argument(
+        "--no-keep-singles",
+        dest="keep_singles",
+        action="store_false",
+        default=True,
+        help="Also remove isolated single empty paragraphs.",
+    )
+    sb.add_argument(
+        "--no-process-tables",
+        dest="process_tables",
+        action="store_false",
+        default=True,
+        help="Skip table cells.",
+    )
+    sb.add_argument(
+        "--no-cleanup-breaks",
+        dest="cleanup_breaks",
+        action="store_false",
+        default=True,
+        help="Skip soft line break cleanup (Pass 2).",
+    )
+    sb.add_argument(
+        "--no-skip-toc",
+        dest="skip_toc",
+        action="store_false",
+        default=True,
+        help="Do not skip TOC paragraphs during break cleanup.",
+    )
+    sb.add_argument(
+        "--no-skip-centered",
+        dest="skip_centered",
+        action="store_false",
+        default=True,
+        help="Do not skip center/right-aligned paragraphs during break cleanup.",
+    )
 
     p_pdf = sub.add_parser("translate-pdf", help="Translate PDF to Russian preserving layout.")
     p_pdf.add_argument("--input", "-i", required=True, help="Path to source .pdf")
@@ -284,7 +334,71 @@ def main(argv: list[str] | None = None) -> int:
             output_path=Path(args.output),
             cfg=cfg,
             max_segments=(int(args.max_segments) if args.max_segments is not None else None),
+            strip_blanks=bool(getattr(args, "strip_blanks", False)),
         )
+        return 0
+
+    if args.cmd == "strip-blanks":
+        from docx import Document as DocxDocument
+
+        from .strip_blanks import strip_blanks_and_breaks
+
+        input_path = Path(args.input)
+        output_path = Path(args.output)
+        if input_path.suffix.lower() != ".docx":
+            print("strip-blanks currently supports DOCX input only.", file=sys.stderr)
+            return 1
+
+        doc = DocxDocument(str(input_path))
+        stats = strip_blanks_and_breaks(
+            doc,
+            keep_singles=bool(args.keep_singles),
+            max_consecutive=int(args.max_consecutive),
+            process_tables=bool(args.process_tables),
+            cleanup_breaks=bool(args.cleanup_breaks),
+            skip_toc=bool(args.skip_toc),
+            skip_centered=bool(args.skip_centered),
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        doc.save(str(output_path))
+
+        # Print summary
+        removed_body = int(stats.get("removed_body", 0))
+        removed_table = int(stats.get("removed_table", 0))
+        total_removed = removed_body + removed_table
+        breaks_replaced = int(stats.get("breaks_replaced_with_space", 0))
+        breaks_removed = int(stats.get("breaks_removed", 0))
+
+        print(f"Strip blanks complete.")
+        print(f"  Pass 1 (empty paragraphs): {total_removed} removed")
+        print(
+            f"    Body: {removed_body} removed "
+            f"(of {stats.get('total_empty_body', 0)} empty / {stats.get('total_body_paragraphs', 0)} total)"
+        )
+        if args.process_tables:
+            print(
+                f"    Tables: {removed_table} removed "
+                f"(of {stats.get('total_empty_table', 0)} empty / {stats.get('total_table_paragraphs', 0)} total)"
+            )
+        print(
+            f"    Groups: {stats.get('groups_processed', 0)} processed, "
+            f"{stats.get('groups_kept_single', 0)} singles kept, "
+            f"{stats.get('groups_reduced', 0)} reduced, "
+            f"{stats.get('groups_removed_entirely', 0)} removed entirely"
+        )
+        if args.cleanup_breaks:
+            print(f"  Pass 2 (soft breaks): {breaks_replaced + breaks_removed} cleaned")
+            print(f"    Replaced with space: {breaks_replaced}")
+            print(f"    Removed (adjacent space): {breaks_removed}")
+            print(
+                f"    Skipped (page/column): {stats.get('breaks_skipped_page_column', 0)}, "
+                f"(clear): {stats.get('breaks_skipped_clear', 0)}"
+            )
+            print(
+                f"    Paragraphs skipped: TOC={stats.get('paragraphs_skipped_toc', 0)}, "
+                f"aligned={stats.get('paragraphs_skipped_aligned', 0)}"
+            )
+        print(f"Output saved: {output_path}")
         return 0
 
     if args.cmd == "translate-pdf":

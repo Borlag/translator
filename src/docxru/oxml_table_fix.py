@@ -793,6 +793,7 @@ _NS_MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
 _NS_V = "urn:schemas-microsoft-com:vml"
 _NS_WPG = "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
 _NS_WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+_NS_WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
 
 _VML_HEIGHT_RE_DOCWIDE = _re.compile(
     r"((?:^|;)\s*height\s*:\s*)([0-9]+(?:\.[0-9]+)?)(pt|in|cm|mm|px)?",
@@ -1299,6 +1300,401 @@ def relax_line_spacing_in_frames_aggressive(document) -> dict[str, int]:
     return stats
 
 
+# ---------------------------------------------------------------------------
+# Textbox autofit, adaptive height expansion, and caption line breaks
+# ---------------------------------------------------------------------------
+
+_RISUNOK_SHEET_PATTERN = _re.compile(r"Рисунок\s+\d+\s*-\s*Лист\s+\d+")
+_CAPTION_SPLIT_PATTERN = _re.compile(r"^(.*?\S)\s*(Рисунок\s+\d+.*)$", _re.DOTALL)
+
+
+def _get_max_font_half_pt(node) -> int:
+    """Get the maximum font size (in half-pt) across all runs in a node."""
+    max_sz = 0
+    sz_tag = f"{{{_NS_W}}}sz"
+    val_attr = f"{{{_NS_W}}}val"
+    for sz in node.iter(sz_tag):
+        raw = sz.get(val_attr, "")
+        try:
+            val = int(raw)
+            if val > max_sz:
+                max_sz = val
+        except (TypeError, ValueError):
+            pass
+    return max_sz
+
+
+def _count_paragraphs(node) -> int:
+    return sum(1 for _ in node.iter(f"{{{_NS_W}}}p"))
+
+
+def _estimate_needed_height_emu(
+    text: str,
+    container_width_emu: int,
+    font_half_pt: int,
+    n_paragraphs: int,
+) -> int:
+    """Estimate the height (in EMU) needed to display text in a container.
+
+    1 pt = 12700 EMU.  Assumes avg char width ~0.52 * font_size for Cyrillic.
+    """
+    if not text.strip() or container_width_emu <= 0 or font_half_pt <= 0:
+        return 0
+    font_pt = font_half_pt / 2.0
+    emu_per_pt = 12700.0
+    width_pt = container_width_emu / emu_per_pt
+    # Use wider char estimate (0.55) to be conservative — better to over-expand
+    # than leave text clipped.
+    avg_char_width_pt = font_pt * 0.55
+    chars_per_line = max(1, width_pt / avg_char_width_pt)
+    num_lines = max(1, len(text.strip()) / chars_per_line)
+    if n_paragraphs > 1:
+        num_lines += (n_paragraphs - 1) * 0.5
+    line_height_pt = font_pt * 1.35  # generous line spacing factor
+    height_pt = num_lines * line_height_pt
+    # Add 30% safety margin
+    return int(height_pt * emu_per_pt * 1.3)
+
+
+def set_all_bodypr_norm_autofit(document) -> dict[str, int]:
+    """Convert noAutofit → normAutofit on ALL wps:bodyPr elements.
+
+    This is more thorough than set_textbox_autofit() — it iterates all
+    wps:bodyPr elements directly (not just ones found via textbox content
+    traversal), ensuring every textbox uses normAutofit (text shrinks to
+    fit rather than being silently clipped).
+    """
+    stats = {"bodypr_noAutofit_to_normAutofit": 0}
+    bodyPr_tag = f"{{{_NS_WPS}}}bodyPr"
+
+    for bp in document.element.iter(bodyPr_tag):
+        no_children = [ch for ch in bp if _local_name(ch) == "noAutofit"]
+        norm_children = [ch for ch in bp if _local_name(ch) == "normAutofit"]
+
+        if norm_children:
+            continue
+
+        if no_children:
+            for node in no_children:
+                bp.remove(node)
+            bp.append(OxmlElement("a:normAutofit"))
+            stats["bodypr_noAutofit_to_normAutofit"] += 1
+
+    return stats
+
+
+def expand_textbox_heights_adaptive(
+    document,
+    *,
+    max_growth: float = 4.0,
+    min_width_pt: float = 15.0,
+) -> dict[str, int]:
+    """Adaptively expand textbox heights based on text content analysis.
+
+    Estimates the actual height needed for the text and expands accordingly
+    (up to max_growth).  normAutofit (set separately) acts as a safety net
+    — it shrinks the font if the box is still too small after expansion.
+
+    Processes both DrawingML (wp:extent + a:ext) and VML (v:shape style height).
+    """
+    stats = {
+        "adaptive_dml_expanded": 0,
+        "adaptive_vml_expanded": 0,
+    }
+
+    txbx_tag = f"{{{_NS_W}}}txbxContent"
+    spPr_tag = f"{{{_NS_WPS}}}spPr"
+    extent_tag = f"{{{_NS_WP}}}extent"
+    a_ext_tag = f"{{{_NS_A}}}ext"
+    a_xfrm_tag = f"{{{_NS_A}}}xfrm"
+    min_width_emu = int(min_width_pt * 12700)
+
+    # Process DrawingML textboxes (mc:Choice)
+    for txbx_content in document.element.iter(txbx_tag):
+        if _is_in_mc_fallback(txbx_content):
+            continue
+        text = _get_text_content(txbx_content)
+        if not text:
+            continue
+
+        n_paras = _count_paragraphs(txbx_content)
+        font_half_pt = _get_max_font_half_pt(txbx_content) or 17  # default ~8.5pt
+
+        # Find extent (container size)
+        cx, cy = 0, 0
+        extent_node = None
+        for anc in txbx_content.iterancestors():
+            for ext in anc.iter(extent_tag):
+                try:
+                    cx = int(ext.get("cx", "0"))
+                    cy = int(ext.get("cy", "0"))
+                    extent_node = ext
+                except (TypeError, ValueError):
+                    pass
+                break
+            if extent_node is not None:
+                break
+
+        if cx <= 0 or cy <= 0 or extent_node is None:
+            continue
+
+        # Skip narrow textboxes
+        if cx < min_width_emu:
+            continue
+
+        # Estimate needed height
+        needed_emu = _estimate_needed_height_emu(text, cx, font_half_pt, n_paras)
+        if needed_emu <= cy:
+            continue
+
+        # Calculate growth factor — expand as much as needed, up to max_growth
+        ratio = needed_emu / cy
+        growth = min(max_growth, max(1.0, ratio))
+        if growth <= 1.02:
+            continue
+
+        new_cy = int(round(cy * growth))
+
+        # Expand wp:extent
+        extent_node.set("cy", str(new_cy))
+        stats["adaptive_dml_expanded"] += 1
+
+        # Also expand a:ext in wps:spPr > a:xfrm > a:ext
+        for anc in txbx_content.iterancestors():
+            if _local_name(anc) == "wsp":
+                spPr = anc.find(spPr_tag)
+                if spPr is not None:
+                    xfrm = spPr.find(a_xfrm_tag)
+                    if xfrm is not None:
+                        a_ext = xfrm.find(a_ext_tag)
+                        if a_ext is not None:
+                            a_ext.set("cy", str(new_cy))
+                break
+
+    # Process VML textboxes (incl. mc:Fallback)
+    v_shape_tag = f"{{{_NS_V}}}shape"
+    v_textbox_tag = f"{{{_NS_V}}}textbox"
+
+    for shape in document.element.iter(v_shape_tag):
+        textbox = shape.find(v_textbox_tag)
+        if textbox is None:
+            continue
+        text = _get_text_content(shape)
+        if not text:
+            continue
+
+        font_half_pt = _get_max_font_half_pt(shape) or 17
+        n_paras = _count_paragraphs(shape)
+
+        style = str(shape.get("style") or "")
+        if not style:
+            continue
+
+        h_match = _VML_HEIGHT_RE_DOCWIDE.search(style)
+        if h_match is None:
+            continue
+        try:
+            height_val = float(h_match.group(2))
+        except (TypeError, ValueError):
+            continue
+        if height_val <= 0:
+            continue
+
+        unit = h_match.group(3) or "pt"
+        # Convert to EMU
+        _unit_to_emu = {"pt": 12700, "in": 914400, "cm": 360000, "mm": 36000}
+        emu_factor = _unit_to_emu.get(unit, 12700)
+        height_emu = int(height_val * emu_factor)
+
+        # Get width
+        w_match = _re.search(
+            r"(?:^|;)\s*width\s*:\s*([0-9]+(?:\.[0-9]+)?)(pt|in|cm|mm|px)?",
+            style, _re.IGNORECASE,
+        )
+        if w_match:
+            try:
+                w_val = float(w_match.group(1))
+                w_unit = w_match.group(2) or "pt"
+                width_emu = int(w_val * _unit_to_emu.get(w_unit, 12700))
+            except (TypeError, ValueError):
+                width_emu = 1000000
+        else:
+            width_emu = 1000000
+
+        # Skip narrow
+        if width_emu < min_width_emu:
+            continue
+
+        needed_emu = _estimate_needed_height_emu(text, width_emu, font_half_pt, n_paras)
+        if needed_emu <= height_emu:
+            continue
+
+        ratio = needed_emu / height_emu
+        growth = min(max_growth, max(1.0, ratio))
+        if growth <= 1.02:
+            continue
+
+        new_height = height_val * growth
+        replacement = f"{h_match.group(1)}{new_height:.2f}{unit}"
+        updated_style = style[:h_match.start()] + replacement + style[h_match.end():]
+        if updated_style != style:
+            shape.set("style", updated_style)
+            stats["adaptive_vml_expanded"] += 1
+
+    return stats
+
+
+def insert_caption_line_breaks(document) -> dict[str, int]:
+    """Insert line breaks before 'Рисунок NNN - Лист N' in caption textboxes.
+
+    Finds textboxes containing the pattern and inserts a <w:br/> element
+    before it, so the figure reference appears on a new line.
+    Also expands the container to accommodate the extra line.
+
+    Processes both mc:Choice and mc:Fallback for consistency.
+    """
+    stats = {"caption_breaks_inserted": 0, "caption_containers_expanded": 0}
+
+    txbx_tag = f"{{{_NS_W}}}txbxContent"
+    t_tag = f"{{{_NS_W}}}t"
+    r_tag = f"{{{_NS_W}}}r"
+    extent_tag = f"{{{_NS_WP}}}extent"
+    spPr_tag = f"{{{_NS_WPS}}}spPr"
+    a_xfrm_tag = f"{{{_NS_A}}}xfrm"
+    a_ext_tag = f"{{{_NS_A}}}ext"
+
+    for txbx_content in document.element.iter(txbx_tag):
+        full_text = _get_text_content(txbx_content)
+        if not _RISUNOK_SHEET_PATTERN.search(full_text):
+            continue
+
+        modified = False
+        for p_elem in txbx_content.iter(f"{{{_NS_W}}}p"):
+            for run in p_elem.iter(r_tag):
+                for t_elem in run.iter(t_tag):
+                    t_text = t_elem.text or ""
+                    if not t_text:
+                        continue
+
+                    # Case 1: "...text Рисунок NNN..." in same w:t element
+                    m = _CAPTION_SPLIT_PATTERN.match(t_text)
+                    if m and m.group(1).strip():
+                        # Check no existing break
+                        prev = t_elem.getprevious()
+                        if prev is not None and _local_name(prev) == "br":
+                            continue
+
+                        before_text = m.group(1)
+                        risunok_text = m.group(2)
+                        t_elem.text = before_text
+
+                        br_elem = OxmlElement("w:br")
+                        new_t = OxmlElement("w:t")
+                        new_t.set(
+                            "{http://www.w3.org/XML/1998/namespace}space",
+                            "preserve",
+                        )
+                        new_t.text = risunok_text
+
+                        idx = list(run).index(t_elem)
+                        run.insert(idx + 1, br_elem)
+                        run.insert(idx + 2, new_t)
+                        modified = True
+                        stats["caption_breaks_inserted"] += 1
+                        break
+
+                    # Case 2: "Рисунок" at start of run, previous run has text
+                    if (
+                        t_text.strip().startswith("Рисунок")
+                        and _RISUNOK_SHEET_PATTERN.search(t_text)
+                    ):
+                        prev_run = run.getprevious()
+                        if prev_run is not None and _local_name(prev_run) == "r":
+                            prev_texts = list(prev_run.iter(t_tag))
+                            if prev_texts and (prev_texts[-1].text or "").strip():
+                                prev = t_elem.getprevious()
+                                if prev is not None and _local_name(prev) == "br":
+                                    continue
+                                br_elem = OxmlElement("w:br")
+                                idx = list(run).index(t_elem)
+                                run.insert(idx, br_elem)
+                                modified = True
+                                stats["caption_breaks_inserted"] += 1
+                                break
+
+                if modified:
+                    break
+            if modified:
+                break
+
+        # Expand container for the extra line
+        if modified:
+            for anc in txbx_content.iterancestors():
+                for ext in anc.iter(extent_tag):
+                    try:
+                        cy = int(ext.get("cy", "0"))
+                        font_half_pt = _get_max_font_half_pt(txbx_content) or 17
+                        extra_line_emu = int((font_half_pt / 2.0) * 1.25 * 12700)
+                        ext.set("cy", str(cy + extra_line_emu))
+                        stats["caption_containers_expanded"] += 1
+                    except (TypeError, ValueError):
+                        pass
+                    break
+
+                if _local_name(anc) == "wsp":
+                    spPr = anc.find(spPr_tag)
+                    if spPr is not None:
+                        xfrm = spPr.find(a_xfrm_tag)
+                        if xfrm is not None:
+                            a_ext = xfrm.find(a_ext_tag)
+                            if a_ext is not None:
+                                try:
+                                    cy = int(a_ext.get("cy", "0"))
+                                    font_half_pt = (
+                                        _get_max_font_half_pt(txbx_content) or 17
+                                    )
+                                    extra_line_emu = int(
+                                        (font_half_pt / 2.0) * 1.25 * 12700
+                                    )
+                                    a_ext.set("cy", str(cy + extra_line_emu))
+                                except (TypeError, ValueError):
+                                    pass
+                break
+
+            # Expand VML shape height for mc:Fallback
+            for anc in txbx_content.iterancestors():
+                if _local_name(anc) == "Fallback":
+                    for shape in anc.iter(f"{{{_NS_V}}}shape"):
+                        style = str(shape.get("style") or "")
+                        h_match = _VML_HEIGHT_RE_DOCWIDE.search(style)
+                        if h_match:
+                            try:
+                                h_val = float(h_match.group(2))
+                                unit = h_match.group(3) or "pt"
+                                font_half_pt = (
+                                    _get_max_font_half_pt(shape) or 17
+                                )
+                                extra = (
+                                    (font_half_pt / 2.0) * 1.25
+                                    if unit == "pt"
+                                    else h_val * 0.4
+                                )
+                                new_h = h_val + extra
+                                repl = f"{h_match.group(1)}{new_h:.2f}{unit}"
+                                updated = (
+                                    style[: h_match.start()]
+                                    + repl
+                                    + style[h_match.end() :]
+                                )
+                                shape.set("style", updated)
+                            except (TypeError, ValueError):
+                                pass
+                        break
+                    break
+
+    return stats
+
+
 def apply_document_wide_formatting_fixes(
     document,
     *,
@@ -1316,6 +1712,10 @@ def apply_document_wide_formatting_fixes(
     reduce_frame_spacing: bool = True,
     relax_textbox_line_spacing: bool = True,
     skip_page_title_frames: bool = True,
+    enable_norm_autofit: bool = True,
+    adaptive_height_expansion: bool = True,
+    adaptive_max_growth: float = 4.0,
+    caption_line_breaks: bool = True,
 ) -> dict[str, int]:
     """Apply comprehensive document-wide formatting fixes.
 
@@ -1327,6 +1727,11 @@ def apply_document_wide_formatting_fixes(
     for consistent formatting across all Word versions.
     """
     stats: dict[str, int] = {}
+
+    # 0a. Enable normAutofit on all wps:bodyPr (prevents text clipping)
+    if enable_norm_autofit:
+        autofit_stats = set_all_bodypr_norm_autofit(document)
+        stats.update(autofit_stats)
 
     # 1. Reduce/set font sizes in textboxes (incl. mc:Fallback)
     tb_font_stats = reduce_font_sizes_in_textboxes(
@@ -1357,21 +1762,28 @@ def apply_document_wide_formatting_fixes(
         fr_ls_stats = relax_line_spacing_in_frames_aggressive(document)
         stats.update(fr_ls_stats)
 
-    # 5. Expand textbox extents (height) — DrawingML only
-    if textbox_height_growth_factor > 1.0:
-        tb_expand_stats = expand_textbox_extents_document_wide(
-            document,
-            growth_factor=textbox_height_growth_factor,
+    # 5. Expand textbox heights — adaptive (content-aware) or simple growth
+    if adaptive_height_expansion:
+        adaptive_stats = expand_textbox_heights_adaptive(
+            document, max_growth=adaptive_max_growth,
         )
-        stats.update(tb_expand_stats)
+        stats.update(adaptive_stats)
+    else:
+        # Fallback to simple growth factor
+        if textbox_height_growth_factor > 1.0:
+            tb_expand_stats = expand_textbox_extents_document_wide(
+                document,
+                growth_factor=textbox_height_growth_factor,
+            )
+            stats.update(tb_expand_stats)
 
-    # 6. Expand VML shape heights (incl. mc:Fallback)
-    if vml_height_growth_factor > 1.0:
-        vml_expand_stats = expand_vml_shape_heights(
-            document,
-            growth_factor=vml_height_growth_factor,
-        )
-        stats.update(vml_expand_stats)
+        # 6. Expand VML shape heights (incl. mc:Fallback)
+        if vml_height_growth_factor > 1.0:
+            vml_expand_stats = expand_vml_shape_heights(
+                document,
+                growth_factor=vml_height_growth_factor,
+            )
+            stats.update(vml_expand_stats)
 
     # 7. Tighten VML textbox insets (incl. mc:Fallback)
     if tighten_vml_insets:
@@ -1392,5 +1804,10 @@ def apply_document_wide_formatting_fixes(
     if relax_textbox_line_spacing:
         tb_ls_stats = relax_line_spacing_in_textboxes(document)
         stats.update(tb_ls_stats)
+
+    # 11. Insert line breaks before "Рисунок NNN - Лист N" in captions
+    if caption_line_breaks:
+        caption_stats = insert_caption_line_breaks(document)
+        stats.update(caption_stats)
 
     return stats

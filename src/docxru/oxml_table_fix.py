@@ -779,3 +779,554 @@ def normalize_abbyy_oxml(
         stats["textbox_insets_normalized"] = normalize_textbox_insets(document)
         stats["table_cell_margins_normalized"] = normalize_table_cell_margins(document)
     return stats
+
+
+# ---------------------------------------------------------------------------
+# Document-wide formatting fixes (operate on raw XML, independent of segments)
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+_NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_NS_MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+_NS_V = "urn:schemas-microsoft-com:vml"
+_NS_WPG = "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+_NS_WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+
+_VML_HEIGHT_RE_DOCWIDE = _re.compile(
+    r"((?:^|;)\s*height\s*:\s*)([0-9]+(?:\.[0-9]+)?)(pt|in|cm|mm|px)?",
+    _re.IGNORECASE,
+)
+
+
+def _is_in_mc_fallback(node) -> bool:
+    """Check if a node is inside mc:Fallback (to avoid double-processing)."""
+    for anc in node.iterancestors():
+        if _local_name(anc) == "Fallback" and anc.tag.startswith(f"{{{_NS_MC}}}"):
+            return True
+    return False
+
+
+def _get_text_content(node) -> str:
+    """Get all w:t text under a node."""
+    parts = []
+    for t in node.iter(f"{{{_NS_W}}}t"):
+        parts.append(t.text or "")
+    return "".join(parts).strip()
+
+
+def reduce_font_sizes_in_textboxes(
+    document,
+    *,
+    max_font_pt: float = 9.0,
+    min_font_pt: float = 6.0,
+    set_inherited_font_pt: float | None = None,
+) -> dict[str, int]:
+    """Reduce font sizes inside all DrawingML textboxes (w:txbxContent).
+
+    - Caps any explicit font > max_font_pt down to max_font_pt.
+    - If set_inherited_font_pt is given, adds explicit font size to runs
+      that have text but no explicit w:sz (style-inherited).
+    """
+    stats = {"textbox_fonts_capped": 0, "textbox_fonts_set_inherited": 0}
+    max_half_pt = int(max_font_pt * 2)
+    min_half_pt = int(min_font_pt * 2)
+
+    sz_tag = qn("w:sz")
+    szCs_tag = qn("w:szCs")
+    val_attr = qn("w:val")
+    rPr_tag = qn("w:rPr")
+    r_tag = qn("w:r")
+    t_tag = qn("w:t")
+    txbx_tag = qn("w:txbxContent")
+
+    for txbx_content in document.element.iter(txbx_tag):
+        if _is_in_mc_fallback(txbx_content):
+            continue
+
+        for run in txbx_content.iter(r_tag):
+            # Check if run has any text (including whitespace)
+            has_text = any((t.text or "") for t in run.iter(t_tag))
+            has_visible_text = any((t.text or "").strip() for t in run.iter(t_tag))
+
+            rPr = run.find(rPr_tag)
+            if rPr is not None:
+                sz = rPr.find(sz_tag)
+                if sz is not None:
+                    raw = sz.get(val_attr)
+                    if raw:
+                        try:
+                            val = int(raw)
+                        except (TypeError, ValueError):
+                            continue
+                        if val > max_half_pt:
+                            new_val = max(min_half_pt, max_half_pt)
+                            sz.set(val_attr, str(new_val))
+                            stats["textbox_fonts_capped"] += 1
+                            # Also cap szCs if present
+                            szCs = rPr.find(szCs_tag)
+                            if szCs is not None:
+                                szCs.set(val_attr, str(new_val))
+                    continue  # Has explicit font, done
+                # Check/cap szCs even when sz is absent
+                szCs = rPr.find(szCs_tag)
+                if szCs is not None:
+                    raw = szCs.get(val_attr)
+                    if raw:
+                        try:
+                            val = int(raw)
+                        except (TypeError, ValueError):
+                            pass
+                        else:
+                            if val > max_half_pt:
+                                szCs.set(val_attr, str(max(min_half_pt, max_half_pt)))
+                                stats["textbox_fonts_capped"] += 1
+
+            if not has_visible_text:
+                continue
+
+            # No explicit font size — set if requested
+            if set_inherited_font_pt is not None and set_inherited_font_pt > 0:
+                target_half_pt = str(int(set_inherited_font_pt * 2))
+                if rPr is None:
+                    rPr = OxmlElement("w:rPr")
+                    run.insert(0, rPr)
+                sz = OxmlElement("w:sz")
+                sz.set(val_attr, target_half_pt)
+                rPr.append(sz)
+                szCs = OxmlElement("w:szCs")
+                szCs.set(val_attr, target_half_pt)
+                rPr.append(szCs)
+                stats["textbox_fonts_set_inherited"] += 1
+
+    return stats
+
+
+def reduce_font_sizes_in_frames(
+    document,
+    *,
+    max_font_pt: float = 9.0,
+    min_font_pt: float = 6.0,
+    skip_page_title_frames: bool = True,
+) -> dict[str, int]:
+    """Reduce font sizes in paragraphs that have w:framePr.
+
+    Caps explicit fonts > max_font_pt. Skips page title/header frames
+    (large decorative fonts like 24pt, 30pt) if skip_page_title_frames is True.
+    """
+    stats = {"frame_fonts_capped": 0}
+    max_half_pt = int(max_font_pt * 2)
+    min_half_pt = int(min_font_pt * 2)
+
+    p_tag = qn("w:p")
+    pPr_tag = qn("w:pPr")
+    framePr_tag = qn("w:framePr")
+    r_tag = qn("w:r")
+    rPr_tag = qn("w:rPr")
+    sz_tag = qn("w:sz")
+    szCs_tag = qn("w:szCs")
+    val_attr = qn("w:val")
+    t_tag = qn("w:t")
+    w_attr = qn("w:w")
+
+    # Title frame heuristic: large frames (w > 8000 twips) with font >= 18pt
+    TITLE_WIDTH_THRESHOLD = 8000
+    TITLE_FONT_THRESHOLD_HALF_PT = 36  # 18pt
+
+    for p in document.element.iter(p_tag):
+        if _is_in_mc_fallback(p):
+            continue
+        pPr = p.find(pPr_tag)
+        if pPr is None:
+            continue
+        framePr = pPr.find(framePr_tag)
+        if framePr is None:
+            continue
+
+        # Skip title frames if requested
+        if skip_page_title_frames:
+            frame_w = framePr.get(w_attr)
+            if frame_w:
+                try:
+                    fw = int(str(frame_w))
+                except (TypeError, ValueError):
+                    fw = 0
+                if fw >= TITLE_WIDTH_THRESHOLD:
+                    # Check if any font is very large (likely title)
+                    any_title_font = False
+                    for run in p.iter(r_tag):
+                        rPr = run.find(rPr_tag)
+                        if rPr is None:
+                            continue
+                        sz = rPr.find(sz_tag)
+                        if sz is not None:
+                            raw = sz.get(val_attr)
+                            if raw:
+                                try:
+                                    val = int(raw)
+                                except (TypeError, ValueError):
+                                    continue
+                                if val >= TITLE_FONT_THRESHOLD_HALF_PT:
+                                    any_title_font = True
+                                    break
+                    if any_title_font:
+                        continue
+
+        for run in p.iter(r_tag):
+            rPr = run.find(rPr_tag)
+            if rPr is None:
+                continue
+            # Cap w:sz
+            sz = rPr.find(sz_tag)
+            if sz is not None:
+                raw = sz.get(val_attr)
+                if raw:
+                    try:
+                        val = int(raw)
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        if val > max_half_pt:
+                            new_val = max(min_half_pt, max_half_pt)
+                            sz.set(val_attr, str(new_val))
+                            stats["frame_fonts_capped"] += 1
+                            szCs = rPr.find(szCs_tag)
+                            if szCs is not None:
+                                szCs.set(val_attr, str(new_val))
+                            continue
+            # Cap standalone w:szCs
+            szCs = rPr.find(szCs_tag)
+            if szCs is not None:
+                raw = szCs.get(val_attr)
+                if raw:
+                    try:
+                        val = int(raw)
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        if val > max_half_pt:
+                            szCs.set(val_attr, str(max(min_half_pt, max_half_pt)))
+                            stats["frame_fonts_capped"] += 1
+
+    return stats
+
+
+def relax_frame_exact_heights_aggressive(document) -> dict[str, int]:
+    """Change hRule='exact' to 'atLeast' on ALL frames (not just page-anchored)."""
+    stats = {"frame_exact_relaxed_all": 0}
+    framePr_tag = qn("w:framePr")
+    pPr_tag = qn("w:pPr")
+    h_rule_attr = qn("w:hRule")
+
+    for pPr in document.element.iter(pPr_tag):
+        if _is_in_mc_fallback(pPr):
+            continue
+        framePr = pPr.find(framePr_tag)
+        if framePr is None:
+            continue
+        hRule = str(framePr.get(h_rule_attr, "")).strip().lower()
+        if hRule != "exact":
+            continue
+        framePr.set(h_rule_attr, "atLeast")
+        stats["frame_exact_relaxed_all"] += 1
+
+    return stats
+
+
+def expand_textbox_extents_document_wide(
+    document,
+    *,
+    growth_factor: float = 1.15,
+    min_height_emu: int = 100000,
+) -> dict[str, int]:
+    """Expand DrawingML textbox extent cy (height) for all textboxes with text."""
+    stats = {"textbox_extents_expanded": 0}
+    txbx_tag = qn("w:txbxContent")
+    factor = max(1.01, float(growth_factor))
+
+    for txbx_content in document.element.iter(txbx_tag):
+        if _is_in_mc_fallback(txbx_content):
+            continue
+        if not _contains_non_whitespace_text(txbx_content):
+            continue
+
+        # Walk ancestors to find wp:extent
+        for anc in txbx_content.iterancestors():
+            for ext in anc.iter(f"{{{_NS_WP}}}extent"):
+                raw_cy = ext.get("cy")
+                if raw_cy is None:
+                    continue
+                try:
+                    cy = int(str(raw_cy))
+                except (TypeError, ValueError):
+                    continue
+                if cy <= 0:
+                    continue
+                new_cy = max(int(min_height_emu), int(round(float(cy) * factor)))
+                if new_cy > cy:
+                    ext.set("cy", str(new_cy))
+                    stats["textbox_extents_expanded"] += 1
+                break
+            if stats["textbox_extents_expanded"]:
+                break
+            break  # Only look at first ancestor level with extents
+
+    return stats
+
+
+def expand_vml_shape_heights(
+    document,
+    *,
+    growth_factor: float = 1.15,
+) -> dict[str, int]:
+    """Expand VML shape style heights for shapes containing textboxes."""
+    stats = {"vml_shape_heights_expanded": 0}
+    factor = max(1.01, float(growth_factor))
+
+    for shape in document.element.iter(f"{{{_NS_V}}}shape"):
+        if _is_in_mc_fallback(shape):
+            continue
+        # Check if shape has textbox child
+        textbox = shape.find(f"{{{_NS_V}}}textbox")
+        if textbox is None:
+            continue
+        if not _contains_non_whitespace_text(shape):
+            continue
+
+        style = str(shape.get("style") or "")
+        if not style:
+            continue
+        match = _VML_HEIGHT_RE_DOCWIDE.search(style)
+        if match is None:
+            continue
+        try:
+            height_val = float(match.group(2))
+        except (TypeError, ValueError):
+            continue
+        if height_val <= 0:
+            continue
+        new_val = height_val * factor
+        unit = match.group(3) or ""
+        replacement = f"{match.group(1)}{new_val:.2f}{unit}"
+        updated_style = style[:match.start()] + replacement + style[match.end():]
+        if updated_style != style:
+            shape.set("style", updated_style)
+            stats["vml_shape_heights_expanded"] += 1
+
+    return stats
+
+
+def tighten_vml_textbox_insets(document) -> dict[str, int]:
+    """Set VML textbox inset to '0,0,0,0' for shapes with text."""
+    stats = {"vml_insets_tightened": 0}
+    for shape in document.element.iter(f"{{{_NS_V}}}shape"):
+        if _is_in_mc_fallback(shape):
+            continue
+        textbox = shape.find(f"{{{_NS_V}}}textbox")
+        if textbox is None:
+            continue
+        if not _contains_non_whitespace_text(shape):
+            continue
+        inset = (textbox.get("inset") or "").strip()
+        if inset == "0,0,0,0":
+            continue
+        textbox.set("inset", "0,0,0,0")
+        stats["vml_insets_tightened"] += 1
+    return stats
+
+
+def reduce_paragraph_spacing_in_textboxes(
+    document,
+    *,
+    max_before_twips: int = 0,
+    max_after_twips: int = 0,
+) -> dict[str, int]:
+    """Reduce/remove paragraph spacing inside textboxes to maximize text area."""
+    stats = {"textbox_spacing_reduced": 0}
+    txbx_tag = qn("w:txbxContent")
+    p_tag = qn("w:p")
+    pPr_tag = qn("w:pPr")
+    spacing_tag = qn("w:spacing")
+    before_attr = qn("w:before")
+    after_attr = qn("w:after")
+
+    for txbx_content in document.element.iter(txbx_tag):
+        if _is_in_mc_fallback(txbx_content):
+            continue
+        if not _contains_non_whitespace_text(txbx_content):
+            continue
+
+        for p in txbx_content.iter(p_tag):
+            pPr = p.find(pPr_tag)
+            if pPr is None:
+                continue
+            spacing = pPr.find(spacing_tag)
+            if spacing is None:
+                continue
+            changed = False
+            for attr, cap in ((before_attr, max_before_twips), (after_attr, max_after_twips)):
+                raw = spacing.get(attr)
+                if raw is None:
+                    continue
+                try:
+                    val = int(str(raw))
+                except (TypeError, ValueError):
+                    continue
+                if val > cap:
+                    spacing.set(attr, str(cap))
+                    changed = True
+            if changed:
+                stats["textbox_spacing_reduced"] += 1
+
+    return stats
+
+
+def reduce_paragraph_spacing_in_frames(
+    document,
+    *,
+    max_before_twips: int = 20,
+    max_after_twips: int = 20,
+) -> dict[str, int]:
+    """Reduce paragraph spacing in framed paragraphs."""
+    stats = {"frame_spacing_reduced": 0}
+    p_tag = qn("w:p")
+    pPr_tag = qn("w:pPr")
+    framePr_tag = qn("w:framePr")
+    spacing_tag = qn("w:spacing")
+    before_attr = qn("w:before")
+    after_attr = qn("w:after")
+
+    for p in document.element.iter(p_tag):
+        if _is_in_mc_fallback(p):
+            continue
+        pPr = p.find(pPr_tag)
+        if pPr is None:
+            continue
+        framePr = pPr.find(framePr_tag)
+        if framePr is None:
+            continue
+        spacing = pPr.find(spacing_tag)
+        if spacing is None:
+            continue
+        changed = False
+        for attr, cap in ((before_attr, max_before_twips), (after_attr, max_after_twips)):
+            raw = spacing.get(attr)
+            if raw is None:
+                continue
+            try:
+                val = int(str(raw))
+            except (TypeError, ValueError):
+                continue
+            if val > cap:
+                spacing.set(attr, str(cap))
+                changed = True
+        if changed:
+            stats["frame_spacing_reduced"] += 1
+
+    return stats
+
+
+def relax_line_spacing_in_textboxes(document) -> dict[str, int]:
+    """Change lineRule='exact' to 'atLeast' inside textboxes."""
+    stats = {"textbox_line_spacing_relaxed": 0}
+    txbx_tag = qn("w:txbxContent")
+    spacing_tag = qn("w:spacing")
+    line_rule_attr = qn("w:lineRule")
+
+    for txbx_content in document.element.iter(txbx_tag):
+        if _is_in_mc_fallback(txbx_content):
+            continue
+        for spacing in txbx_content.iter(spacing_tag):
+            rule = str(spacing.get(line_rule_attr, "")).strip().lower()
+            if rule == "exact":
+                spacing.set(line_rule_attr, "atLeast")
+                stats["textbox_line_spacing_relaxed"] += 1
+
+    return stats
+
+
+def apply_document_wide_formatting_fixes(
+    document,
+    *,
+    max_textbox_font_pt: float = 9.0,
+    min_font_pt: float = 6.0,
+    set_inherited_textbox_font_pt: float | None = 8.5,
+    max_frame_font_pt: float = 9.0,
+    textbox_height_growth_factor: float = 1.15,
+    vml_height_growth_factor: float = 1.15,
+    relax_frame_heights: bool = True,
+    tighten_vml_insets: bool = True,
+    reduce_textbox_spacing: bool = True,
+    reduce_frame_spacing: bool = True,
+    relax_textbox_line_spacing: bool = True,
+    skip_page_title_frames: bool = True,
+) -> dict[str, int]:
+    """Apply comprehensive document-wide formatting fixes.
+
+    This operates on the raw XML tree and fixes elements that the
+    segment-based pipeline may miss (textboxes in drawings/pictures,
+    frames not collected as segments, group shapes, etc.).
+    """
+    stats: dict[str, int] = {}
+
+    # 1. Reduce/set font sizes in textboxes
+    tb_font_stats = reduce_font_sizes_in_textboxes(
+        document,
+        max_font_pt=max_textbox_font_pt,
+        min_font_pt=min_font_pt,
+        set_inherited_font_pt=set_inherited_textbox_font_pt,
+    )
+    stats.update(tb_font_stats)
+
+    # 2. Reduce font sizes in frames
+    fr_font_stats = reduce_font_sizes_in_frames(
+        document,
+        max_font_pt=max_frame_font_pt,
+        min_font_pt=min_font_pt,
+        skip_page_title_frames=skip_page_title_frames,
+    )
+    stats.update(fr_font_stats)
+
+    # 3. Relax all frame exact heights
+    if relax_frame_heights:
+        fr_height_stats = relax_frame_exact_heights_aggressive(document)
+        stats.update(fr_height_stats)
+
+    # 4. Expand textbox extents (height)
+    if textbox_height_growth_factor > 1.0:
+        tb_expand_stats = expand_textbox_extents_document_wide(
+            document,
+            growth_factor=textbox_height_growth_factor,
+        )
+        stats.update(tb_expand_stats)
+
+    # 5. Expand VML shape heights
+    if vml_height_growth_factor > 1.0:
+        vml_expand_stats = expand_vml_shape_heights(
+            document,
+            growth_factor=vml_height_growth_factor,
+        )
+        stats.update(vml_expand_stats)
+
+    # 6. Tighten VML textbox insets
+    if tighten_vml_insets:
+        vml_inset_stats = tighten_vml_textbox_insets(document)
+        stats.update(vml_inset_stats)
+
+    # 7. Reduce paragraph spacing in textboxes
+    if reduce_textbox_spacing:
+        tb_spacing_stats = reduce_paragraph_spacing_in_textboxes(document)
+        stats.update(tb_spacing_stats)
+
+    # 8. Reduce paragraph spacing in frames
+    if reduce_frame_spacing:
+        fr_spacing_stats = reduce_paragraph_spacing_in_frames(document)
+        stats.update(fr_spacing_stats)
+
+    # 9. Relax exact line spacing in textboxes
+    if relax_textbox_line_spacing:
+        tb_ls_stats = relax_line_spacing_in_textboxes(document)
+        stats.update(tb_ls_stats)
+
+    return stats

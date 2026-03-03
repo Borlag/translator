@@ -46,7 +46,7 @@ from .model_sizing import (
     recommend_runtime_model_sizing,
 )
 from .models import Issue, Segment, Severity
-from .oxml_table_fix import normalize_abbyy_oxml
+from .oxml_table_fix import apply_document_wide_formatting_fixes, normalize_abbyy_oxml
 from .pricing import PricingTable, load_pricing_table
 from .format_report import write_format_report
 from .qa_report import write_qa_jsonl, write_qa_report
@@ -1290,6 +1290,28 @@ def _apply_abbyy_and_layout_passes(doc: Document, segments: list[Segment], cfg: 
                 int(total_applied),
                 int(passes_ran),
                 int(max_passes),
+            )
+
+    # Document-wide formatting fixes (catches elements not in segments).
+    if cfg.docwide_format_fix:
+        docwide_stats = apply_document_wide_formatting_fixes(
+            doc,
+            max_textbox_font_pt=float(cfg.docwide_max_textbox_font_pt),
+            min_font_pt=float(cfg.layout_min_font_pt),
+            set_inherited_textbox_font_pt=(
+                float(cfg.docwide_set_inherited_textbox_font_pt)
+                if cfg.docwide_set_inherited_textbox_font_pt > 0
+                else None
+            ),
+            max_frame_font_pt=float(cfg.docwide_max_frame_font_pt),
+            textbox_height_growth_factor=float(cfg.docwide_textbox_height_growth),
+            vml_height_growth_factor=float(cfg.docwide_vml_height_growth),
+        )
+        total_docwide = sum(int(v) for v in docwide_stats.values())
+        if total_docwide > 0:
+            logger.info(
+                "Document-wide formatting fixes: %s",
+                "; ".join(f"{k}={v}" for k, v in docwide_stats.items() if v > 0),
             )
 
 
@@ -3673,6 +3695,39 @@ def postformat_docx(
 
     cleaned_runs = _apply_final_run_level_cleanup(segments)
     logger.info("Postformat final run-level cleanup changes: %d", cleaned_runs)
+
+    # Document-wide formatting fixes (operates on raw XML, catches elements
+    # not collected as segments: textboxes in drawings, frames on pictures, etc.)
+    if cfg.docwide_format_fix:
+        docwide_stats = apply_document_wide_formatting_fixes(
+            doc,
+            max_textbox_font_pt=float(cfg.docwide_max_textbox_font_pt),
+            min_font_pt=float(cfg.layout_min_font_pt),
+            set_inherited_textbox_font_pt=(
+                float(cfg.docwide_set_inherited_textbox_font_pt)
+                if cfg.docwide_set_inherited_textbox_font_pt > 0
+                else None
+            ),
+            max_frame_font_pt=float(cfg.docwide_max_frame_font_pt),
+            textbox_height_growth_factor=float(cfg.docwide_textbox_height_growth),
+            vml_height_growth_factor=float(cfg.docwide_vml_height_growth),
+        )
+        logger.info(
+            "Document-wide formatting fixes: textbox_fonts_capped=%d; textbox_fonts_set_inherited=%d; "
+            "frame_fonts_capped=%d; frame_exact_relaxed_all=%d; textbox_extents_expanded=%d; "
+            "vml_shape_heights_expanded=%d; vml_insets_tightened=%d; textbox_spacing_reduced=%d; "
+            "frame_spacing_reduced=%d; textbox_line_spacing_relaxed=%d",
+            int(docwide_stats.get("textbox_fonts_capped", 0)),
+            int(docwide_stats.get("textbox_fonts_set_inherited", 0)),
+            int(docwide_stats.get("frame_fonts_capped", 0)),
+            int(docwide_stats.get("frame_exact_relaxed_all", 0)),
+            int(docwide_stats.get("textbox_extents_expanded", 0)),
+            int(docwide_stats.get("vml_shape_heights_expanded", 0)),
+            int(docwide_stats.get("vml_insets_tightened", 0)),
+            int(docwide_stats.get("textbox_spacing_reduced", 0)),
+            int(docwide_stats.get("frame_spacing_reduced", 0)),
+            int(docwide_stats.get("textbox_line_spacing_relaxed", 0)),
+        )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_path))

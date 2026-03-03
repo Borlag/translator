@@ -133,6 +133,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Strip excessive empty paragraphs and soft line breaks before formatting passes.",
     )
+    pf.add_argument(
+        "--docwide-format-fix",
+        action="store_true",
+        help="Apply document-wide formatting fixes (font caps in textboxes/frames, height expansion, etc.).",
+    )
 
     sb = sub.add_parser("strip-blanks", help="Remove excessive empty paragraphs and soft line breaks from DOCX.")
     sb.add_argument("--input", "-i", required=True, help="Path to input .docx")
@@ -328,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
             cfg = cfg.__class__(**{**cfg.__dict__, "formatting_preset": str(args.formatting_preset)})
         if args.log is not None:
             cfg = cfg.__class__(**{**cfg.__dict__, "log_path": str(args.log)})
+        if getattr(args, "docwide_format_fix", False):
+            cfg = cfg.__class__(**{**cfg.__dict__, "docwide_format_fix": True})
 
         postformat_docx(
             input_path=Path(args.input),

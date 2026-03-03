@@ -203,6 +203,19 @@ class PipelineConfig:
     font_shrink_table_pt: float = 0.0
     # Readability floor for unconditional post-writeback shrink.
     font_shrink_min_font_pt: float = 6.0
+    # Document-wide formatting fixes (operate on raw XML, independent of segments).
+    # Enable/disable the comprehensive document-wide pass.
+    docwide_format_fix: bool = False
+    # Cap textbox font sizes (pt). 0 = disable.
+    docwide_max_textbox_font_pt: float = 9.0
+    # Set explicit font on textbox runs that inherit font from style (pt). 0 = disable.
+    docwide_set_inherited_textbox_font_pt: float = 8.5
+    # Cap frame font sizes (pt). 0 = disable.
+    docwide_max_frame_font_pt: float = 9.0
+    # Textbox height growth factor (1.0 = no expansion).
+    docwide_textbox_height_growth: float = 1.15
+    # VML shape height growth factor (1.0 = no expansion).
+    docwide_vml_height_growth: float = 1.15
     # regex patterns:
     pattern_set: PatternSet = PatternSet([])
 
@@ -226,6 +239,7 @@ _FORMATTING_PRESET_FIELDS: tuple[str, ...] = (
     "font_shrink_min_font_pt",
     "mode",
     "com_expand_overflowing_shapes",
+    "docwide_format_fix",
 )
 
 _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
@@ -248,6 +262,7 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
+        "docwide_format_fix": False,
     },
     "native_docx": {
         "translate_enable_formatting_fixes": True,
@@ -268,6 +283,7 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "font_shrink_min_font_pt": 6.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
+        "docwide_format_fix": False,
     },
     "abbyy_standard": {
         "translate_enable_formatting_fixes": True,
@@ -288,6 +304,7 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "font_shrink_min_font_pt": 9.0,
         "mode": "reflow",
         "com_expand_overflowing_shapes": False,
+        "docwide_format_fix": True,
     },
     "abbyy_aggressive": {
         "translate_enable_formatting_fixes": True,
@@ -308,6 +325,7 @@ _FORMATTING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
         "font_shrink_min_font_pt": 8.0,
         "mode": "com",
         "com_expand_overflowing_shapes": True,
+        "docwide_format_fix": True,
     },
 }
 
@@ -671,6 +689,13 @@ def load_config(path: str | Path) -> PipelineConfig:
     )
     com_textbox_max_height_growth = max(1.0, float(data.get("com_textbox_max_height_growth", 1.5)))
 
+    docwide_format_fix = bool(data.get("docwide_format_fix", preset_defaults.get("docwide_format_fix", False)))
+    docwide_max_textbox_font_pt = max(0.0, float(data.get("docwide_max_textbox_font_pt", 9.0)))
+    docwide_set_inherited_textbox_font_pt = max(0.0, float(data.get("docwide_set_inherited_textbox_font_pt", 8.5)))
+    docwide_max_frame_font_pt = max(0.0, float(data.get("docwide_max_frame_font_pt", 9.0)))
+    docwide_textbox_height_growth = max(1.0, float(data.get("docwide_textbox_height_growth", 1.15)))
+    docwide_vml_height_growth = max(1.0, float(data.get("docwide_vml_height_growth", 1.15)))
+
     # Patterns can be either inline list under patterns.rules, or a presets yaml path.
     patterns_data = data.get("patterns", {}) or {}
     preset_path = patterns_data.get("preset_file")
@@ -749,5 +774,11 @@ def load_config(path: str | Path) -> PipelineConfig:
         font_shrink_body_pt=font_shrink_body_pt,
         font_shrink_table_pt=font_shrink_table_pt,
         font_shrink_min_font_pt=font_shrink_min_font_pt,
+        docwide_format_fix=docwide_format_fix,
+        docwide_max_textbox_font_pt=docwide_max_textbox_font_pt,
+        docwide_set_inherited_textbox_font_pt=docwide_set_inherited_textbox_font_pt,
+        docwide_max_frame_font_pt=docwide_max_frame_font_pt,
+        docwide_textbox_height_growth=docwide_textbox_height_growth,
+        docwide_vml_height_growth=docwide_vml_height_growth,
         pattern_set=pattern_set,
     )

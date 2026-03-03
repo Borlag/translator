@@ -278,7 +278,31 @@ def _get_paragraph_style_name(paragraph) -> str:
         return ""
 
 
-def _should_skip_paragraph(paragraph, *, skip_toc: bool, skip_centered: bool) -> bool:
+def _is_short_frame_paragraph(paragraph, *, max_text_len: int = 120) -> bool:
+    """Return True if the paragraph has w:framePr and short text content.
+
+    Short framed paragraphs are typically titles, headers, or labels where
+    soft line breaks serve as intentional visual line separators and should
+    not be cleaned up. Content-heavy framed paragraphs (>max_text_len chars)
+    benefit from break cleanup (e.g., translated text that wraps badly).
+    """
+    p_pr = paragraph._p.find(qn("w:pPr"))
+    if p_pr is None:
+        return False
+    if p_pr.find(qn("w:framePr")) is None:
+        return False
+    # It's a frame — check text length
+    text = ""
+    for t_elem in paragraph._p.iter(qn("w:t")):
+        text += (t_elem.text or "")
+        if len(text) > max_text_len:
+            return False  # Long content frame — don't skip
+    return True  # Short text in frame — skip
+
+
+def _should_skip_paragraph(
+    paragraph, *, skip_toc: bool, skip_centered: bool, skip_short_frames: bool
+) -> bool:
     """Return True if this paragraph should be skipped for break cleanup."""
     if skip_toc:
         style = _get_paragraph_style_name(paragraph)
@@ -287,6 +311,9 @@ def _should_skip_paragraph(paragraph, *, skip_toc: bool, skip_centered: bool) ->
     if skip_centered:
         align = _get_paragraph_alignment(paragraph)
         if align in ("center", "right"):
+            return True
+    if skip_short_frames:
+        if _is_short_frame_paragraph(paragraph):
             return True
     return False
 
@@ -343,6 +370,7 @@ def cleanup_soft_linebreaks(
     process_tables: bool = True,
     skip_toc: bool = True,
     skip_centered: bool = True,
+    skip_short_frames: bool = True,
 ) -> dict[str, int]:
     """Replace mid-sentence soft line breaks with spaces.
 
@@ -354,6 +382,8 @@ def cleanup_soft_linebreaks(
         process_tables: also process paragraphs inside table cells.
         skip_toc: skip paragraphs with TOC-related styles.
         skip_centered: skip center/right-aligned paragraphs.
+        skip_short_frames: skip short-text framed paragraphs (titles/headers
+            where breaks serve as visual line separators).
 
     Returns:
         Statistics dictionary.
@@ -366,14 +396,22 @@ def cleanup_soft_linebreaks(
         "breaks_skipped_clear": 0,
         "paragraphs_skipped_toc": 0,
         "paragraphs_skipped_aligned": 0,
+        "paragraphs_skipped_short_frames": 0,
     }
 
     def _process_paragraphs(paragraphs):
         for para in paragraphs:
-            if _should_skip_paragraph(para, skip_toc=skip_toc, skip_centered=skip_centered):
+            if _should_skip_paragraph(
+                para,
+                skip_toc=skip_toc,
+                skip_centered=skip_centered,
+                skip_short_frames=skip_short_frames,
+            ):
                 style = _get_paragraph_style_name(para)
-                if "toc" in style:
+                if skip_toc and "toc" in style:
                     stats["paragraphs_skipped_toc"] += 1
+                elif skip_short_frames and _is_short_frame_paragraph(para):
+                    stats["paragraphs_skipped_short_frames"] += 1
                 else:
                     stats["paragraphs_skipped_aligned"] += 1
                 continue
@@ -457,6 +495,7 @@ def strip_blanks_and_breaks(
     cleanup_breaks: bool = True,
     skip_toc: bool = True,
     skip_centered: bool = True,
+    skip_short_frames: bool = True,
     # Common
     process_tables: bool = True,
 ) -> dict[str, int]:
@@ -484,6 +523,7 @@ def strip_blanks_and_breaks(
             process_tables=process_tables,
             skip_toc=skip_toc,
             skip_centered=skip_centered,
+            skip_short_frames=skip_short_frames,
         )
         result.update(p2)
 

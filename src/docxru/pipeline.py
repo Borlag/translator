@@ -431,6 +431,28 @@ def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
     return flat[: max_chars - 3].rstrip() + "..."
 
 
+def _compact_row_peer_cells_context(value: Any, *, max_chars: int = 220) -> str:
+    if not isinstance(value, (list, tuple)):
+        return ""
+    parts: list[str] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        text = _compact_context_text(str(item.get("text") or ""), max_chars=100)
+        if not text:
+            continue
+        header = _compact_context_text(str(item.get("header") or ""), max_chars=32)
+        chunk = f"{header}={text}" if header else text
+        chunk_cost = len(chunk) + 4
+        if budget > 0 and consumed + chunk_cost > budget:
+            break
+        parts.append(chunk)
+        consumed += chunk_cost
+    return " || ".join(parts)
+
+
 def _build_matched_glossary_context(
     text: str,
     glossary_matchers,
@@ -1425,6 +1447,9 @@ def _build_batch_item_context(seg: Segment) -> str:
         parts.append(f"DOC_SECTION={part}")
     if seg.context.get("in_table"):
         parts.append("TABLE_CELL")
+        column_header = _compact_context_text(str(seg.context.get("column_header") or ""), max_chars=80)
+        if column_header:
+            parts.append(f"COLUMN={column_header}")
     if seg.context.get("in_textbox"):
         parts.append("TEXTBOX")
     if seg.context.get("is_toc_entry"):
@@ -1436,6 +1461,10 @@ def _build_batch_item_context(seg: Segment) -> str:
         parts.append(f"PREV={prev_text}")
     if next_text:
         parts.append(f"NEXT={next_text}")
+
+    row_peer_cells = _compact_row_peer_cells_context(seg.context.get("row_peer_cells"), max_chars=160)
+    if row_peer_cells:
+        parts.append(f"ROW_PEERS={row_peer_cells}")
 
     return " | ".join(parts) if parts else "(no context)"
 

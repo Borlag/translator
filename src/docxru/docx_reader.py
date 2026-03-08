@@ -78,6 +78,10 @@ def iter_textbox_contents(parent: Any) -> Iterator[Any]:
             yield node
 
 
+def _cell_plain_text(cell: _Cell) -> str:
+    return (cell.text or "").strip()
+
+
 def _iter_textbox_paragraphs(parent: Any) -> Iterator[tuple[int, int, Paragraph]]:
     """Yield (textbox index, paragraph index, Paragraph) tuples from textbox content."""
     for txbx_i, txbx_content in enumerate(iter_textbox_contents(parent)):
@@ -158,9 +162,31 @@ def collect_segments(
         )
 
     def walk_table(table: Table, base_loc: str, context: dict[str, Any]) -> None:
+        header_row_texts = [_cell_plain_text(cell) for cell in table.rows[0].cells] if table.rows else []
         for r_i, row in enumerate(table.rows):
+            row_cell_texts = [_cell_plain_text(cell) for cell in row.cells]
             for c_i, cell in enumerate(row.cells):
                 cell_loc = f"{base_loc}/r{r_i}/c{c_i}"
+                cell_context = {**context, "in_table": True, "row_index": r_i, "col_index": c_i}
+                if r_i > 0 and c_i < len(header_row_texts):
+                    header_text = header_row_texts[c_i].strip()
+                    if header_text:
+                        cell_context["column_header"] = header_text
+                peer_cells: list[dict[str, Any]] = []
+                for peer_idx, peer_text in enumerate(row_cell_texts):
+                    if peer_idx == c_i:
+                        continue
+                    peer_text = peer_text.strip()
+                    if not peer_text:
+                        continue
+                    payload: dict[str, Any] = {"col_index": peer_idx, "text": peer_text}
+                    if peer_idx < len(header_row_texts):
+                        peer_header = header_row_texts[peer_idx].strip()
+                        if peer_header:
+                            payload["header"] = peer_header
+                    peer_cells.append(payload)
+                if peer_cells:
+                    cell_context["row_peer_cells"] = peer_cells
                 p_i = 0
                 t_i = 0
                 for item in iter_block_items(cell):
@@ -168,14 +194,14 @@ def collect_segments(
                         handle_paragraph(
                             item,
                             f"{cell_loc}/p{p_i}",
-                            {**context, "in_table": True, "row_index": r_i, "col_index": c_i},
+                            cell_context,
                         )
                         p_i += 1
                     else:
                         walk_table(
                             item,
                             f"{cell_loc}/t{t_i}",
-                            {**context, "in_table": True, "row_index": r_i, "col_index": c_i, "table_index": t_i},
+                            {**cell_context, "table_index": t_i},
                         )
                         t_i += 1
 

@@ -212,6 +212,29 @@ def _format_tm_references_block(value: Any, *, max_chars: int = 500) -> str:
     return "\n".join(lines)
 
 
+def _format_row_peer_cells_block(value: Any, *, max_chars: int = 320) -> str:
+    if not isinstance(value, (list, tuple)):
+        return ""
+
+    lines: list[str] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        text = _compact_prompt_snippet(item.get("text"), max_chars=120)
+        if not text:
+            continue
+        header = _compact_prompt_snippet(item.get("header"), max_chars=40)
+        line = f"- {header}: {text}" if header else f"- {text}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        lines.append(line)
+        consumed += line_cost
+    return "\n".join(lines)
+
+
 def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     task = str(context.get("task", "translate")).lower()
     if task in {"repair", "batch_translate", "checker"}:
@@ -223,6 +246,9 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
         ctx_parts.append(f"SECTION: {context['section_header']}")
     if context.get("in_table"):
         ctx_parts.append("TABLE_CELL")
+        column_header = _compact_prompt_snippet(context.get("column_header"), max_chars=80)
+        if column_header:
+            ctx_parts.append(f"COLUMN: {column_header}")
     part = str(context.get("part") or "").strip().lower()
     if part and part != "body":
         # Keep this short but avoid "PART: body" leakage into translated text.
@@ -274,6 +300,10 @@ def build_user_prompt(text: str, context: dict[str, Any]) -> str:
     )
     if recent_translations:
         extra_blocks.append(f"RECENT_TRANSLATIONS (EN => RU):\n{recent_translations}")
+
+    row_peer_cells = _format_row_peer_cells_block(context.get("row_peer_cells"))
+    if row_peer_cells:
+        extra_blocks.append(f"TABLE_ROW_CONTEXT:\n{row_peer_cells}")
 
     extra_section = ""
     if extra_blocks:

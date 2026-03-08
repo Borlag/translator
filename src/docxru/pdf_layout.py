@@ -6,6 +6,13 @@ from statistics import median
 
 from .pdf_models import BBox, ColumnRegion, PdfPage, PdfSegment, PdfTextBlock, TableRegion
 
+_DIGIT_GROUP_RE = re.compile(r"\d[\d./-]*")
+_LEADER_DOTS_RE = re.compile(r"(?:\.\s*){4,}")
+_STRUCTURED_KEYWORD_RE = re.compile(
+    r"\b(?:table of contents|contents|list of effective pages|record of revisions|repair no\.?|fig\.?|figure|page)\b",
+    flags=re.IGNORECASE,
+)
+
 _SPACE_RE = re.compile(r"\s+")
 _NON_TEXT_RE = re.compile(r"[^0-9A-Za-zА-Яа-яЁё:/()., -]+")
 
@@ -17,6 +24,10 @@ def _bbox_union(bboxes: list[BBox]) -> BBox:
         max(b[2] for b in bboxes),
         max(b[3] for b in bboxes),
     )
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
 
 
 def _bbox_intersects(a: BBox, b: BBox) -> bool:
@@ -40,6 +51,120 @@ def _cluster_count(values: list[float], *, tolerance: float) -> int:
         clusters += 1
         anchor = value
     return clusters
+
+
+def _normalize_quadrant_rotation(rotation_deg: float) -> float:
+    raw = float(rotation_deg or 0.0) % 360.0
+    for candidate in (0.0, 90.0, 180.0, 270.0):
+        delta = abs(((raw - candidate + 180.0) % 360.0) - 180.0)
+        if delta <= 8.0:
+            return candidate
+    return 0.0
+
+
+def _estimate_block_text_align(block: PdfTextBlock) -> str:
+    if not block.lines:
+        return "left"
+    block_width = max(1.0, block.bbox[2] - block.bbox[0])
+    line_bboxes = [line.bbox for line in block.lines if line.text.strip()]
+    if not line_bboxes:
+        return "left"
+
+    left_gaps = [max(0.0, bbox[0] - block.bbox[0]) for bbox in line_bboxes]
+    right_gaps = [max(0.0, block.bbox[2] - bbox[2]) for bbox in line_bboxes]
+    widths = [max(1.0, bbox[2] - bbox[0]) for bbox in line_bboxes]
+    median_left = median(left_gaps)
+    median_right = median(right_gaps)
+    median_width = median(widths)
+
+    if (
+        median_width <= block_width * 0.9
+        and abs(median_left - median_right) <= max(6.0, block_width * 0.05)
+        and (median_left + median_right) >= max(8.0, block_width * 0.08)
+    ):
+        return "center"
+    if median_right <= max(5.0, median_left * 0.6) and median_left >= max(5.0, block_width * 0.05):
+        return "right"
+    return "left"
+
+
+def _estimate_block_line_height_factor(block: PdfTextBlock) -> float:
+    if len(block.lines) < 2:
+        return 1.05
+    font_size = float(block.dominant_style.font_size_pt) if block.dominant_style is not None else 10.0
+    if font_size <= 0:
+        return 1.05
+    lines = sorted(block.lines, key=lambda line: (line.bbox[1], line.bbox[0]))
+    top_deltas = [
+        float(curr.bbox[1] - prev.bbox[1])
+        for prev, curr in zip(lines, lines[1:])
+        if (curr.bbox[1] - prev.bbox[1]) > 0.25
+    ]
+    if top_deltas:
+        return _clamp(median(top_deltas) / font_size, 0.9, 1.45)
+    heights = [max(1.0, line.bbox[3] - line.bbox[1]) for line in lines]
+    return _clamp(median(heights) / font_size, 0.9, 1.45)
+
+
+def _looks_structured_text(text: str) -> bool:
+    raw = text or ""
+    flat = _SPACE_RE.sub(" ", raw).strip()
+    if not flat:
+        return False
+
+    line_texts = [line.strip() for line in raw.splitlines() if line.strip()]
+    digit_groups = len(_DIGIT_GROUP_RE.findall(flat))
+    if _LEADER_DOTS_RE.search(raw):
+        return True
+    if len(line_texts) >= 3 and sum(1 for line in line_texts if len(line) <= 42) >= max(2, len(line_texts) - 1):
+        return True
+    if len(flat) <= 120 and digit_groups >= 3:
+        return True
+    if _STRUCTURED_KEYWORD_RE.search(flat) and (digit_groups >= 1 or len(line_texts) >= 2):
+        return True
+    return False
+
+
+def _page_has_structured_layout(page: PdfPage) -> bool:
+    block_count = len(page.blocks)
+    if block_count < 8:
+        return False
+
+    structured_hits = sum(1 for block in page.blocks if _looks_structured_text(block.text))
+    if block_count >= 24:
+        return True
+    if block_count >= 12 and len(page.drawing_bboxes) >= 12:
+        return True
+    if structured_hits >= max(6, int(block_count * 0.45)):
+        return True
+    return False
+
+
+def _should_preserve_segment_line_breaks(
+    blocks: list[PdfTextBlock],
+    *,
+    page_has_structured_layout: bool,
+) -> bool:
+    if not blocks:
+        return False
+    if page_has_structured_layout:
+        return True
+
+    first = blocks[0]
+    if first.block_type == "table_cell":
+        return True
+
+    line_texts = [line.text.strip() for line in first.lines if line.text.strip()]
+    if len(line_texts) < 2:
+        return False
+
+    if first.block_type in {"header", "footer"}:
+        return True
+    if _estimate_block_text_align(first) != "left":
+        return True
+
+    avg_line_len = sum(len(line) for line in line_texts) / max(1, len(line_texts))
+    return avg_line_len <= 42.0
 
 
 def _merge_regions(regions: list[BBox]) -> list[BBox]:
@@ -233,6 +358,7 @@ def group_blocks_into_segments(
 
     table_regions = detect_table_regions(page) if table_detection else []
     columns = detect_columns(page)
+    page_structured_layout = _page_has_structured_layout(page)
     col_idx = _assign_columns(page, columns)
 
     for block in page.blocks:
@@ -267,7 +393,12 @@ def group_blocks_into_segments(
         same_column = tail.column_index == block.column_index
         left_aligned = abs(tail.bbox[0] - block.bbox[0]) <= max(10.0, float(block_merge_threshold_pt) * 2.0)
         vertical_gap = block.bbox[1] - tail.bbox[3]
-        if same_type and same_column and left_aligned and vertical_gap <= max_gap:
+        merge_blocked_by_layout = (
+            page_structured_layout
+            and tail.block_type not in {"header", "footer"}
+            and block.block_type not in {"header", "footer"}
+        )
+        if same_type and same_column and left_aligned and vertical_gap <= max_gap and not merge_blocked_by_layout:
             grouped[-1].append(block)
         else:
             grouped.append([block])
@@ -276,23 +407,35 @@ def group_blocks_into_segments(
     for idx, group in enumerate(grouped):
         group_bboxes = [block.bbox for block in group]
         segment_bbox = _bbox_union(group_bboxes)
+        content_bboxes = [block.content_bbox for block in group if block.content_bbox]
+        inner_bbox = _bbox_union(content_bboxes) if content_bboxes else segment_bbox
         source_text = "\n".join(block.text for block in group if block.text.strip()).strip()
         if not source_text:
             continue
 
         first = group[0]
+        preserve_line_breaks = _should_preserve_segment_line_breaks(
+            group,
+            page_has_structured_layout=page_structured_layout,
+        )
         segment = PdfSegment(
             segment_id=f"pdf-p{page.page_number + 1}-s{idx}",
             page_number=page.page_number,
             block_ids=[block.block_id for block in group],
             bbox=segment_bbox,
+            inner_bbox=inner_bbox,
             source_text=source_text,
             dominant_style=first.dominant_style,
+            text_align=_estimate_block_text_align(first),
+            rotation_deg=_normalize_quadrant_rotation(first.rotation_deg),
+            line_height_factor=_estimate_block_line_height_factor(first),
             context={
                 "page_number": page.page_number + 1,
                 "block_type": first.block_type,
                 "in_table": first.block_type == "table_cell",
                 "column_index": first.column_index,
+                "structured_layout": page_structured_layout,
+                "preserve_line_breaks": preserve_line_breaks,
             },
         )
         segments.append(segment)

@@ -48,6 +48,18 @@ presets:
       pattern: "\\b[A-Z0-9]{3,}[-/][A-Z0-9][A-Z0-9\\-/]{2,}\\b"
       flags: "I"
       description: "Alnum part numbers with hyphen/slash"
+    - name: URL
+      pattern: "\\b(?:https?://|www\\.)[^\\s<>]+"
+      flags: "I"
+      description: "URLs and web addresses"
+    - name: PHONE
+      pattern: "\\+\\d(?:[\\s().-]*\\d){6,}"
+      flags: ""
+      description: "Telephone numbers with punctuation/spaces"
+    - name: DATE
+      pattern: "\\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[A-Za-z]*\\s+\\d{1,2}/\\d{4}\\b"
+      flags: "I"
+      description: "Short English month + day/year dates"
     - name: DIM
       pattern: "\\b\\d+(?:[\\.,]\\d+)?(?:\\s*\\u00B1\\s*\\d+(?:[\\.,]\\d+)?)?(?:\\s*(?:mm|cm|in|inch|ft|lbf|lb|N\\u00B7m|N\\.m|Nm|psi|bar|kPa|MPa|V|Ohm|Hz|kHz|MHz|GHz|\\u00B0C|\\u00B0F|degC|degF)\\b|\\s+(?:m|A)\\b|\\s*\\u03A9\\b)"
       flags: "I"

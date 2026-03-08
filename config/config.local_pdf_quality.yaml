@@ -1,0 +1,94 @@
+llm:
+  provider: transformers
+  model: Helsinki-NLP/opus-mt-en-ru
+  source_lang: en
+  target_lang: ru
+  # Kept for profile completeness; local seq2seq translation does not consume prompt text.
+  system_prompt_path: ../for_test/pdf/general_prompt.md
+  glossary_path: ../for_test/pdf/glossary.md
+  glossary_in_prompt: false
+  hard_glossary: true
+  structured_output_mode: "off"
+  temperature: 0.0
+  max_output_tokens: 320
+  retries: 0
+  timeout_s: 120.0
+  prompt_examples_mode: "off"
+  glossary_prompt_mode: "off"
+  glossary_match_limit: 32
+  batch_segments: 1
+  batch_max_chars: 12000
+  batch_skip_on_brline: true
+  batch_max_style_tokens: 16
+  batch_tm_hints_per_item: 0
+  batch_recent_translations_per_item: 0
+  context_window_chars: 0
+  auto_model_sizing: false
+
+tm:
+  path: ../translation_cache.sqlite
+  fuzzy_enabled: true
+  fuzzy_top_k: 4
+  fuzzy_min_similarity: 0.78
+  fuzzy_prompt_max_chars: 500
+  fuzzy_rank_mode: "hybrid"
+
+pdf:
+  bilingual_mode: false
+  ocr_fallback: false
+  max_pages: null
+  max_font_shrink_ratio: 0.72
+  block_merge_threshold_pt: 12.0
+  skip_headers_footers: false
+  table_detection: true
+  font_map: {}
+  default_sans_font: Arial.ttf
+  default_serif_font: Times.ttf
+  default_mono_font: cour.ttf
+
+checker:
+  enabled: false
+
+pricing:
+  enabled: false
+  pricing_path: null
+  currency: USD
+
+run:
+  run_dir: ../output/pdf_local_quality
+  run_id: null
+  status_path: null
+  dashboard_html_path: null
+  status_flush_every_n_segments: 10
+  batch_fallback_warn_ratio: 0.08
+  batch_timeout_bisect: true
+  fail_fast_on_translate_error: true
+
+include_headers: false
+include_footers: false
+
+concurrency: 1
+mode: reflow
+translate_enable_formatting_fixes: false
+abbyy_profile: "off"
+glossary_lemma_check: "off"
+short_translation_min_ratio: 0.3
+short_translation_min_source_chars: 20
+untranslated_latin_warn_ratio: 0.18
+untranslated_latin_min_len: 3
+untranslated_latin_allowlist_path: null
+repeated_words_check: true
+repeated_phrase_ngram_max: 3
+context_leakage_check: false
+context_leakage_allowlist_path: null
+layout_check: false
+layout_auto_fix: false
+
+qa_report_path: qa_report.html
+qa_jsonl_path: qa.jsonl
+translation_history_path: ../output/pdf_local_quality/translation_history.jsonl
+log_path: run.log
+
+patterns:
+  preset_file: regex_presets.yaml
+  preset_name: default

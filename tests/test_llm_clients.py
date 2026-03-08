@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import urllib.error
 from dataclasses import dataclass
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from docxru.llm import (
     MockLLMClient,
     OllamaChatClient,
     OpenAIChatCompletionsClient,
+    TransformersSeq2SeqClient,
     apply_glossary_replacements,
     build_domain_replacements,
     build_glossary_replacements,
@@ -83,6 +85,16 @@ def test_build_llm_client_supports_expected_providers():
     assert isinstance(ollama, OllamaChatClient)
     assert supports_repair(ollama)
 
+    transformers_client = build_llm_client(
+        provider="transformers",
+        model="Helsinki-NLP/opus-mt-en-ru",
+        temperature=0.1,
+        timeout_s=10.0,
+        max_output_tokens=100,
+    )
+    assert isinstance(transformers_client, TransformersSeq2SeqClient)
+    assert not supports_repair(transformers_client)
+
 
 def test_google_free_client_translate_with_mocked_http():
     urls: list[str] = []
@@ -103,6 +115,108 @@ def test_google_free_client_repair_mode_passthrough():
     client = GoogleFreeTranslateClient()
     text = "TASK: REPAIR_MARKERS\n\nSOURCE:\na\n\nOUTPUT:\nbad output"
     assert client.translate(text, {"task": "repair"}) == "bad output"
+
+
+def test_transformers_client_restores_tokens_and_applies_post_replacements():
+    class _FakeTensor:
+        def to(self, device):
+            return self
+
+    class _FakeParam:
+        device = "cpu"
+
+    class _FakeNoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeTorch:
+        @staticmethod
+        def no_grad():
+            return _FakeNoGrad()
+
+    class _FakeTokenizer:
+        model_max_length = 256
+
+        def __call__(self, batch, **kwargs):  # noqa: ANN003
+            assert batch == ["Hello "]
+            return {"input_ids": _FakeTensor(), "attention_mask": _FakeTensor()}
+
+        def batch_decode(self, generated, skip_special_tokens=True):  # noqa: ARG002
+            return list(generated)
+
+    class _FakeModel:
+        def parameters(self):
+            yield _FakeParam()
+
+        def generate(self, **kwargs):  # noqa: ANN003
+            return ["Privet "]
+
+    replacements = ((re.compile(r"\bPrivet\b"), "Hello-RU"),)
+    client = TransformersSeq2SeqClient(model="fake-model", glossary_replacements=replacements)
+    with patch(
+        "docxru.llm._load_transformers_seq2seq",
+        return_value=(_FakeTokenizer(), _FakeModel(), _FakeTorch()),
+    ):
+        out = client.translate("Hello ⟦PN_1⟧", {"task": "translate"})
+
+    assert out == "Hello-RU ⟦PN_1⟧"
+
+
+def test_transformers_client_can_preserve_line_breaks_for_structured_layout():
+    class _FakeTensor:
+        def __init__(self, texts):
+            self.texts = list(texts)
+
+        def to(self, device):
+            return self
+
+    class _FakeParam:
+        device = "cpu"
+
+    class _FakeNoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeTorch:
+        @staticmethod
+        def no_grad():
+            return _FakeNoGrad()
+
+    class _FakeTokenizer:
+        model_max_length = 256
+
+        def __call__(self, batch, **kwargs):  # noqa: ANN003
+            self.batch = list(batch)
+            return {"input_ids": _FakeTensor(batch), "attention_mask": _FakeTensor(batch)}
+
+        def batch_decode(self, generated, skip_special_tokens=True):  # noqa: ARG002
+            return list(generated)
+
+    class _FakeModel:
+        def parameters(self):
+            yield _FakeParam()
+
+        def generate(self, **kwargs):  # noqa: ANN003
+            return [text.replace("Line", "Строка") for text in kwargs["input_ids"].texts]
+
+    tokenizer = _FakeTokenizer()
+    client = TransformersSeq2SeqClient(model="fake-model")
+    with patch(
+        "docxru.llm._load_transformers_seq2seq",
+        return_value=(tokenizer, _FakeModel(), _FakeTorch()),
+    ):
+        out = client.translate(
+            "Line 1\nLine 2",
+            {"task": "translate", "preserve_line_breaks": True},
+        )
+
+    assert out == "Строка 1\nСтрока 2"
 
 
 def test_parse_glossary_pairs_extracts_dash_separated_terms():

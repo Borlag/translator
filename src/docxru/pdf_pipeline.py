@@ -51,7 +51,7 @@ except Exception:  # pragma: no cover - optional dependency at runtime
     fitz = None
 
 _LATIN_RE = re.compile(r"[A-Za-z]")
-_PDF_TM_RULESET = "2026-02-22-pdf-v1"
+_PDF_TM_RULESET = "2026-03-08-pdf-v2"
 
 
 def _require_fitz():
@@ -81,6 +81,66 @@ def _compact_context_text(text: str, *, max_chars: int = 220) -> str:
     if len(flat) <= max_chars:
         return flat
     return flat[: max_chars - 3].rstrip() + "..."
+
+
+def _build_pdf_tm_references_context(hits: list[Any], *, max_chars: int) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    consumed = 0
+    budget = max(0, int(max_chars))
+    for hit in hits:
+        source = _compact_context_text(strip_bracket_tokens(getattr(hit, "source_norm", "")), max_chars=180)
+        target = _compact_context_text(strip_bracket_tokens(getattr(hit, "target_text", "")), max_chars=180)
+        if not source or not target:
+            continue
+        line = f"{source} => {target}"
+        line_cost = len(line) + 1
+        if budget > 0 and consumed + line_cost > budget:
+            break
+        refs.append(
+            {
+                "source": source,
+                "target": target,
+                "similarity": round(float(getattr(hit, "similarity", 0.0)), 4),
+            }
+        )
+        consumed += line_cost
+    return refs
+
+
+def _estimate_pdf_segment_capacity(seg: PdfSegment, *, max_font_shrink_ratio: float) -> int | None:
+    bbox = seg.inner_bbox or seg.bbox
+    width = max(0.0, float(bbox[2] - bbox[0]))
+    height = max(0.0, float(bbox[3] - bbox[1]))
+    if width <= 1.0 or height <= 1.0:
+        return None
+
+    font_size = 10.0
+    if seg.dominant_style is not None:
+        font_size = max(6.0, float(seg.dominant_style.font_size_pt))
+    line_height = max(1.0, font_size * max(0.85, min(1.6, float(seg.line_height_factor or 1.05))))
+    chars_per_line = max(1, int(width / max(1.0, font_size * 0.56)))
+    max_lines = max(1, int((height + (font_size * 0.2)) / line_height))
+    base_capacity = max(1, chars_per_line * max_lines)
+
+    shrink_headroom = max(0.0, min(0.18, (1.0 - float(max_font_shrink_ratio)) * 0.45))
+    estimated_capacity = int(base_capacity * (0.98 + shrink_headroom))
+
+    source_plain = re.sub(r"\s+", " ", strip_bracket_tokens(seg.source_text or "")).strip()
+    if source_plain:
+        estimated_capacity = max(len(source_plain), estimated_capacity)
+    return max(8, estimated_capacity)
+
+
+def _attach_pdf_space_constraints(segments: list[PdfSegment], cfg: PipelineConfig) -> int:
+    constrained = 0
+    for seg in segments:
+        capacity = _estimate_pdf_segment_capacity(seg, max_font_shrink_ratio=cfg.pdf.max_font_shrink_ratio)
+        if capacity is None or capacity <= 0:
+            continue
+        seg.max_target_chars = int(capacity)
+        seg.context["max_target_chars"] = int(capacity)
+        constrained += 1
+    return constrained
 
 
 def _build_repair_payload(source_shielded: str, bad_output: str) -> str:
@@ -222,6 +282,21 @@ def _translate_segment_text(
         seg.target_text = hit.target_text
         tm.set_progress(seg.segment_id, "tm", source_hash=source_hash)
         return
+
+    if cfg.tm.fuzzy_enabled:
+        fuzzy_hits = tm.get_fuzzy(
+            source_norm,
+            top_k=cfg.tm.fuzzy_top_k,
+            min_similarity=cfg.tm.fuzzy_min_similarity,
+        )
+        if fuzzy_hits:
+            tm_refs = _build_pdf_tm_references_context(
+                fuzzy_hits,
+                max_chars=cfg.tm.fuzzy_prompt_max_chars,
+            )
+            if tm_refs:
+                seg.context["tm_references"] = tm_refs
+                seg.context["tm_references_max_chars"] = int(cfg.tm.fuzzy_prompt_max_chars)
 
     try:
         translated_shielded = llm_client.translate(shielded, seg.context)
@@ -594,6 +669,8 @@ def _translate_and_write_pdf(
         if next_text:
             seg.context["next_text"] = next_text
         seg.context["part"] = "pdf"
+    constrained = _attach_pdf_space_constraints(segments, cfg)
+    logger.info("PDF soft space constraints attached: %d segments", constrained)
 
     status_writer.set_phase("translate")
     status_writer.write(force=True)
@@ -657,6 +734,10 @@ def _translate_and_write_pdf(
                 block,
                 seg.target_text,
                 font_spec,
+                inner_bbox=seg.inner_bbox,
+                text_align=seg.text_align,
+                rotation_deg=seg.rotation_deg,
+                line_height_factor=seg.line_height_factor,
                 ocg_xref=ocg_xref,
                 max_font_shrink_ratio=cfg.pdf.max_font_shrink_ratio,
                 redact_original=not bilingual_mode,

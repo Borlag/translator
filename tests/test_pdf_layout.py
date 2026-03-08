@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from docxru.pdf_layout import detect_columns, detect_table_regions, group_all_pages, group_blocks_into_segments
-from docxru.pdf_models import PdfPage, PdfSpan, PdfSpanStyle, PdfTextBlock
+from docxru.pdf_models import PdfPage, PdfSpan, PdfSpanStyle, PdfTextBlock, PdfTextLine
 
 
 def _block(block_id: int, *, x0: float, y0: float, x1: float, y1: float, text: str) -> PdfTextBlock:
@@ -30,6 +30,56 @@ def test_group_blocks_into_segments_merges_adjacent_body_blocks():
     assert len(segments) == 2
     assert segments[0].source_text == "Install\nbolt"
     assert segments[1].source_text == "Tighten"
+
+
+def test_group_blocks_into_segments_preserves_inner_bbox_alignment_and_rotation():
+    style = PdfSpanStyle(font_name="Arial", font_size_pt=24.0)
+    block = PdfTextBlock(
+        block_id=0,
+        bbox=(100.0, 100.0, 300.0, 180.0),
+        text="MAIN TITLE\nWITH",
+        spans=[PdfSpan(text="MAIN TITLE", bbox=(120.0, 110.0, 280.0, 134.0), style=style, rotation_deg=89.8)],
+        lines=[
+            PdfTextLine(text="MAIN TITLE", bbox=(120.0, 110.0, 280.0, 134.0), rotation_deg=89.8),
+            PdfTextLine(text="WITH", bbox=(170.0, 138.0, 230.0, 160.0), rotation_deg=89.8),
+        ],
+    )
+    page = PdfPage(page_number=0, width_pt=600, height_pt=800, has_text=True, blocks=[block])
+
+    segments = group_blocks_into_segments(page, block_merge_threshold_pt=12.0, table_detection=False)
+
+    assert len(segments) == 1
+    assert segments[0].inner_bbox == (120.0, 110.0, 280.0, 160.0)
+    assert segments[0].text_align == "center"
+    assert segments[0].rotation_deg == 90.0
+    assert segments[0].context["preserve_line_breaks"] is True
+
+
+def test_group_blocks_into_segments_keeps_dense_structured_page_blocks_separate():
+    page = PdfPage(
+        page_number=0,
+        width_pt=600,
+        height_pt=800,
+        has_text=True,
+        blocks=[
+            _block(
+                idx,
+                x0=60,
+                y0=120 + (idx * 14),
+                x1=540,
+                y1=132 + (idx * 14),
+                text=f"Repair No. 11-{idx:02d} .......... {600 + idx}",
+            )
+            for idx in range(24)
+        ],
+    )
+
+    segments = group_blocks_into_segments(page, block_merge_threshold_pt=12.0, table_detection=False)
+
+    assert len(segments) == 24
+    assert all(len(seg.block_ids) == 1 for seg in segments)
+    assert all(seg.context["structured_layout"] is True for seg in segments)
+    assert all(seg.context["preserve_line_breaks"] is True for seg in segments)
 
 
 def test_detect_columns_finds_two_left_edge_clusters():

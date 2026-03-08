@@ -36,10 +36,26 @@ docxru translate --input source.docx --output target_ru.docx --config config/con
 pip install -e ".[pdf]"
 ```
 
+For local offline MT without external APIs:
+
+```bash
+pip install -e ".[pdf,local-mt]"
+```
+
 Базовый запуск:
 
 ```bash
 docxru translate-pdf --input source.pdf --output target_ru.pdf --config config/config.example.yaml
+```
+
+Local offline PDF run (no external LLM/API):
+
+```powershell
+docxru translate-pdf `
+  --input "C:\Users\Urdul\Desktop\project\translator\for_test\pdf\part_1.pdf" `
+  --output "C:\Users\Urdul\Desktop\project\translator\output\pdf_local_quality\part_1.ru.pdf" `
+  --config "C:\Users\Urdul\Desktop\project\translator\config\config.local_pdf_quality.yaml" `
+  --resume
 ```
 
 Дополнительно:
@@ -94,6 +110,7 @@ MIT
 - `openai`: real LLM translation via `OPENAI_API_KEY`.
 - `google`: free public Google web endpoint (no API key, unofficial/rate-limited).
 - `ollama`: local model via `http://localhost:11434` (or `llm.base_url`).
+- `transformers`: local offline seq2seq MT via Hugging Face `transformers` (no external API).
 
 Example provider switch in config:
 
@@ -119,7 +136,9 @@ llm:
 Notes:
 
 - `llm.system_prompt_path` is applied for `openai` and `ollama` providers.
+- `llm.system_prompt_path` is retained in config for all providers, but local `transformers` MT does not consume prompt text directly.
 - `llm.glossary_path` is applied for all providers.
+- For `transformers`, glossary support works through hard glossary locking plus deterministic post-replacements.
 - `llm.glossary_in_prompt: false` disables sending full glossary in every request (saves tokens).
 - `llm.hard_glossary: true` enables strict placeholder-based term locking.
   Scope is adaptive in pipeline (TOC/table/short labels), but for natural prose keep it `false` unless strict locking is required.

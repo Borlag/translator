@@ -10,8 +10,10 @@ import urllib.request
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Protocol
 
+from .token_shield import BRACKET_TOKEN_RE
 from .usage import UsageRecord
 
 
@@ -1006,6 +1008,162 @@ class MockLLMClient:
         return text
 
 
+@lru_cache(maxsize=4)
+def _load_transformers_seq2seq(model_name: str):
+    try:
+        import torch  # type: ignore[import-not-found]
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer  # type: ignore[import-not-found]
+    except Exception as exc:  # pragma: no cover - runtime dependency guard
+        raise RuntimeError(
+            "Transformers translation provider requires torch, transformers, and sentencepiece."
+        ) from exc
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model.eval()
+    model.to("cpu")
+    return tokenizer, model, torch
+
+
+@dataclass(frozen=True)
+class TransformersSeq2SeqClient:
+    """Local offline NMT client backed by Hugging Face seq2seq models."""
+
+    model: str = "Helsinki-NLP/opus-mt-en-ru"
+    timeout_s: float = 60.0
+    max_output_tokens: int = 256
+    max_chunk_chars: int = 1400
+    batch_size: int = 4
+    glossary_replacements: tuple[GlossaryReplacement, ...] = ()
+    supports_repair: bool = False
+
+    def _split_chunks(self, text: str) -> list[str]:
+        limit = max(200, int(self.max_chunk_chars))
+        if len(text) <= limit:
+            return [text]
+
+        chunks: list[str] = []
+        cur = ""
+        for part in text.splitlines(keepends=True):
+            if len(part) > limit:
+                if cur:
+                    chunks.append(cur)
+                    cur = ""
+                for i in range(0, len(part), limit):
+                    chunks.append(part[i : i + limit])
+                continue
+            if cur and len(cur) + len(part) > limit:
+                chunks.append(cur)
+                cur = part
+            else:
+                cur += part
+        if cur:
+            chunks.append(cur)
+        return chunks
+
+    def _translate_chunks(self, chunks: list[str]) -> list[str]:
+        tokenizer, model, torch = _load_transformers_seq2seq(self.model)
+        max_input_tokens = int(getattr(tokenizer, "model_max_length", 512) or 512)
+        if max_input_tokens <= 0 or max_input_tokens > 4096:
+            max_input_tokens = 512
+        max_new_tokens = max(32, min(512, int(self.max_output_tokens)))
+        device = next(model.parameters()).device
+
+        translated: list[str] = []
+        step = max(1, int(self.batch_size))
+        for start in range(0, len(chunks), step):
+            batch = chunks[start : start + step]
+            encoded = tokenizer(
+                batch,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=max_input_tokens,
+            )
+            encoded = {
+                key: value.to(device) if hasattr(value, "to") else value
+                for key, value in encoded.items()
+            }
+            with torch.no_grad():
+                generated = model.generate(
+                    **encoded,
+                    max_new_tokens=max_new_tokens,
+                    num_beams=4,
+                )
+            translated.extend(tokenizer.batch_decode(generated, skip_special_tokens=True))
+        return translated
+
+    def _translate_preserving_bracket_tokens(self, text: str) -> str:
+        parts: list[str] = []
+        plain_slots: list[int] = []
+        plain_chunks: list[str] = []
+        pos = 0
+        for match in BRACKET_TOKEN_RE.finditer(text):
+            if match.start() > pos:
+                chunk = text[pos : match.start()]
+                parts.append(chunk)
+                if chunk.strip():
+                    plain_slots.append(len(parts) - 1)
+                    plain_chunks.append(chunk)
+            parts.append(match.group(0))
+            pos = match.end()
+        if pos < len(text):
+            chunk = text[pos:]
+            parts.append(chunk)
+            if chunk.strip():
+                plain_slots.append(len(parts) - 1)
+                plain_chunks.append(chunk)
+
+        if not plain_chunks:
+            return "".join(parts)
+
+        translated_chunks = self._translate_chunks(plain_chunks)
+        for slot_idx, translated in zip(plain_slots, translated_chunks):
+            parts[slot_idx] = translated
+        return "".join(parts)
+
+    def _translate_preserving_line_breaks(self, text: str) -> str:
+        parts: list[str] = []
+        for chunk in text.splitlines(keepends=True):
+            newline = ""
+            body = chunk
+            if chunk.endswith("\r\n"):
+                newline = "\r\n"
+                body = chunk[:-2]
+            elif chunk.endswith("\n") or chunk.endswith("\r"):
+                newline = chunk[-1]
+                body = chunk[:-1]
+            if body.strip():
+                parts.append(self._translate_preserving_bracket_tokens(body) + newline)
+            else:
+                parts.append(body + newline)
+        if not parts and text:
+            return self._translate_preserving_bracket_tokens(text)
+        return "".join(parts)
+
+    def _should_preserve_line_breaks(self, text: str, context: dict[str, Any]) -> bool:
+        if not text or "\n" not in text:
+            return False
+        if bool(context.get("preserve_line_breaks")):
+            return True
+        if bool(context.get("structured_layout")) and len(text) <= 1200:
+            return True
+        return False
+
+    def translate(self, text: str, context: dict[str, Any]) -> str:
+        task = str(context.get("task", "translate")).lower()
+        if task == "repair":
+            return _extract_repair_output(text)
+        if task in {"batch_translate", "checker"}:
+            raise RuntimeError("transformers provider does not support batch/checker tasks")
+
+        if self._should_preserve_line_breaks(text, context):
+            translated = self._translate_preserving_line_breaks(text)
+        else:
+            translated = self._translate_preserving_bracket_tokens(text)
+        return apply_glossary_replacements(translated, self.glossary_replacements)
+
+
 @dataclass(frozen=True)
 class OpenAIChatCompletionsClient:
     """Minimal OpenAI Chat Completions client (template).
@@ -1710,7 +1868,7 @@ def build_llm_client(
     # Post replacements are required for the free Google provider (limited prompt control)
     # to recover frequent EN leftovers. For prompt-driven providers (OpenAI/Ollama),
     # skip static post replacements to avoid overriding glossary decisions.
-    if provider_norm == "google":
+    if provider_norm in {"google", "transformers"}:
         glossary_replacements = domain_replacements + build_glossary_replacements(glossary_text)
     else:
         glossary_replacements = ()
@@ -1739,6 +1897,13 @@ def build_llm_client(
             target_lang=target_lang,
             timeout_s=timeout_s,
             base_url=base_url or "https://translate.googleapis.com",
+            glossary_replacements=glossary_replacements,
+        )
+    if provider_norm == "transformers":
+        return TransformersSeq2SeqClient(
+            model=(model or "Helsinki-NLP/opus-mt-en-ru").strip() or "Helsinki-NLP/opus-mt-en-ru",
+            timeout_s=timeout_s,
+            max_output_tokens=max_output_tokens,
             glossary_replacements=glossary_replacements,
         )
     if provider_norm == "ollama":

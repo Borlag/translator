@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from .pdf_models import BBox, PdfPage, PdfSpan, PdfSpanStyle, PdfTextBlock
+from .pdf_models import BBox, PdfPage, PdfSpan, PdfSpanStyle, PdfTextBlock, PdfTextLine
 
 try:
     import fitz  # type: ignore[import-not-found]
@@ -21,6 +21,17 @@ def _coerce_bbox(value: object) -> BBox:
     if isinstance(value, (list, tuple)) and len(value) >= 4:
         return (float(value[0]), float(value[1]), float(value[2]), float(value[3]))
     return (0.0, 0.0, 0.0, 0.0)
+
+
+def _union_bboxes(bboxes: list[BBox]) -> BBox:
+    if not bboxes:
+        return (0.0, 0.0, 0.0, 0.0)
+    return (
+        min(b[0] for b in bboxes),
+        min(b[1] for b in bboxes),
+        max(b[2] for b in bboxes),
+        max(b[3] for b in bboxes),
+    )
 
 
 def _decode_pdf_color(value: object) -> tuple[int, int, int] | None:
@@ -103,10 +114,12 @@ def extract_pdf_pages(pdf_path: str | Path, *, max_pages: int | None = None) -> 
                     continue
 
                 spans: list[PdfSpan] = []
+                lines: list[PdfTextLine] = []
                 lines_text: list[str] = []
                 for line in block.get("lines", []):
                     rotation = _rotation_deg(line)
                     line_parts: list[str] = []
+                    line_bboxes: list[BBox] = []
                     for span in line.get("spans", []):
                         text = str(span.get("text", ""))
                         if not text:
@@ -131,9 +144,24 @@ def extract_pdf_pages(pdf_path: str | Path, *, max_pages: int | None = None) -> 
                                 rotation_deg=rotation,
                             )
                         )
+                        line_bboxes.append(_coerce_bbox(span.get("bbox")))
                         line_parts.append(text)
                     if line_parts:
-                        lines_text.append("".join(line_parts))
+                        line_text = "".join(line_parts)
+                        line_bbox = _coerce_bbox(line.get("bbox"))
+                        if (
+                            (line_bbox[2] - line_bbox[0]) <= 0
+                            or (line_bbox[3] - line_bbox[1]) <= 0
+                        ) and line_bboxes:
+                            line_bbox = _union_bboxes(line_bboxes)
+                        lines.append(
+                            PdfTextLine(
+                                text=line_text,
+                                bbox=line_bbox,
+                                rotation_deg=rotation,
+                            )
+                        )
+                        lines_text.append(line_text)
 
                 block_text = "\n".join(lines_text).strip("\n")
                 if not block_text.strip():
@@ -145,6 +173,7 @@ def extract_pdf_pages(pdf_path: str | Path, *, max_pages: int | None = None) -> 
                         bbox=_coerce_bbox(block.get("bbox")),
                         text=block_text,
                         spans=spans,
+                        lines=lines,
                     )
                 )
 

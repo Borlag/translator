@@ -11,7 +11,7 @@ from .token_shield import PatternRule, PatternSet, compile_pattern_set
 
 @dataclass(frozen=True)
 class LLMConfig:
-    provider: str = "mock"  # 'mock' | 'openai' | 'google' | 'ollama'
+    provider: str = "mock"  # 'mock' | 'openai' | 'google' | 'ollama' | 'transformers'
     model: str = "gpt-4o-mini"
     source_lang: str = "en"
     target_lang: str = "ru"

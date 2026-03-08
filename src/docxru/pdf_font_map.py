@@ -86,10 +86,10 @@ def select_replacement_font(
         family = mapped.rsplit(".", 1)[0]
     else:
         family_type = _classify_family(original_font)
-        family = {
-            "serif": "Noto Serif",
-            "mono": "Noto Sans Mono",
-            "sans": "Noto Sans",
+        family = (original_font or "").strip() or {
+            "serif": "Times New Roman",
+            "mono": "Courier New",
+            "sans": "Arial",
         }[family_type]
         base_file = _choose_default_font_file(
             family_type,

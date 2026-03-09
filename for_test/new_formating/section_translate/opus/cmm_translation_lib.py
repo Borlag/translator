@@ -1454,6 +1454,220 @@ FIXED = {
         "При необходимости выполните механическую обработку диаметра(ов) A для удаления минимального количества материала, необходимого для устранения повреждения или износа: обратитесь к M-DLPS1004-4-1 и Рисунок 602. Не увеличивайте диаметр A более 21,073 мм (0,8296 дюйм). Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма) или лучше.",
     "Apply a layer of IVD alloy with elecromation yellow all over the repair bush(es) but not in the bores: refer to ICT 40-893-01MD and Figure 603. The thickness of the IVD layer must be between 0,0075 and 0,0125 mm (0.0003 and 0.0005 in).":
         "Нанесите слой IVD-сплава с хроматированием (жёлтым) на все ремонтные втулки, кроме отверстий: обратитесь к ICT 40-893-01MD и Рисунок 603. Толщина слоя IVD должна быть от 0,0075 до 0,0125 мм (0,0003–0,0005 дюйм).",
+    "Apply\tchromium\tplate\tto\tdiameter A:\trefer\tto\tPCS-2110,\ttype\tC and Figure 601.":
+        "Нанесите хромовое покрытие на диаметр A: обратитесь к PCS-2110, тип C, и Рисунок 601.",
+    "Material Specification": "Спецификация материалов",
+    # --- Part 6 extra: drawing annotation short labels ---
+    "(63) PLATE": "(63) ПОКРЫТИЕ",
+    "(10) PLATE": "(10) ПОКРЫТИЕ",
+    "0,25 AFTER CHROMIUM": "0,25 ПОСЛЕ ХРОМИРОВАНИЯ",
+    "1,6 BEFORE CHROMIUM": "1,6 ДО ХРОМИРОВАНИЯ",
+    "PERMITTED": "РАЗРЕШЕНО",
+    "Material.": "Материал.",
+    "(WITH BUSHES)": "(С ВТУЛКАМИ)",
+    "(WITHOUT BUSH)": "(БЕЗ ВТУЛКИ)",
+    "(WITH BUSH)": "(С ВТУЛКОЙ)",
+    "TRACES OF": "СЛЕДЫ",
+    "EDGE SMOOTHED OUT": "КРОМКА СГЛАЖЕНА",
+    "EDGE SMOOTHED": "КРОМКА СГЛАЖЕНА",
+    "57 MINUTES": "57 МИНУТ",
+    # --- Part 6 extra: formula lines ---
+    "B = A (as measured) - 0,006 mm (0.0002 in) to + 0,028 mm (0.0011 in).":
+        "B = A (измеренный) − 0,006 мм (0,0002 дюйм) до + 0,028 мм (0,0011 дюйм).",
+    "Dia. B = Dia. A (as measured) - 0,005 to + 0,041 mm (- 0.0002 to + 0.0016 in).":
+        "Диам. B = Диам. A (измеренный) − 0,005 до + 0,041 мм (− 0,0002 до + 0,0016 дюйм).",
+    # --- Part 6 batch 2: base metal / parent metal / procedure sentences ---
+    "If the base metal is not damaged or corroded:":
+        "Если основной металл не повреждён и не поражён коррозией:",
+    "If the base metal is damaged or corroded:":
+        "Если основной металл повреждён или поражён коррозией:",
+    "If the base metal is not damaged or worn:":
+        "Если основной металл не повреждён и не изношен:",
+    "If the base metal is damaged or worn:":
+        "Если основной металл повреждён или изношен:",
+    "Do this procedure if there is no damage to the parent metal:":
+        "Выполняйте эту процедуру, если нет повреждений основного металла:",
+    "Do this procedure if there is corrosion or damage to the parent metal not more than 0,25 mm (0.010 in) deep.":
+        "Выполняйте эту процедуру, если имеется коррозия или повреждение основного металла глубиной не более 0,25 мм (0,010 дюйм).",
+    "Do this procedure if there is corrosion or damage to the parent metal more than 0,25 mm (0.010 in) deep.":
+        "Выполняйте эту процедуру, если имеется коррозия или повреждение основного металла глубиной более 0,25 мм (0,010 дюйм).",
+    "Do this procedure if there is a wear or damage to diameter(s) A:":
+        "Выполняйте эту процедуру при износе или повреждении диаметра(ов) A:",
+    "Do this procedure if there is damage or wear to diameter(s) A and or adjacent face(s) B:":
+        "Выполняйте эту процедуру при повреждении или износе диаметра(ов) A и/или прилегающей(их) торцевой(ых) поверхности(ей) B:",
+    "Do this procedure, if diameter(s) A is damaged or worn:":
+        "Выполняйте эту процедуру, если диаметр(ы) A повреждён или изношен:",
+    "Do this procedure, if diameter(s) B is damaged or worn:":
+        "Выполняйте эту процедуру, если диаметр(ы) B повреждён или изношен:",
+    "Do this procedure, if diameter(s) C is damaged or worn:":
+        "Выполняйте эту процедуру, если диаметр(ы) C повреждён или изношен:",
+    "Do this procedure if there is wear or damage to diameter A:":
+        "Выполняйте эту процедуру при износе или повреждении диаметра A:",
+    # --- Part 6 batch 2: Use repair number variants ---
+    "Use the repair number 450258401A if there was no damage to the base metal or":
+        "Используйте номер ремонта 450258401A, если основной металл не был повреждён, или",
+    "Use the repair number 450258401B if there was damage to the base metal.":
+        "Используйте номер ремонта 450258401B, если основной металл был повреждён.",
+    "Use the repair number 450258401C if there was no damage to the base metal or":
+        "Используйте номер ремонта 450258401C, если основной металл не был повреждён, или",
+    "Use the repair number 450258401D if there was damage to the base metal.":
+        "Используйте номер ремонта 450258401D, если основной металл был повреждён.",
+    "Use the repair number 450258401E if there was no damage to the base metal or":
+        "Используйте номер ремонта 450258401E, если основной металл не был повреждён, или",
+    "Use the repair number 450258401F if there was damage to the base metal.":
+        "Используйте номер ремонта 450258401F, если основной металл был повреждён.",
+    # --- Part 6 batch 2: Finish grind diameter ---
+    "Finish grind diameter A: refer to M-DLPS1004-4-1 and Figure 601. Make the surface finish 0,8 micrometers (32 micro-inches).":
+        "Выполните чистовое шлифование диаметра A: обратитесь к M-DLPS1004-4-1 и Рисунок 601. Шероховатость поверхности должна быть 0,8 микрометра (32 микродюйма).",
+    "Finish grind diameter B: refer to M-DLPS1004-4-1 and Figure 601. Make the surface finish 0,8 micrometers (32 micro-inches).":
+        "Выполните чистовое шлифование диаметра B: обратитесь к M-DLPS1004-4-1 и Рисунок 601. Шероховатость поверхности должна быть 0,8 микрометра (32 микродюйма).",
+    "Finish grind diameter C: refer to M-DLPS1004-4-1 and Figure 602. Make the surface finish 0,8 micrometers (32 micro-inches).":
+        "Выполните чистовое шлифование диаметра C: обратитесь к M-DLPS1004-4-1 и Рисунок 602. Шероховатость поверхности должна быть 0,8 микрометра (32 микродюйма).",
+    # --- Part 6 batch 2: Shot peen / Apply chromium / Machine sentences ---
+    "Shot peen the machined areas: refer to PCS-2300.":
+        "Выполните дробеструйную обработку обработанных участков: обратитесь к PCS-2300.",
+    "Shot peen the machined area: refer to M-DLPS123.":
+        "Выполните дробеструйную обработку обработанного участка: обратитесь к M-DLPS123.",
+    "Shot peen the reworked areas: refer to M-DLPS123.":
+        "Выполните дробеструйную обработку доработанных участков: обратитесь к M-DLPS123.",
+    "If necessary, shot peen the machined surfaces: refer to M-DLPS123.":
+        "При необходимости выполните дробеструйную обработку обработанных поверхностей: обратитесь к M-DLPS123.",
+    "Locally shot peen the sliding tube: refer to M-DLPS123.":
+        "Локально выполните дробеструйную обработку скользящей трубы: обратитесь к M-DLPS123.",
+    "Examine the chromium plate surface: refer to M-DLNDT3.":
+        "Осмотрите поверхность хромового покрытия: обратитесь к M-DLNDT3.",
+    "Apply chromium plate to diameter A: refer to PCS-2110 Type C. Refer to Figure 601 for chromium plate termination information.":
+        "Нанесите хромовое покрытие на диаметр A: обратитесь к PCS-2110 тип C. Обратитесь к Рисунок 601 для информации о границах хромового покрытия.",
+    "Apply chromium plate to diameter A: refer to PCS-2110 Type C. Refer to M-DLPS1031 and Figure 602 for chromium plate termination information.":
+        "Нанесите хромовое покрытие на диаметр A: обратитесь к PCS-2110 тип C. Обратитесь к M-DLPS1031 и Рисунок 602 для информации о границах хромового покрытия.",
+    "Apply chromium plate to the diameter A: refer to PCS-2110, type C and Figure 601. Make the surface finish 1,6 micrometers (64 micro-inches). The chromium plate thickness must be between 0,020 and 0,025 mm (0.0008 and 0.0010 in).":
+        "Нанесите хромовое покрытие на диаметр A: обратитесь к PCS-2110, тип C, и Рисунок 601. Шероховатость поверхности должна быть 1,6 микрометра (64 микродюйма). Толщина хромового покрытия должна быть от 0,020 до 0,025 мм (0,0008–0,0010 дюйм).",
+    "Apply chromium plate to the diameter A: refer to PCS-2110 type C and Figure 601. Make the chromium plate thickness between 0,020 and 0,025 mm (0.0008 and 0.0010 in). Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "Нанесите хромовое покрытие на диаметр A: обратитесь к PCS-2110 тип C и Рисунок 601. Сделайте толщину хромового покрытия от 0,020 до 0,025 мм (0,0008–0,0010 дюйм). Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Remove the chromium plate band(s) from the brake flange(s): refer to M-DLPS101.":
+        "Удалите полосу(ы) хромового покрытия с тормозного(ых) фланца(ев): обратитесь к M-DLPS101.",
+    "Machine diameter A just sufficiently to remove the damage or corrosion: refer to M-DLPS1004-4-1. The diameter must not be less than 177,07 mm (6.971 in). The surface finish must be 1,6 micrometers (63 micro-inches).":
+        "Выполните механическую обработку диаметра A с минимально необходимым съёмом материала для устранения повреждения или коррозии: обратитесь к M-DLPS1004-4-1. Диаметр не должен быть менее 177,07 мм (6,971 дюйм). Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "M-DLPS900, M-DL PS1000 and Figure 601. Do not make diameter(s) A more than 18,568 mm (0.7310 in). Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "M-DLPS900, M-DL PS1000 и Рисунок 601. Не делайте диаметр(ы) A более 18,568 мм (0,7310 дюйм). Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Machine the face B to produce a flange thickness of 2,00 to 2,05 mm (0.079 to 0.080 in): refer to Figure 602. Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "Выполните механическую обработку торцевой поверхности B для получения толщины фланца от 2,00 до 2,05 мм (0,079–0,080 дюйм): обратитесь к Рисунок 602. Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Machine the repair bushes to the dimensions shown and calculated: refer to Figure 602. Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "Выполните механическую обработку ремонтных втулок до указанных и рассчитанных размеров: обратитесь к Рисунок 602. Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Machine the adjacent spotfaces D and E to remove any damage or wear, within the dimensions shown: refer to Figure 601. Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "Выполните механическую обработку соседних зенковок D и E для устранения любого повреждения или износа в пределах указанных размеров: обратитесь к Рисунок 601. Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Machine face D of the repair bush to get the correct dimensions: refer to Figure 602. Make the surface finish 1,6 micrometers (63 micro-inches).":
+        "Выполните механическую обработку торцевой поверхности D ремонтной втулки для получения правильных размеров: обратитесь к Рисунок 602. Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    "Machine (do not grind) the sulphamate nickel plate to the dimensions shown: refer to Figure 601.":
+        "Выполните механическую обработку (без шлифовки) сульфаматного никелевого покрытия до указанных размеров: обратитесь к Рисунок 601.",
+    "Machine the face R to get the flange thickness of between 2,00 and 2,05 mm (0.079 and 0.081 in).":
+        "Выполните механическую обработку торцевой поверхности R для получения толщины фланца от 2,00 до 2,05 мм (0,079–0,081 дюйм).",
+    "Machine diameter B of the repair bush(es), use formula:":
+        "Выполните механическую обработку диаметра B ремонтной(ых) втулки(ок), используйте формулу:",
+    "Refer to M-DLPS1004-4-1 and machine diameter A just sufficiently to remove the damage or corrosion: the diameter must not be less than 30,365 mm (1.1956 in). The surface finish must be 1,6 micrometers (63 micro-inches).":
+        "Обратитесь к M-DLPS1004-4-1 и выполните механическую обработку диаметра A с минимально необходимым съёмом материала для устранения повреждения или коррозии: диаметр не должен быть менее 30,365 мм (1,1956 дюйм). Шероховатость поверхности должна быть 1,6 микрометра (63 микродюйма).",
+    # --- Part 6 batch 2: Passivate / Hone / Check bore ---
+    "Passivate the repair bushes: refer to AMS 2700.":
+        "Выполните пассивирование ремонтных втулок: обратитесь к AMS 2700.",
+    "Passivate the repair bush(es): refer to AMS-2700.":
+        "Выполните пассивирование ремонтной(ых) втулки(ок): обратитесь к AMS-2700.",
+    "If necessary, hone the bore diameter of repair bushes with a surface finish of 2,5 micrometers (100 micro-inches): refer to Figure 602.":
+        "При необходимости выполните хонингование диаметра отверстия ремонтных втулок с шероховатостью 2,5 микрометра (100 микродюймов): обратитесь к Рисунок 602.",
+    "If necessary, hone the bores of the repair bushes to the dimensions shown: refer to Figure 602. Make the surface finish 2,5 micrometers (100 micro-inches).":
+        "При необходимости выполните хонингование отверстий ремонтных втулок до указанных размеров: обратитесь к Рисунок 602. Шероховатость поверхности должна быть 2,5 микрометра (100 микродюймов).",
+    "If necessary, hone the bore diameters of the repair bushes to the dimensions shown: refer to Figure 602. Make the surface finish 2,6 micrometers (100 micro-inches).":
+        "При необходимости выполните хонингование диаметров отверстий ремонтных втулок до указанных размеров: обратитесь к Рисунок 602. Шероховатость поверхности должна быть 2,6 микрометра (100 микродюймов).",
+    "If necessary, hone the repair bush bore to the dimensions shown: refer to Figure 602.":
+        "При необходимости выполните хонингование отверстия ремонтной втулки до указанных размеров: обратитесь к Рисунок 602.",
+    "Check the bore diameter of the repair bushes: refer to Figure 602.":
+        "Проверьте диаметр отверстия ремонтных втулок: обратитесь к Рисунок 602.",
+    "Check the bore diameters of the repair bushes: refer to Figure 602.":
+        "Проверьте диаметры отверстий ремонтных втулок: обратитесь к Рисунок 602.",
+    "Check the bores of the repair bushes: refer to Figure 602.":
+        "Проверьте отверстия ремонтных втулок: обратитесь к Рисунок 602.",
+    "Check the bore of the repair bush: refer to Figure 602.":
+        "Проверьте отверстие ремонтной втулки: обратитесь к Рисунок 602.",
+    # --- Part 6 batch 2: Apply primer/cadmium/paint ---
+    "Apply primer paint to the sliding tube where the bush flanges will touch: refer to PCS-2500.":
+        "Нанесите грунтовочную краску на скользящую трубу в местах контакта фланцев втулок: обратитесь к PCS-2500.",
+    "Apply primer paint to the sliding tube where the repair bush flanges will touch: refer to PCS-2500.":
+        "Нанесите грунтовочную краску на скользящую трубу в местах контакта фланцев ремонтных втулок: обратитесь к PCS-2500.",
+    "Apply cadmium plate to the reworked areas: refer to PCS-2100 or PCS-2141.":
+        "Нанесите кадмиевое покрытие на доработанные участки: обратитесь к PCS-2100 или PCS-2141.",
+    "Apply cadmium plate to the reworked areas: refer to PCS-2141.":
+        "Нанесите кадмиевое покрытие на доработанные участки: обратитесь к PCS-2141.",
+    "Apply cadmium plate to the reworked areas: refer to PCS-2100. The cadmium plate thickness must be between 0,010 and 0,015 mm (0.0004 and 0.0006 in).":
+        "Нанесите кадмиевое покрытие на доработанные участки: обратитесь к PCS-2100. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004–0,0006 дюйм).",
+    "Apply cadmium to the repair bushes, but not to the bores and the flange faces: refer to PCS-2101 and Figure 602. The cadmium plate thickness must be between 0,010 and 0,015 mm (0.0004 and 0.0006 in).":
+        "Нанесите кадмиевое покрытие на ремонтные втулки, кроме отверстий и торцевых поверхностей фланцев: обратитесь к PCS-2101 и Рисунок 602. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004–0,0006 дюйм).",
+    "Apply cadmium plate to the areas that do not have chromium plate: refer to PCS-2141.":
+        "Нанесите кадмиевое покрытие на участки без хромового покрытия: обратитесь к PCS-2141.",
+    "Apply paint to the repaired area: refer to PCS-2500 and REPAIR.":
+        "Нанесите краску на отремонтированный участок: обратитесь к PCS-2500 и РЕМОНТ.",
+    # --- Part 6 batch 2: Examine / Grit blast / Calculate ---
+    "Examine the reworked area for flaws: refer to PCS-3600 and PCS-3100, inclusion class 4.":
+        "Осмотрите доработанный участок на наличие дефектов: обратитесь к PCS-3600 и PCS-3100, класс включений 4.",
+    "Only required, if the parent metal was machined at step (g), examine the machined area for flaws: refer to PCS-3600.":
+        "Требуется только в том случае, если основной металл обрабатывался на шаге (g): осмотрите обработанный участок на наличие дефектов: обратитесь к PCS-3600.",
+    "Only required, if the parent metal was machined at step (g), examine the machined area for flaws: refer to PCS-3100, inclusion class 4.":
+        "Требуется только в том случае, если основной металл обрабатывался на шаге (g): осмотрите обработанный участок на наличие дефектов: обратитесь к PCS-3100, класс включений 4.",
+    "Grit blast the shot peened area: refer to PCS-2610. Make sure that the sliding tube is correctly masked.":
+        "Выполните абразивоструйную обработку зоны дробеструйной обработки: обратитесь к PCS-2610. Убедитесь, что скользящая труба правильно защищена маскировкой.",
+    "Calculate diameter C and dimension H of each repair bush (qty 2):":
+        "Вычислите диаметр C и размер H каждой ремонтной втулки (кол-во 2):",
+    "Calculate the diameter C for the repair bush, use the formula:":
+        "Вычислите диаметр C для ремонтной втулки, используйте формулу:",
+    # --- Part 6 batch 2: Damage/wear descriptions ---
+    "Damage or wear to diameter(s) A and/or the adjacent face(s) B.":
+        "Повреждение или износ диаметра(ов) A и/или прилегающей(их) торцевой(ых) поверхности(ей) B.",
+    "Damage or wear to diameter A and/or adjacent face.":
+        "Повреждение или износ диаметра A и/или прилегающей торцевой поверхности.",
+    # --- Part 6 batch 2: Drawing annotation labels ---
+    "EXTENT OF SHOT PEENING": "ЗОНА ДРОБЕСТРУЙНОЙ ОБРАБОТКИ",
+    "AREA OF CHROMIUM PLATE": "ЗОНА ХРОМОВОГО ПОКРЫТИЯ",
+    "CAUTION: DO NOT MACHINE ALL OF THE FLANGE FACE.":
+        "ВНИМАНИЕ: НЕ ОБРАБАТЫВАЙТЕ ВСЮ ТОРЦЕВУЮ ПОВЕРХНОСТЬ ФЛАНЦА.",
+    "CAUTION: FOR DAMAGE MORE THAN THE LIMITS OF THIS REPAIR SCHEME, WRITE TO SAFRAN LANDING SYSTEMS: REFER TO GUIDE-CS-001.":
+        "ВНИМАНИЕ: ПРИ ПОВРЕЖДЕНИИ, ПРЕВЫШАЮЩЕМ ПРЕДЕЛЫ ДАННОЙ СХЕМЫ РЕМОНТА, ОБРАТИТЕСЬ В SAFRAN LANDING SYSTEMS: СМ. GUIDE-CS-001.",
+    "CAUTION: FOR DAMAGE MORE THAN THE LIMITS OF THIS REPAIR SCHEME, WRITE TO MESSIER-DOWTY LIMITED: REFER TO GUIDE-CS-001.":
+        "ВНИМАНИЕ: ПРИ ПОВРЕЖДЕНИИ, ПРЕВЫШАЮЩЕМ ПРЕДЕЛЫ ДАННОЙ СХЕМЫ РЕМОНТА, ОБРАТИТЕСЬ В MESSIER-DOWTY LIMITED: СМ. GUIDE-CS-001.",
+    "TERMINATION TO M-DLPS1031-5": "ГРАНИЦА ПО M-DLPS1031-5",
+    "TERMINATION TO M-DLPS1031-7": "ГРАНИЦА ПО M-DLPS1031-7",
+    "TERMINATION TO M-DLPS1031-1": "ГРАНИЦА ПО M-DLPS1031-1",
+    "TERMINATION TO M-DLPS1031-6": "ГРАНИЦА ПО M-DLPS1031-6",
+    "CHROMIUM PLATE TERMINATION TO M-DLPS1031-2": "ГРАНИЦА ХРОМОВОГО ПОКРЫТИЯ ПО M-DLPS1031-2",
+    "CHROMIUM PLATE TERMINATION TO M-DLPS1031-5": "ГРАНИЦА ХРОМОВОГО ПОКРЫТИЯ ПО M-DLPS1031-5",
+    "REPAIR BUSH 450266336": "РЕМОНТНАЯ ВТУЛКА 450266336",
+    "REPAIR BUSH 450258028": "РЕМОНТНАЯ ВТУЛКА 450258028",
+    "REPAIR BUSH 450217855": "РЕМОНТНАЯ ВТУЛКА 450217855",
+    "REPAIR BUSH 450258015": "РЕМОНТНАЯ ВТУЛКА 450258015",
+    "REPAIR BUSH 450266800": "РЕМОНТНАЯ ВТУЛКА 450266800",
+    "DO NOT CADMIUM PLATE": "НЕ НАНОСИТЬ КАДМИЕВОЕ ПОКРЫТИЕ",
+    "DO NOT PRIMER PAINT": "НЕ НАНОСИТЬ ГРУНТОВОЧНУЮ КРАСКУ",
+    "APPLY SEALANT TO PCS-7200": "НАНЕСТИ ГЕРМЕТИК ПО PCS-7200",
+    "APPLY SEALANT TO PCS-7200 2 PLACES": "НАНЕСТИ ГЕРМЕТИК ПО PCS-7200 В 2 МЕСТАХ",
+    "DEGREES REF.": "ГРАДУСОВ СПРАВ.",
+    "20 DEGREES REF.": "20 ГРАДУСОВ СПРАВ.",
+    "TYP . 4 PLACES": "ТИП. 4 МЕСТА",
+    "IN THE BORES TO": "В ОТВЕРСТИЯХ ДО",
+    "IFC30-145-03MD OR PCS-7304 TYP. 2 PLACES": "IFC30-145-03MD ИЛИ PCS-7304 ТИП. 2 МЕСТА",
+    "MINIMUM LUG WIDTH": "МИНИМАЛЬНАЯ ШИРИНА ПРОУШИНЫ",
+    "x 60 DEGREES INCLUSIVE CHAMFER": "× 60 ГРАДУСОВ ВКЛЮЧИТЕЛЬНО ФАСКА",
+    "0,5mm (0.020in) x 60 DEGREES INCLUSIVE CHAMFER": "0,5 мм (0,020 дюйм) × 60 ГРАДУСОВ ВКЛЮЧИТЕЛЬНО ФАСКА",
+    "SLIDING TUBE OUTSIDE DIAMETER": "НАРУЖНЫЙ ДИАМЕТР СКОЛЬЗЯЩЕЙ ТРУБЫ",
+    "DIAMETER AFTER GRINDING THE CHROMIUM PLATE": "ДИАМЕТР ПОСЛЕ ШЛИФОВКИ ХРОМОВОГО ПОКРЫТИЯ",
+    "DIAMETER BEFORE CHROMIUM PLATE DIA C": "ДИАМЕТР ДО ХРОМОВОГО ПОКРЫТИЯ ДИАМ. C",
+    "DIAMETER BEFORE NICKEL AND CHROMIUM PLATE 136,410mm (5.3700in) MAXIMUM":
+        "ДИАМЕТР ДО НИКЕЛИРОВАНИЯ И ХРОМИРОВАНИЯ 136,410 мм (5,3700 дюйм) МАКСИМУМ",
+    "1,0 to 3,00mm (0.04 to 0.118in) CHROMIUM PLATE TERMINATION TO M-DLPS1031-6":
+        "1,0 до 3,00 мм (0,04–0,118 дюйм) ГРАНИЦА ХРОМОВОГО ПОКРЫТИЯ ПО M-DLPS1031-6",
+    "WAVY IRREGULAR LINE IS PERMISSIBLE.": "ВОЛНИСТАЯ НЕРОВНАЯ ЛИНИЯ ДОПУСТИМА.",
+    "WAVY OR IRREGULAR LINE IS PERMISSIBLE.": "ВОЛНИСТАЯ ИЛИ НЕРОВНАЯ ЛИНИЯ ДОПУСТИМА.",
+    "(BOTH FLANGES)": "(ОБА ФЛАНЦА)",
+    "6,140mm (0.2417in) REF. MINIMUM WALL THICKNESS":
+        "6,140 мм (0,2417 дюйм) СПРАВ. МИНИМАЛЬНАЯ ТОЛЩИНА СТЕНКИ",
+    "CHROMIUM PLATING": "ХРОМОВОЕ ПОКРЫТИЕ",
+    "SERMETEL COATING AND PRIMER PAINT": "ПОКРЫТИЕ SERMETEL И ГРУНТОВОЧНАЯ КРАСКА",
 }
 
 # ── Part 5 extra FIXED entries (generated) ────────────────────────────────────
@@ -3685,6 +3899,7 @@ PROCEDURAL_VOCAB = [
     ("Locally apply cadmium", "Локально нанесите кадмиевое покрытие"),
     ("Locally make", "Локально выгладите"),
     ("Locally", "Локально"),
+    ("locally", "локально"),
     ("Grind the chromium plate to get the dimensions", "Шлифуйте хромовое покрытие до указанных размеров"),
     ("Grind the chromium plate to the dimension", "Шлифуйте хромовое покрытие до указанного размера"),
     ("Grind the chromium plate", "Шлифуйте хромовое покрытие"),

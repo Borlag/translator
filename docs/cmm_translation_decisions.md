@@ -194,3 +194,36 @@
   если английские выноски находятся не в paragraph/textbox-слое, а внутри `word/media/*`,
   допускается патчить сам media asset и сохранять отдельный manual-fix report,
   после такого патча обязателен повторный render + review + OCR/визуальный контроль проблемной страницы
+
+## Дополнительно зафиксированные паттерны part9
+
+- ремонты корпуса стойки `11-25`...`11-33`:
+  точные формулировки для процедур oversize lubrication adaptor,
+  oversize lower bearing subassembly,
+  oversize spherical bearing assembly,
+  а также для записей `Record the repair number...`, `Apply cadmium plate all over but not to the areas shown`,
+  `Apply primer and top coat paint ...`, `Apply top coat paint ...`
+- таблицы oversize-adaptor и lower-bearing:
+  `Oversize Step mm (in)`,
+  `Oversize / Lubrication Adaptor Number`,
+  `Before chromium / plate mm (in)`,
+  `After chromium / plate mm (in)`,
+  `Production`,
+  порядковые ступени `1st`...`12th`,
+  `Inner Diameter A Before Plating mm (in)`,
+  `Oversize Bearing Housing Outer Diameter Ref. mm (in)`,
+  `Spherical Bearing Assembly Number`
+- материалы и спецификации:
+  `Loctite Grade 270` -> `Loctite, марка 270`,
+  `Zinc loaded Molykote 111` -> `Molykote 111 с цинковым наполнителем`,
+  `UHT Steel ... with UTS ...` -> перевод через `временное сопротивление разрыву`,
+  `Steel ... heat treated to S154` -> `термообработанная до состояния S154`
+- figure/callout cleanup:
+  `REPAIR LUBRICATION ADAPTOR`,
+  `CHROME FADE OUT`,
+  `TO INTERSECTION`,
+  `CADMIUM PLATE OPTIONAL AND NO PAINT.`,
+  `CHROMIUM PLATE TERMINATION ...`,
+  `WITH INNER LINER`,
+  `CORRECT OVERSIZE ...`,
+  `OVERSIZE O RING / BACKING RING / TRANSFER DOWEL`

@@ -48,6 +48,7 @@ ALLOW = {
     "Gloucester",
     "England",
     "Messier-Dowty",
+    "Messier-",
     "Limited",
     "www.safran-landing-systems.com",
     "mm",
@@ -61,10 +62,15 @@ ALLOW = {
     "Loctite",
     "Almen",
     "Mastinox",
+    "Messier",
+    "Dowty",
     "Molykote",
     "MOLYKOTE",
     "Sermetel",
     "SERMETEL",
+    "LOCTITE",
+    "MPa",
+    "ksi",
 }
 
 

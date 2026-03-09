@@ -27,6 +27,7 @@ from docxru.layout_check import validate_layout
 from docxru.layout_fix import fix_expansion_issues
 from docxru.tagging import _apply_style, _clear_paragraph_runs, paragraph_to_tagged
 from scripts.cmm_part8_rules import PART8_SHARED_EXACT_MAP
+from scripts.cmm_part9_rules import PART9_CELL_EXACT_MAP, PART9_SHARED_EXACT_MAP, PART9_SHARED_PHRASE_RULES
 
 
 LATIN_RE = re.compile(r"[A-Za-z]")
@@ -2816,6 +2817,7 @@ PART6_PHRASE_RULES: list[tuple[str, str]] = [
 ]
 
 PHRASE_RULES.extend(PART6_PHRASE_RULES)
+PHRASE_RULES.extend(PART9_SHARED_PHRASE_RULES)
 
 
 PART6_EXACT_MAP: dict[str, str] = {
@@ -3108,6 +3110,8 @@ EXACT_MAP.update(PART6_EXACT_MAP)
 EXACT_MAP.update(PART6_EXACT_MAP_2)
 EXACT_MAP.update(PART7_SHARED_EXACT_MAP)
 EXACT_MAP.update(PART8_SHARED_EXACT_MAP)
+EXACT_MAP.update(PART9_SHARED_EXACT_MAP)
+NORMALIZED_EXACT_MAP: dict[str, str] = {" ".join(key.split()): value for key, value in EXACT_MAP.items()}
 
 
 def _translate_fragment(text: str) -> str:
@@ -3337,8 +3341,8 @@ def translate_text(text: str) -> str:
     if not LATIN_RE.search(text):
         return text
     stripped = " ".join(text.split())
-    if stripped in EXACT_MAP:
-        return EXACT_MAP[stripped]
+    if stripped in NORMALIZED_EXACT_MAP:
+        return NORMALIZED_EXACT_MAP[stripped]
     month_translated = _translate_month_date_fragments(original)
     range_normalized = _normalize_numeric_ranges(month_translated)
     if range_normalized != original and not LATIN_RE.search(range_normalized):
@@ -3354,8 +3358,8 @@ def translate_text(text: str) -> str:
     for pattern, replacement in REGEX_RULES:
         translated = pattern.sub(replacement, translated)
     stripped_after_regex = " ".join(translated.split())
-    if stripped_after_regex in EXACT_MAP:
-        return EXACT_MAP[stripped_after_regex]
+    if stripped_after_regex in NORMALIZED_EXACT_MAP:
+        return NORMALIZED_EXACT_MAP[stripped_after_regex]
     for source, target in sorted(PHRASE_RULES, key=lambda item: len(item[0]), reverse=True):
         translated = _replace_phrase(translated, source, target)
     translated = _cleanup_mixed_translation(translated)
@@ -3488,6 +3492,42 @@ def cleanup_remaining_paragraphs(docx_path: Path) -> Counter:
     return counts
 
 
+def _normalize_multiline_cell_text(text: str) -> str:
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    return "\n".join(lines)
+
+
+def fix_exact_cell_texts(docx_path: Path, mapping: dict[str, str]) -> int:
+    doc = Document(str(docx_path))
+    changed_cells = 0
+    for table in _iter_all_tables(doc):
+        for row in table.rows:
+            for cell in row.cells:
+                paras = list(cell.paragraphs)
+                if not paras:
+                    continue
+                source = "\n".join(par.text for par in paras).strip()
+                if not source:
+                    continue
+                normalized = _normalize_multiline_cell_text(source)
+                target = mapping.get(normalized)
+                if not target:
+                    continue
+                target_lines = target.split("\n")
+                while len(paras) < len(target_lines):
+                    cell.add_paragraph()
+                    paras = list(cell.paragraphs)
+                for idx, line in enumerate(target_lines):
+                    _set_paragraph_text_minimal(paras[idx], line)
+                for paragraph in paras[len(target_lines):]:
+                    if paragraph.text:
+                        _set_paragraph_text_minimal(paragraph, "")
+                changed_cells += 1
+    if changed_cells:
+        doc.save(str(docx_path))
+    return changed_cells
+
+
 def patch_header_footer_textboxes(docx_path: Path) -> int:
     replacements = {
         "<w:t>Page</w:t>": "<w:t>Стр.</w:t>",
@@ -3539,9 +3579,20 @@ def patch_document_xml_fragments(docx_path: Path) -> int:
         "Сталь to 300M": "Сталь, 300M",
         ">DIAMETER<": ">ДИАМЕТР<",
         ">POINT<": ">ТОЧКА<",
+        ">Before<": ">До<",
+        ">After<": ">После<",
+        ">DEGREE<": ">ГРАДУС<",
+        ">SECONDS<": ">СЕКУНД<",
+        ">REMOVE<": ">СНЯТЬ<",
+        ">EDGE<": ">КРОМКУ<",
         "SECONDS СПРАВ.": "СЕКУНД СПРАВ.",
         "LUG WIDTH D ": "ШИРИНА ПРОУШИНЫ D ",
         "WIDTH D ": "ШИРИНА D ",
+        "хромовое покрытие mm (in)": "хромирования мм (in)",
+        "ПРОТЯЖЕННОСТЬ OF ХРОМОВОЕ ПОКРЫТИЕ FADE OUT": "ПРОТЯЖЕННОСТЬ СВЕДЕНИЯ ХРОМОВОГО ПОКРЫТИЯ НА НЕТ",
+        "MIN.ПРОТЯЖЕННОСТЬ OF FINE LIMIT REMAINDER MAY BE": "МИН. ПРОТЯЖЕННОСТЬ УЧАСТКА МЕНЬШЕГО ПРЕДЕЛЬНОГО ДИАМЕТРА. ОСТАЛЬНАЯ ЧАСТЬ МОЖЕТ БЫТЬ",
+        "MIN. ПРОТЯЖЕННОСТЬ OF FINE LIMIT REMAINDER MAY BE": "МИН. ПРОТЯЖЕННОСТЬ УЧАСТКА МЕНЬШЕГО ПРЕДЕЛЬНОГО ДИАМЕТРА. ОСТАЛЬНАЯ ЧАСТЬ МОЖЕТ БЫТЬ",
+        "(7.805-7.835in) THIN ХРОМОВОЕ ПОКРЫТИЕ": "(7.805-7.835in) ТОНКОЕ ХРОМОВОЕ ПОКРЫТИЕ",
         "ДИАМЕТР ПОСЛЕ ХРОМИРОВАНИЯ PLATE 135,860-135,923mm": "ДИАМЕТР ПОСЛЕ ХРОМИРОВАНИЯ 135,860-135,923mm",
         "ДИАМЕТР ДО ХРОМИРОВАНИЯ PLATE": "ДИАМЕТР ДО ХРОМИРОВАНИЯ",
         "ДИАМЕТР AFTER GRINDING OF ХРОМОВОЕ ПОКРЫТИЕ": "ДИАМЕТР ПОСЛЕ ШЛИФОВАНИЯ ХРОМОВОГО ПОКРЫТИЯ",
@@ -3668,6 +3719,7 @@ def run_translation(source: Path, output: Path, report: Path) -> dict[str, objec
     shutil.copyfile(source, output)
     direct_counts = replace_segments_direct(output, mapping)
     cleanup_counts = cleanup_remaining_paragraphs(output)
+    cell_exact_fix_count = fix_exact_cell_texts(output, PART9_CELL_EXACT_MAP)
     layout_stats = auto_fix_layout(source, output)
     table_font_floor_runs = enforce_table_readability(output)
     header_footer_patch_files = patch_header_footer_textboxes(output)
@@ -3686,6 +3738,7 @@ def run_translation(source: Path, output: Path, report: Path) -> dict[str, objec
         "replace_hits": int(sum(direct_counts.values())),
         "replaced_keys": int(len(direct_counts)),
         "cleanup_hits": int(sum(cleanup_counts.values())),
+        "cell_exact_fix_count": int(cell_exact_fix_count),
         "table_font_floor_runs": int(table_font_floor_runs),
         "header_footer_patch_files": int(header_footer_patch_files),
         "document_xml_patch_files": int(document_xml_patch_files),

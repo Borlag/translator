@@ -1265,7 +1265,7 @@ TABLE_HEADERS = {
     "Adhesive PVC tape": "Клейкая ПВХ-лента",
     "Adhesive": "Адгезив",
     "Install the oversize bearing": "Установить ремонтный подшипник",
-    "Adhesive (Loctite Grade 601)": "Адгезив (Loctite Grade 601)",
+    "Adhesive (Loctite Grade 601)": "Адгезив (Loctite марки 601)",
     "Accomet C": "Accomet C",
     "Araldite, 2015": "Araldite, 2015",
     "Alocrom": "Alocrom",

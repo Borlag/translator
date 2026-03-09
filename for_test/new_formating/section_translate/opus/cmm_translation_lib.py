@@ -563,6 +563,8 @@ FIXED = {
     "Remove all of the tape and clean the parts as necessary.": "Удалите всю ленту и очистите детали по необходимости.",
     "Measure the new diameter A.": "Измерьте новый диаметр A.",
     "DEGREES": "ГРАДУСОВ",
+    "WALL THICKNESS": "ТОЛЩИНА СТЕНКИ",
+    "DEGREE": "ГРАДУС",
     # ─── Part 5 — Examine/inclusion/CAUTION full sentences ───
     "CAUTION: FOR DAMAGE MORE THAN THE LIMITS OF THIS REPAIR SCHEME, WRITE TO MESSIER-DOWTY LIMITED: REFER TO GUIDE-CS-001.":
         "ВНИМАНИЕ: ПРИ ПОВРЕЖДЕНИЯХ, ПРЕВЫШАЮЩИХ ДОПУСКИ ДАННОЙ СХЕМЫ РЕМОНТА, ОБРАТИТЕСЬ В MESSIER-DOWTY LIMITED: СМ. GUIDE-CS-001.",
@@ -1191,6 +1193,13 @@ FIXED = {
     "Close the charging valve (17-20); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).":
         "Закройте зарядный клапан (17-20); используйте рожковый ключ T14500 для затяжки моментом 5,7–7,9 Н·м (50–70 фунт·дюйм).",
 }
+
+# ── Part 5 extra FIXED entries (generated) ────────────────────────────────────
+try:
+    from part5_fixed_entries import PART5_EXTRA_FIXED
+    FIXED.update(PART5_EXTRA_FIXED)
+except ImportError:
+    pass
 
 # ── Table header translations ────────────────────────────────────────────────
 TABLE_HEADERS = {
@@ -3382,6 +3391,9 @@ PROCEDURAL_VOCAB = [
     ("between", "между"),
     (" and ", " и "),
     (" or ", " или "),
+    # Part 5 textbox drawing annotations
+    ("WALL THICKNESS", "ТОЛЩИНА СТЕНКИ"),
+    ("DEGREE", "ГРАДУС"),
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════

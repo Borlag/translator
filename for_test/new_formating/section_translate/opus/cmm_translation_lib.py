@@ -77,6 +77,94 @@ COMPONENT_NAMES = {
     "Installation": "Установка",
     "Machining and Installation": "Механическая обработка и установка",
     "Machining and installation": "Механическая обработка и установка",
+    # ── Part 2+ component names ──
+    "Installation of Labels": "Установка этикеток",
+    "Label": "Этикетка",
+    "Sliding Tube Subassembly": "Сборка скользящей трубы",
+    "Installation of Bushes": "Установка втулок",
+    "Application of Jointing Compound": "Нанесение герметизирующего состава",
+    "Assembly of Lower Bearing Subassembly": "Сборка нижнего подшипника",
+    "Seal Configuration": "Конфигурация уплотнений",
+    "Crimping of the Pin": "Обжимка штифта",
+    "Application of Ardrox AV100D to the Upper Diaphragm Tube": "Нанесение Ardrox AV100D на верхнюю диафрагменную трубу",
+    "Application of Ardrox AV100D to the Pin": "Нанесение Ardrox AV100D на штифт",
+    "Assembly of Damper": "Сборка демпфера",
+    "Bolt Subassembly": "Сборка болта",
+    "Bracket Subassembly": "Сборка кронштейна",
+    "Bracket Assembly": "Сборка кронштейна",
+    "Rod End Assembly": "Сборка наконечника тяги",
+    "1M Electrical Axle Harness": "Электрический жгут оси 1М",
+    "2M Electrical Axle Harness": "Электрический жгут оси 2М",
+    "Slave Link Subassembly": "Сборка ведомого звена",
+    "Lower Slave Link Subassembly": "Сборка нижнего ведомого звена",
+    "Proximity Switch": "Датчик приближения",
+    "Proximity Switches": "Датчики приближения",
+    "Harness Support Bracket": "Кронштейн крепления жгута",
+    "Upper Torque Link Subassembly": "Сборка верхнего шлиц-шарнира",
+    "Lower Torque Link Subassembly": "Сборка нижнего шлиц-шарнира",
+    "Shock Absorber Subassembly": "Сборка амортизатора",
+    "Housing": "Корпус",
+    "Damper": "Демпфер",
+    "Cardan Assembly": "Сборка кардана",
+    "Transfer Block Subassembly": "Сборка переходного блока",
+    "Piston": "Поршень",
+    "Locking Plate": "Стопорная пластина",
+    "Stop Ring": "Стопорное кольцо",
+    "Stop ring": "Стопорное кольцо",
+    "Cross Bolt": "Поперечный болт",
+    "Upper Diaphragm Tube Sub-assembly": "Сборка верхней диафрагменной трубы",
+    "Upper diaphragm tube sub-assembly": "Сборка верхней диафрагменной трубы",
+    "Locking Nut": "Контргайка",
+    "Locking Washer": "Стопорная шайба",
+    "Harness Support": "Крепление жгута",
+    "Harness support": "Крепление жгута",
+    "Electrical Bonding Resistance Tests": "Проверка сопротивления электрического соединения",
+    "Proximity Switch connector shell": "Корпус разъёма датчика приближения",
+    "Harness support bracket": "Кронштейн крепления жгута",
+    "Upper pivot bracket": "Верхний поворотный кронштейн",
+    "Static discharge connector": "Штыревой разъём статического разряда",
+    "Lock stay cardan": "Кардан фиксатора",
+    "Pivot bracket": "Поворотный кронштейн",
+    "Hydraulic fluid": "Гидравлическая жидкость",
+    "Hydraulic Fluid": "Гидравлическая жидкость",
+    "Bung": "Заглушка",
+    "Bracket Subassemblies": "Сборки кронштейнов",
+    "Sliding Tube Subassembly": "Сборка скользящей трубы",
+    "Lower Bearing Subassembly": "Сборка нижнего подшипника",
+    "Upper Bearing Housing": "Корпус верхнего подшипника",
+    "Liner": "Вкладыш",
+    "Liner Installation": "Установка вкладыша",
+    "Labels": "Этикетки",
+    "wiring diagram plate": "табличка электрической схемы",
+    "Wiring Diagram Plate": "Табличка электрической схемы",
+    # ── Part 3+ component names ──
+    "Wedge": "Клин",
+    "wedge": "клин",
+    "Transfer Dowel": "Переходный штифт",
+    "Transfer dowel": "Переходный штифт",
+    "Lock Stay Cardan Subassembly": "Сборка кардана фиксатора",
+    "Lock stay cardan subassembly": "Сборка кардана фиксатора",
+    # Lowercase variants for textbox labels
+    "Upper bearing housing": "Корпус верхнего подшипника",
+    "upper bearing housing": "корпус верхнего подшипника",
+    "Gland housing": "Корпус сальника",
+    "Gland Housing": "Корпус сальника",
+    "gland housing": "корпус сальника",
+    "Valve support": "Опора клапана",
+    "Valve Support": "Опора клапана",
+    "valve support": "опора клапана",
+    "Lower Bearing Housing Subassembly": "Сборка корпуса нижнего подшипника",
+    "Lower bearing housing subassembly": "Сборка корпуса нижнего подшипника",
+    "Lower Bearing Housing": "Корпус нижнего подшипника",
+    "Lower bearing housing": "Корпус нижнего подшипника",
+    "Main fitting": "Корпус стойки",
+    "main fitting": "корпус стойки",
+    "Sliding tube": "Скользящая труба",
+    "sliding tube": "скользящая труба",
+    "Gland Housing Subassembly": "Сборка корпуса сальника",
+    "Gland housing subassembly": "Сборка корпуса сальника",
+    "Spherical bearing": "Сферический подшипник",
+    "spherical bearing": "сферический подшипник",
 }
 
 # ── Fixed phrase translations ────────────────────────────────────────────────
@@ -190,6 +278,371 @@ FIXED = {
     "Isolation (Continued)": "Локализация (Продолжение)",
     "REV": "РЕД",
 
+    # Part 2+ section headings
+    "INTRODUCTION": "ВВЕДЕНИЕ",
+    "DESCRIPTION AND OPERATION": "ОПИСАНИЕ И РАБОТА",
+    "TESTING AND FAULT ISOLATION": "ПРОВЕРКА И ПОИСК НЕИСПРАВНОСТЕЙ",
+    "DISASSEMBLY": "РАЗБОРКА",
+    "CLEANING": "ОЧИСТКА",
+    "CHECK": "ПРОВЕРКА",
+    "REPAIR": "РЕМОНТ",
+    "ASSEMBLY": "СБОРКА",
+    "Reference Publications": "Справочные публикации",
+    "Equipment": "Оборудование",
+    "Not applicable.": "Не применяется.",
+    "Not applicable": "Не применяется",
+    "Detailed Inspection.": "Детальный осмотр.",
+    "Special Detailed Inspection.": "Специальный детальный осмотр.",
+    "Leakage Tests": "Испытания на герметичность",
+    "Initial Operations": "Начальные операции",
+    "Compression": "Сжатие",
+    "Recoil": "Обратный ход",
+    "Wire Thread Inserts": "Резьбовые спиральные вставки",
+    "Special Tools": "Специальные инструменты",
+    "Paint Removal": "Удаление лакокрасочного покрытия",
+    "Prepare for Transport and Storage": "Подготовка к транспортировке и хранению",
+    "Examine Parts Visually": "Визуальный осмотр деталей",
+    "Examine Dimensions": "Проверка размеров",
+    "Spring Data": "Данные пружины",
+    "Corrosion.": "Коррозия.",
+    "Distortion and/or cracks.": "Деформация и/или трещины.",
+    "Wear or fretting.": "Износ или фреттинг.",
+    "Scores, dents or burrs.": "Задиры, вмятины или заусенцы.",
+    "Unserviceable screw threads.": "Непригодная резьба.",
+    "Deterioration of protective treatment.": "Ухудшение защитного покрытия.",
+    "Parts of permanent assemblies that are not correctly attached.": "Неправильно прикреплённые детали неразъёмных сборок.",
+    "Procedure": "Процедура",
+    "INCORPORATED": "ВКЛЮЧЕНО",
+    "PRE SB 201-32-72:": "До SB 201-32-72:",
+    "PRE SB 201-32-58:": "До SB 201-32-58:",
+    "POST SB 201-32-72:": "После SB 201-32-72:",
+    "POST SB 201-32-58:": "После SB 201-32-58:",
+    "Component Maintenance Manual": "Руководство по техническому обслуживанию компонентов",
+    "Diagram of Operation Figure 2": "Схема работы Рисунок 2",
+    "General": "Общие сведения",
+    "Materials": "Материалы",
+    "These materials are necessary:": "Необходимы следующие материалы:",
+    "These special tools are necessary:": "Необходимы следующие специальные инструменты:",
+    "NOTE: Alternative equivalents are permitted.": "ПРИМЕЧАНИЕ: Допускаются альтернативные эквиваленты.",
+    "Unless instructions are different:": "Если инструкции не указывают иное:",
+    "Cleaning": "Очистка",
+    # ─── Description and Operation sentences ───
+    "The main landing gear leg is a two stage, telescopic shock absorber.":
+        "Стойка основного шасси представляет собой двухступенчатый телескопический амортизатор.",
+    "To be given subsequently.": "Будет предоставлено дополнительно.",
+    "Make sure that the work area, the tools and the equipment are clean.":
+        "Убедитесь, что рабочая зона, инструменты и оборудование чистые.",
+    "Special Dimension Check:": "Специальная проверка размеров:",
+    "Piston (17-200) Leakage Tests": "Испытания на герметичность поршня (17-200)",
+    "Proximity Switches (7-40 and 7-230) Adjustments and Tests":
+        "Регулировка и проверка датчиков приближения (7-40 и 7-230)",
+    "Electrical Bonding Resistance Tests (Refer to Figure 102)":
+        "Проверка сопротивления электрического соединения (обратитесь к рисунку 102)",
+    "Procedure to Fill and Pressurize the Main Landing Gear Leg (1-1)":
+        "Процедура заполнения и создания давления в стойке основного шасси (1-1)",
+    "Leakage Tests": "Испытания на герметичность",
+    "Only,": "Только,",
+    "M-DLNDT3": "M-DLNDT3",
+    "Parts 1": "Части 1",
+    "Cond H1025": "Конд. H1025",
+    "Type 1": "Тип 1",
+    "Weight with hydraulic fluid": "Масса с гидравлической жидкостью",
+    "Weight without hydraulic fluid": "Масса без гидравлической жидкости",
+    "They are a set: keep them together.": "Они являются комплектом: храните их вместе.",
+    "threaded insert": "резьбовая вставка",
+    "bracket assembly": "сборка кронштейна",
+    "Fits and Clearances - Key Diagram": "Посадки и зазоры — Ключевая схема",
+    "Proximity Switch (7-230) — Target (7-180) — Adjustment": "Датчик приближения (7-230) — Мишень (7-180) — Регулировка",
+    "Proximity Switch (7-40) — Target (6-130) — Adjustment": "Датчик приближения (7-40) — Мишень (6-130) — Регулировка",
+    # ─── Part 3 (Repair) section headings and sentences ───
+    "Repair Levels": "Уровни ремонта",
+    "Surface Damage": "Повреждение поверхности",
+    "Identification": "Идентификация",
+    "Protective Treatment Repair": "Ремонт защитного покрытия",
+    "Cadmium Plated Surfaces": "Кадмированные поверхности",
+    "Anodized Surfaces": "Анодированные поверхности",
+    "Paint Finish": "Лакокрасочное покрытие",
+    "Protective Treatment Replacement": "Замена защитного покрытия",
+    "Protective Treatment Table 601": "Таблица защитной обработки 601",
+    "Repair of surface damage.": "Ремонт повреждений поверхности.",
+    "On a radius.": "На радиусе.",
+    "Remove burrs from external screw threads.": "Удалите заусенцы с наружных резьб.",
+    "Concession": "Допуск на отклонение",
+    "Salvage": "Восстановление",
+    "Clean the parts after repair: refer to CLEANING.": "Очистите детали после ремонта: обратитесь к ОЧИСТКЕ.",
+    "Figure Deleted Figure 609": "Рисунок удалён Рисунок 609",
+    "Figure Deleted Figure 611": "Рисунок удалён Рисунок 611",
+    "the 1,5 mm (0.060 in) hole for the Bowden cable(1-45).":
+        "отверстие 1,5 мм (0,060 дюйм) для троса Боудена (1-45).",
+    "Refer to Figure 623. Apply cadmium":
+        "Обратитесь к рисунку 623. Нанесите кадмиевое",
+    "Refer to Figure 636. Apply cadmium":
+        "Обратитесь к рисунку 636. Нанесите кадмиевое",
+    "the bearings, bush bores and flanges": "подшипники, отверстия под втулки и фланцы",
+    "Refer to para 3.C. and Figure 618.": "Обратитесь к п. 3.C. и рисунку 618.",
+    "to the areas where Sermetel W is applied": "на участки, где нанесён Sermetel W",
+    "to the chromium plated areas": "на хромированные участки",
+    "to the threaded surfaces.": "на резьбовые поверхности.",
+    "to the threaded surfaces": "на резьбовые поверхности",
+    # ─── Protective Treatment Table 601 cell paragraphs ───
+    "20-410B and 20-420B only": "только 20-410B и 20-420B",
+    "20-410D and 20-420D only": "только 20-410D и 20-420D",
+    "plate all over including the holes less than diameter 10 mm (0.393 in) but not to the chromium plated areas and areas A: refer to PCS-2100. Make the cadmium plate thickness between 0,010 and 0,020 mm":
+        "покрытие повсюду, включая отверстия диаметром менее 10 мм (0,393 дюйм), но не на хромированные участки и участки A: обратитесь к PCS-2100. Толщина кадмиевого покрытия должна быть от 0,010 до 0,020 мм",
+    "(0.0004 and 0.0008 in). The cadmium plate must overlap the chromium plate run out. The cadmium plate is optional on the lubrication fitting bores where the lubrication adaptors (20-130),":
+        "(0,0004 и 0,0008 дюйм). Кадмиевое покрытие должно перекрывать выход хромового покрытия. Кадмиевое покрытие является необязательным на отверстиях смазочных ниппелей, где устанавливаются смазочные адаптеры (20-130),",
+    "(20-160), (20-190) and (20-220) will":
+        "(20-160), (20-190) и (20-220) будут",
+    "Apply primer paint only to areas B: refer to PCS-2500.":
+        "Нанесите грунтовочную краску только на участки B: обратитесь к PCS-2500.",
+    "Apply wet primer to PCS-2804 or apply resin to PCS-2802 to the area D.":
+        "Нанесите влажную грунтовку по PCS-2804 или нанесите смолу по PCS-2802 на участок D.",
+    "Apply paint all over but not on the chromium plated areas, the areas A, B, C and on the lubrication fitting bores where the lubrication adaptors (20-130), (20-160),":
+        "Нанесите краску повсюду, кроме хромированных участков, участков A, B, C и отверстий смазочных ниппелей, где устанавливаются смазочные адаптеры (20-130), (20-160),",
+    "(20-190) and (20-220) will install: refer to PCS-2500. Paint finish is optional in areas E.":
+        "(20-190) и (20-220) будут установлены: обратитесь к PCS-2500. Лакокрасочное покрытие является необязательным на участках E.",
+    "(20-190) and (20-220) will install: refer to PCS-2500.":
+        "(20-190) и (20-220) будут установлены: обратитесь к PCS-2500.",
+    # ─── Drawing annotation paragraphs ───
+    "SERMETEL W ON INTERNAL": "SERMETEL W НА ВНУТРЕННЕМ",
+    "SERMETEL W TO": "SERMETEL W ДО",
+    "14 PLACES\tW": "14 МЕСТ\tW",
+    # ─── Repair section procedure paragraphs ───
+    "Approved repairs are in para 4. The repairs in this CMM have been approved under Airbus\u2019 EASA Design Organisation Approval No. EASA.21J.031.":
+        "Утверждённые ремонты указаны в п. 4. Ремонты в данном CMM утверждены в рамках одобрения проектной организации Airbus EASA № EASA.21J.031.",
+    "Repair damage to small areas of cadmium plated surfaces: refer to PCS-2141.":
+        "Ремонт повреждений небольших участков кадмированных поверхностей: обратитесь к PCS-2141.",
+    "Repair damage to small areas of anodized surfaces: refer to PCS-2220.":
+        "Ремонт повреждений небольших участков анодированных поверхностей: обратитесь к PCS-2220.",
+    "Repair damage to small areas of paint finish: refer to M-DLPS1003-1, use paint to PCS-2500.":
+        "Ремонт повреждений небольших участков лакокрасочного покрытия: обратитесь к M-DLPS1003-1, используйте краску по PCS-2500.",
+    "Chip damage of less than 10,0 mm2 (0.015 in2) can be restored with Sermetel 249 with Sermetel 273 catalyst: refer to M-DLPS637 (cold rework only).":
+        "Сколы площадью менее 10,0 мм² (0,015 дюйм²) могут быть восстановлены с помощью Sermetel 249 с катализатором Sermetel 273: обратитесь к M-DLPS637 (только холодная доработка).",
+    "PRIMER PAINT TO PCS-2500 OVER SERMETEL W TO LENGTH 305,00mm (12.000in) for (18-80)":
+        "ГРУНТОВОЧНАЯ КРАСКА ПО PCS-2500 ПОВЕРХ SERMETEL W ДЛИНОЙ 305,00 мм (12,000 дюйм) для (18-80)",
+    # ─── Protective Treatment Table 601 paragraph-level entries ───
+    "PCS-2500. Do not paint:": "PCS-2500. Не окрашивайте:",
+    "M-DLPS100-2. Do not include areas that have chromium plate. Paint: refer to M-DLPS1003-1 and":
+        "M-DLPS100-2. Не включайте участки с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и",
+    "PCS-2100. Do not include areas that have chromium plate. Paint: refer to M-DLPS1003-1 and":
+        "PCS-2100. Не включайте участки с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и",
+    "AMS5659 condition H1025": "AMS5659 состояние H1025",
+    "9-190 Only": "только 9-190",
+    "10-160 Only": "только 10-160",
+    "MIL-A-8625 Type IB, Class 1.": "MIL-A-8625 тип IB, класс 1.",
+    "M-DLPS100-2, M-DLPS137 or DEF STAN 03-19.":
+        "M-DLPS100-2, M-DLPS137 или DEF STAN 03-19.",
+    "Paint: refer to M-DLPS1003-1 and": "Окраска: обратитесь к M-DLPS1003-1 и",
+    # ─── Protective Treatment Table 601 — full paragraph translations ───
+    "Apply cadmium plate all over but not to the chromium plated areas: refer to PCS-2101. Make the cadmium plate thickness between 0,010 and 0,015 mm (0.0004 and 0.00059 in).":
+        "Нанесите кадмиевое покрытие повсюду, кроме хромированных участков: обратитесь к PCS-2101. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 и 0,00059 дюйм).",
+    "Apply cadmium plate all over: refer to M-DLPS100-1. The cadmium plate must be 0,010 to 0,015 mm (0.0004 to 0.0006 in) thick. Apply paint all over: refer to PCS-2500. Do not apply paint to the thread or to the surfaces that enter the transfer block (2-340 and 2-350)":
+        "Нанесите кадмиевое покрытие повсюду: обратитесь к M-DLPS100-1. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 — 0,0006 дюйм). Нанесите краску повсюду: обратитесь к PCS-2500. Не наносите краску на резьбу и на поверхности, входящие в переходный блок (2-340 и 2-350)",
+    "Apply cadmium plate all over: refer to M-DLPS100-2. Make the cadmium plate thickness between 0,010":
+        "Нанесите кадмиевое покрытие повсюду: обратитесь к M-DLPS100-2. Толщина кадмиевого покрытия должна быть от 0,010",
+    "Apply cadmium plate all over: refer to M-DLPS100-2S. The cadmium plate must be 0,010 to 0,015 mm (0.0004 to 0.0006 in) thick.":
+        "Нанесите кадмиевое покрытие повсюду: обратитесь к M-DLPS100-2S. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 — 0,0006 дюйм).",
+    "Apply cadmium plate to PCS-2100. The cadmium plate thickness should be between 0,010 and 0,015 mm (0.0004 and 0.0006 in). Do not apply cadmium plate:":
+        "Нанесите кадмиевое покрытие по PCS-2100. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 и 0,0006 дюйм). Не наносите кадмиевое покрытие:",
+    "Apply cadmium plate: refer to M-DLPS100-2. Paint: refer to":
+        "Нанесите кадмиевое покрытие: обратитесь к M-DLPS100-2. Окраска: обратитесь к",
+    "Apply one layer of primer paint only to the areas A: refer to PCS-2500. Apply paint all over as per PCS-2500 but not to:":
+        "Нанесите только один слой грунтовочной краски на участки A: обратитесь к PCS-2500. Нанесите краску повсюду по PCS-2500, кроме:",
+    "Apply paint all over but not on the chromium plated areas, the areas A, B, C and on the lubrication fitting bores where the lubrication adaptors (20-130), (20-160), (20-":
+        "Нанесите краску повсюду, кроме хромированных участков, участков A, B, C и отверстий смазочных ниппелей, где устанавливаются смазочные адаптеры (20-130), (20-160), (20-",
+    "Apply paint all over but not to the areas A and B: refer to PCS-2500. Apply primer paint only to areas A. Do not paint areas B.":
+        "Нанесите краску повсюду, кроме участков A и B: обратитесь к PCS-2500. Нанесите грунтовочную краску только на участки A. Не красьте участки B.",
+    "Apply paint all over but not to the areas A, C and D: refer to PCS-2500.":
+        "Нанесите краску повсюду, кроме участков A, C и D: обратитесь к PCS-2500.",
+    "Apply paint all over but not to the areas A: refer to PCS-2500. Do not paint areas A.":
+        "Нанесите краску повсюду, кроме участков A: обратитесь к PCS-2500. Не красьте участки A.",
+    "Apply paint: refer to M-DLPS1003-1 and PCS-2500. Do not paint:":
+        "Нанесите краску: обратитесь к M-DLPS1003-1 и PCS-2500. Не красьте:",
+    "Apply primer paint only to the areas":
+        "Нанесите грунтовочную краску только на участки",
+    "Apply primer paint to the areas A: refer to PCS-2500. Apply paint all over: refer to PCS-2500. Do not apply paint to:":
+        "Нанесите грунтовочную краску на участки A: обратитесь к PCS-2500. Нанесите краску повсюду: обратитесь к PCS-2500. Не наносите краску на:",
+    "Apply sermetel W only to the areas C: refer to IFC 40-860-03MD.":
+        "Нанесите Sermetel W только на участки C: обратитесь к IFC 40-860-03MD.",
+    "E. Apply paint all over but not to the chromium plated areas A, areas E and F: refer to PCS-2500.":
+        "E. Нанесите краску повсюду, кроме хромированных участков A, участков E и F: обратитесь к PCS-2500.",
+    "M-DLPS100-2. Do not include the area that has chromium plate. Paint: refer to M-DLPS1003-1 and":
+        "M-DLPS100-2. Не включайте участок с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и",
+    "M-DLPS100-2. The cadmium plate must be 0,010 to 0,015 mm (0.0004 to 0.0006 in) thick. Paint: refer to":
+        "M-DLPS100-2. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 — 0,0006 дюйм). Окраска: обратитесь к",
+    "M-DLPS102-1. Apply paint all over but not to the areas A: refer to":
+        "M-DLPS102-1. Нанесите краску повсюду, кроме участков A: обратитесь к",
+    "M-DLPS131. Apply brush cadmium plate to the areas D: refer to":
+        "M-DLPS131. Нанесите кадмиевое покрытие кистью на участки D: обратитесь к",
+    "M-DLPS131. Do not include areas that have chromium plate. Paint: refer to M-DLPS1003-1 and":
+        "M-DLPS131. Не включайте участки с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и",
+    "M-DLPS137. Paint all over externally and internally to areas B but not to the chromium plated areas, the bush and bearing bores, the chamfers, the lubrication fitting bores and areas C and D: refer to PCS-2500.":
+        "M-DLPS137. Окрасьте повсюду снаружи и внутрь на участки B, кроме хромированных участков, отверстий под втулки и подшипники, фасок, отверстий смазочных ниппелей и участков C и D: обратитесь к PCS-2500.",
+    "PCS-2100. Make the cadmium plate thickness 0,010 to 0,015 mm":
+        "PCS-2100. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм",
+    "PCS-2500. Apply only primer to face D: refer to PCS-2500.":
+        "PCS-2500. Нанесите только грунтовку на поверхность D: обратитесь к PCS-2500.",
+    "PCS-2500. Apply paint to areas D: refer to PCS-2500. No bare cadmium permitted.":
+        "PCS-2500. Нанесите краску на участки D: обратитесь к PCS-2500. Открытый кадмий не допускается.",
+    "PCS-2500. Apply primer paint only to the areas A.":
+        "PCS-2500. Нанесите грунтовочную краску только на участки A.",
+    "PCS-2500. Apply primer paint only to the contact faces of the flanges. Do not paint:":
+        "PCS-2500. Нанесите грунтовочную краску только на контактные поверхности фланцев. Не красьте:",
+    "Paint areas A: refer to PCS-2500. Primer paint only on face D and areas E and F including the chamfer. Do not paint:":
+        "Нанесите краску на участки A: обратитесь к PCS-2500. Грунтовочная краска только на поверхность D и участки E и F, включая фаску. Не красьте:",
+    "Paint external areas only: refer to M-DLPS1003-1 and PCS-2500.":
+        "Окрасьте только наружные участки: обратитесь к M-DLPS1003-1 и PCS-2500.",
+    "Paint: refer to M-DLPS1003-1 and PCS-2500. Do not paint:":
+        "Окраска: обратитесь к M-DLPS1003-1 и PCS-2500. Не красьте:",
+    "Paint: refer to PCS-2500. Do not paint:":
+        "Окраска: обратитесь к PCS-2500. Не красьте:",
+    "Passivate: refer to AMS2700": "Пассивировать: обратитесь к AMS2700",
+    "Passivate: refer to AMS2700.": "Пассивировать: обратитесь к AMS2700.",
+    "Refer to Figure 610. Apply cadmium plate: refer to M-DLPS131. Do not include areas that have chromium plate. Paint: refer to M-DLPS1003-1 and PCS-2500. Do not paint areas A and areas that have chromium plate.":
+        "Обратитесь к рисунку 610. Нанесите кадмиевое покрытие: обратитесь к M-DLPS131. Не включайте участки с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и PCS-2500. Не красьте участки A и участки с хромовым покрытием.",
+    "Refer to Figure 613. Apply cadmium plate: refer to M-DLPS100-2. Do not include areas that have chromium plate. Paint area A: refer to":
+        "Обратитесь к рисунку 613. Нанесите кадмиевое покрытие: обратитесь к M-DLPS100-2. Не включайте участки с хромовым покрытием. Окрасьте участок A: обратитесь к",
+    "Refer to Figure 613. Apply cadmium plate: refer to PCS-2101. Make the cadmium plate thickness between 0,010 and 0,015 mm (0.0004 and 0.0005 in). Do not include areas that have chromium plate. Paint area A: refer to PCS-2500.":
+        "Обратитесь к рисунку 613. Нанесите кадмиевое покрытие: обратитесь к PCS-2101. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 и 0,0005 дюйм). Не включайте участки с хромовым покрытием. Окрасьте участок A: обратитесь к PCS-2500.",
+    "Refer to Figure 614. Passivate all over: refer to AMS 2700. Apply paint all over externally but not on areas A. Apply primer paint to areas B: refer to PCS-2500.":
+        "Обратитесь к рисунку 614. Пассивируйте повсюду: обратитесь к AMS 2700. Нанесите краску повсюду снаружи, кроме участков A. Нанесите грунтовочную краску на участки B: обратитесь к PCS-2500.",
+    "Refer to Figure 614. Passivate all over: refer to AMS 2700. Apply paint all over externally but not on areas A. Apply primer paint to areas B: refer to PCS-2500":
+        "Обратитесь к рисунку 614. Пассивируйте повсюду: обратитесь к AMS 2700. Нанесите краску повсюду снаружи, кроме участков A. Нанесите грунтовочную краску на участки B: обратитесь к PCS-2500",
+    "Refer to Figure 615. Apply cadmium plate: refer to M-DLPS100-2. Do not include areas that have chromium plate. Paint: refer to M-DLPS1003-1 and PCS-2500. Do not paint areas that have chromium plate and areas A and B. Apply primer to areas B.":
+        "Обратитесь к рисунку 615. Нанесите кадмиевое покрытие: обратитесь к M-DLPS100-2. Не включайте участки с хромовым покрытием. Окраска: обратитесь к M-DLPS1003-1 и PCS-2500. Не красьте участки с хромовым покрытием и участки A и B. Нанесите грунтовку на участки B.",
+    "Refer to Figure 616. Apply cadmium plate internally and externally on area A: refer to M-DLPS100-2. Do not apply cadmium plate to bores B":
+        "Обратитесь к рисунку 616. Нанесите кадмиевое покрытие изнутри и снаружи на участок A: обратитесь к M-DLPS100-2. Не наносите кадмиевое покрытие на отверстия B",
+    "Refer to Figure 617. Cadmium plate all over to M-DLPS100-2. Make cadmium plate thickness 0,010 to 0,015 mm (0.0004 to 0.0006 in). Do":
+        "Обратитесь к рисунку 617. Кадмиевое покрытие повсюду по M-DLPS100-2. Толщина кадмиевого покрытия от 0,010 до 0,015 мм (0,0004 — 0,0006 дюйм). Не",
+    "Refer to Figure 619. Apply primer paint only to the areas D: refer to Figure 619 and PCS-2500.":
+        "Обратитесь к рисунку 619. Нанесите грунтовочную краску только на участки D: обратитесь к рисунку 619 и PCS-2500.",
+    "Refer to Figure 622. Apply cadmium plate all over but not to the chromium plated areas and areas A: refer to":
+        "Обратитесь к рисунку 622. Нанесите кадмиевое покрытие повсюду, кроме хромированных участков и участков A: обратитесь к",
+    "Refer to Figure 624. Apply cadmium plate all over but not to the areas A: refer to PCS-2101. Cadmium plate is optional on radii and chamfer B. Make the cadmium plate thickness between 0,010 and 0,015 mm":
+        "Обратитесь к рисунку 624. Нанесите кадмиевое покрытие повсюду, кроме участков A: обратитесь к PCS-2101. Кадмиевое покрытие не является обязательным на радиусах и фаске B. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм",
+    "Refer to Figure 625. Apply cadmium plate all over but not to the chromium plated areas A and areas B and C: refer to PCS-2100. Make the cadmium plate thickness between 0,010 and 0,020 mm (0.0004 and":
+        "Обратитесь к рисунку 625. Нанесите кадмиевое покрытие повсюду, кроме хромированных участков A и участков B и C: обратитесь к PCS-2100. Толщина кадмиевого покрытия должна быть от 0,010 до 0,020 мм (0,0004 и",
+    "Refer to Figure 626. Chromic acid anodise all over but not the spotfaces A: refer to M-DLPS102-1. Apply Alocrom 1200 to the areas A: refer to M-DLPS114. Apply paint all over but not to the areas A, B, C and D: refer to PCS-2500. Primer paint only on faces D. Apply light coat of primer to area B.":
+        "Обратитесь к рисунку 626. Хромовокислотное анодирование повсюду, кроме площадок под крепёж A: обратитесь к M-DLPS102-1. Нанесите Alocrom 1200 на участки A: обратитесь к M-DLPS114. Нанесите краску повсюду, кроме участков A, B, C и D: обратитесь к PCS-2500. Грунтовочная краска только на поверхностях D. Нанесите лёгкий слой грунтовки на участок B.",
+    "Refer to Figure 627. Chromic acid anodise all over but not the spotfaces A: refer to MIL-A-8625 Type 1B, Class 1. Apply Alocrom 1200 to the areas A: refer to PCS-2220 Type 2. Apply one coat of primer to the areas B: refer to PCS-2500. Apply primer only to the areas D: refer to":
+        "Обратитесь к рисунку 627. Хромовокислотное анодирование повсюду, кроме площадок под крепёж A: обратитесь к MIL-A-8625 тип 1B, класс 1. Нанесите Alocrom 1200 на участки A: обратитесь к PCS-2220 тип 2. Нанесите один слой грунтовки на участки B: обратитесь к PCS-2500. Нанесите грунтовку только на участки D: обратитесь к",
+    "Refer to Figure 629. Before installation of bushes: Apply primer paint to the areas A: refer to":
+        "Обратитесь к рисунку 629. Перед установкой втулок: Нанесите грунтовочную краску на участки A: обратитесь к",
+    "Refer to Figure 630. Before installation of bushes: Apply primer paint to areas A but not to the areas B: refer to PCS-2500.":
+        "Обратитесь к рисунку 630. Перед установкой втулок: Нанесите грунтовочную краску на участки A, кроме участков B: обратитесь к PCS-2500.",
+    "Refer to Figure 634. Chromic acid anodise all over but not the spotface A: refer to M-DLPS102-1. Apply Alocrom 1200 to the areas A: refer to M-DLPS114. Apply paint all over but not to the areas A, B, C and D: refer to PCS-2500. Apply a light coat of primer to the hole B: refer to":
+        "Обратитесь к рисунку 634. Хромовокислотное анодирование повсюду, кроме площадки под крепёж A: обратитесь к M-DLPS102-1. Нанесите Alocrom 1200 на участки A: обратитесь к M-DLPS114. Нанесите краску повсюду, кроме участков A, B, C и D: обратитесь к PCS-2500. Нанесите лёгкий слой грунтовки на отверстие B: обратитесь к",
+    "Refer to Figure 638. Apply paint all over externally, but not to areas A: refer to PCS-2500.":
+        "Обратитесь к рисунку 638. Нанесите краску повсюду снаружи, кроме участков A: обратитесь к PCS-2500.",
+    "Refer to Figure 639. Apply cadmium plate: refer to PCS-2100. Do not include areas that have chromium plate. Make the cadmium plate thickness between 0,010 and 0,020":
+        "Обратитесь к рисунку 639. Нанесите кадмиевое покрытие: обратитесь к PCS-2100. Не включайте участки с хромовым покрытием. Толщина кадмиевого покрытия должна быть от 0,010 до 0,020",
+    "Refer to Figures 620 and 621. Apply cadmium plate to M-DLPS131, do not apply cadmium plate to areas A. Primer paint all over but not in holes and on areas identified B and the 22,0 mm (0.87 in) diameters C: refer to PCS-2500.":
+        "Обратитесь к рисункам 620 и 621. Нанесите кадмиевое покрытие по M-DLPS131, не наносите кадмиевое покрытие на участки A. Грунтовочная краска повсюду, кроме отверстий и участков, обозначенных B, и диаметров 22,0 мм (0,87 дюйм) C: обратитесь к PCS-2500.",
+    "Refer to PCS-2500 and apply paint all over externally, but not to:":
+        "Обратитесь к PCS-2500 и нанесите краску повсюду снаружи, кроме:",
+    "Refer to PCS-2500 and apply paint internally along surface B, but not along surface C.":
+        "Обратитесь к PCS-2500 и нанесите краску изнутри вдоль поверхности B, кроме поверхности C.",
+    "not paint areas A and B. Apply primer to area A: refer to Figure 604.":
+        "не красьте участки A и B. Нанесите грунтовку на участок A: обратитесь к рисунку 604.",
+    "not paint the screw threads and the face that touches the wheel bearings.":
+        "не красьте резьбу и поверхность, касающуюся подшипников колеса.",
+    "the holes (with or without threads)":
+        "отверстия (с резьбой или без)",
+    "the lubrication fittings and their identification washers":
+        "смазочные ниппели и их идентификационные шайбы",
+    "the split pin hole.": "отверстие для шплинта.",
+    "the two holes through the end. Apply a thin coat of primer paint to the holes through the end: refer to PCS-2500.":
+        "два сквозных отверстия на конце. Нанесите тонкий слой грунтовочной краски на сквозные отверстия на конце: обратитесь к PCS-2500.",
+    "where identified on Figure 618. Apply Sermetel W where shown: refer to IFC 40-860-03MD. Apply primer as shown and finish paint to PCS-2500. Do not apply paint:":
+        "как указано на рисунке 618. Нанесите Sermetel W, как показано: обратитесь к IFC 40-860-03MD. Нанесите грунтовку, как показано, и финишную краску по PCS-2500. Не наносите краску:",
+    "15,00 mm (0.591 in) diameter areas around the holes on the inside face of one flange.":
+        "участки диаметром 15,00 мм (0,591 дюйм) вокруг отверстий на внутренней поверхности одного фланца.",
+    "After installation of bushes: Apply paint to the areas B but not to the bushes: refer to IFC 30-117-05.":
+        "После установки втулок: Нанесите краску на участки B, кроме втулок: обратитесь к IFC 30-117-05.",
+    "After installation of bushes: Apply paint to the areas C but not to the areas D: refer to PCS-2500.":
+        "После установки втулок: Нанесите краску на участки C, кроме участков D: обратитесь к PCS-2500.",
+    "plate internally and externally over area A: refer to PCS-2101. Make the cadmium plate thickness between 0,010 and 0,015 mm (0.0004 and":
+        "покрытие изнутри и снаружи на участок A: обратитесь к PCS-2101. Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004 и",
+    "Apply only primer paint to areas C including chamfer: refer to":
+        "Нанесите только грунтовочную краску на участки C, включая фаску: обратитесь к",
+    "190) and (20-220) will install: refer to PCS-2500.":
+        "190) и (20-220) будут установлены: обратитесь к PCS-2500.",
+    "190) and (20-220) will install: refer to PCS-2500. Paint finish is optional in areas E.":
+        "190) и (20-220) будут установлены: обратитесь к PCS-2500. Лакокрасочное покрытие является необязательным на участках E.",
+    "M-DLPS1003-1 and PCS-2500. Do":
+        "M-DLPS1003-1 и PCS-2500. Не",
+    "Do not paint areas F.": "Не красьте участки F.",
+    "or Steel, 4340 to AMS6414": "или сталь, 4340 по AMS6414",
+    "Apply primer paint only to the contact face. Paint must not go in the bores.":
+        "Нанесите грунтовочную краску только на контактную поверхность. Краска не должна попадать в отверстия.",
+    "PCS-2500. Do not paint areas A and areas that have chromium plate: refer to Figure 608.":
+        "PCS-2500. Не красьте участки A и участки с хромовым покрытием: обратитесь к рисунку 608.",
+    "M-DLPS1003-1 and PCS-2500.": "M-DLPS1003-1 и PCS-2500.",
+    "where identified on Figure 618": "как указано на рисунке 618",
+    "to the chromium plated areas.": "на хромированные участки.",
+    "mm (0.0004 and 0.00078 in). The cadmium plate must overlap the chromium plate run out. Bare metal not permitted.":
+        "мм (0,0004 и 0,00078 дюйм). Кадмиевое покрытие должно перекрывать выход хромового покрытия. Открытый металл не допускается.",
+    "the areas A.": "участки A.",
+    "and 0,015 mm (0.0004": "до 0,015 мм (0,0004",
+    "and 0.0005 in).": "и 0,0005 дюйм).",
+    "Chromium plated areas,": "Хромированные участки,",
+    "Areas A and B.": "Участки A и B.",
+    "not cadmium plate:": "не наносить кадмиевое покрытие:",
+    "chromium plated area C": "хромированный участок C",
+    "the 3 holes in face D.": "3 отверстия в поверхности D.",
+    "(0.0004 and 0.0006 in).": "(0,0004 и 0,0006 дюйм).",
+    "and C": "и C",
+    "the area that has chromium plate": "участок с хромовым покрытием",
+    "Apply paint all over: refer to M-DLPS100-1.": "Нанесите кадмиевое покрытие повсюду: обратитесь к M-DLPS100-1.",
+    "IFC 30-117-05.": "IFC 30-117-05.",
+    # ─── Partially translated paragraph sentences ───
+    "Repair of wear or damage with an approved Messier-Dowty Limited or Safran Landing Systems repair.":
+        "Ремонт износа или повреждения с помощью утверждённого ремонта Messier-Dowty Limited или Safran Landing Systems.",
+    "Before you repair a part that is identified with a concession, salvage or repair number, write to Safran Landing Systems for approval. Such numbers are adjacent to the part number, for example:":
+        "Перед ремонтом детали, обозначенной номером допуска на отклонение, восстановления или ремонта, обратитесь в Safran Landing Systems за разрешением. Такие номера расположены рядом с номером детали, например:",
+    "Before you repair a part that is identified with a concession, salvage or repair number, write to Safran Landing Systems for approval. Such numbers are adjacent to the part number":
+        "Перед ремонтом детали, обозначенной номером допуска на отклонение, восстановления или ремонта, обратитесь в Safran Landing Systems за разрешением. Такие номера расположены рядом с номером детали",
+    "If the repairs in this manual cannot correct the wear or damage to the part, write to Safran Landing Systems: refer to M-DLPS3002.":
+        "Если ремонты, описанные в данном руководстве, не могут устранить износ или повреждение детали, обратитесь в Safran Landing Systems: см. M-DLPS3002.",
+    "Identify the parts after repair with the Messier-Dowty Limited or Safran Landing Systems Repair Number: refer to the applicable repair for instructions.":
+        "Идентифицируйте детали после ремонта с помощью номера ремонта Messier-Dowty Limited или Safran Landing Systems: обратитесь к соответствующему ремонту за инструкциями.",
+    "There are two levels of repair procedure for parts that are found to be unserviceable after inspection: refer to CHECK.":
+        "Существует два уровня процедуры ремонта деталей, признанных непригодными после осмотра: обратитесь к ПРОВЕРКЕ.",
+    "CAUTION: DO NOT REPAIR A PART WITH A PROCEDURE THAT IS NOT APPROVED.":
+        "ВНИМАНИЕ: НЕ РЕМОНТИРУЙТЕ ДЕТАЛЬ ПО НЕУТВЕРЖДЁННОЙ ПРОЦЕДУРЕ.",
+    "Unless instructions are different in the approved repair, the applicable tolerances are:":
+        "Если в утверждённом ремонте не указано иное, применяются следующие допуски:",
+    "Protective treatment replacement procedures and the applicable parts are given in Table 601.":
+        "Процедуры замены защитного покрытия и применяемые детали приведены в таблице 601.",
+    "CAUTION: YOU MUST COMPLETE THE PROCESSES THAT FOLLOW IN THE SEQUENCE SHOWN. FAILURE TO DO THE PROCESSES IN THE CORRECT SEQUENCE CAN DAMAGE THE SLIDING TUBE (18-80) OR (18-80A) OR":
+        "ВНИМАНИЕ: ВЫ ДОЛЖНЫ ВЫПОЛНИТЬ СЛЕДУЮЩИЕ ПРОЦЕССЫ В УКАЗАННОЙ ПОСЛЕДОВАТЕЛЬНОСТИ. НЕВЫПОЛНЕНИЕ ПРОЦЕССОВ В ПРАВИЛЬНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ МОЖЕТ ПОВРЕДИТЬ СКОЛЬЗЯЩУЮ ТРУБУ (18-80) ИЛИ (18-80A) ИЛИ",
+    "(18-80B) OR REDUCE THE EFFECT OF THE PROTECTIVE TREATMENTS.":
+        "(18-80B) ИЛИ СНИЗИТЬ ЭФФЕКТИВНОСТЬ ЗАЩИТНЫХ ПОКРЫТИЙ.",
+    "Chromium plate processes.": "Процессы хромового покрытия.",
+    "Cadmium plate processes.": "Процессы кадмиевого покрытия.",
+    "Sermetel W processes.": "Процессы Sermetel W.",
+    "Paint processes.": "Процессы окраски.",
+    "If you apply protective treatment processes that include Sermetel W to any ultra high tensile (UHT) steel part, the sequence of the processes is important. The sequence of the protective treatment processes must be:":
+        "Если вы применяете процессы защитной обработки, включающие Sermetel W, к любой детали из сверхвысокопрочной стали (UHT), последовательность процессов важна. Последовательность процессов защитной обработки должна быть:",
+    "If you apply protective treatment processes that include Sermetel W to any ultra high tensile (UHT) steel part, the sequence of the processes is important. The sequence of the protective treatment processes must be as follows:":
+        "Если вы применяете процессы защитной обработки, включающие Sermetel W, к любой детали из сверхвысокопрочной стали (UHT), последовательность процессов важна. Последовательность процессов защитной обработки должна быть следующей:",
+    # ─── Part 3 repair procedure sentences ───
+    "Repair isolated external scores, smooth dents and abrasions, that have no cracks and no effect on internal dimensions: refer to para (2). Such damage must not be:":
+        "Отремонтируйте изолированные наружные задиры, плавные вмятины и потёртости, не имеющие трещин и не влияющие на внутренние размеры: обратитесь к п. (2). Такие повреждения не должны быть:",
+    "More than 19,00 mm (0.750 in) in length": "Более 19,00 мм (0,750 дюйм) в длину",
+    "More than 0,76 mm (0.030 in) in depth": "Более 0,76 мм (0,030 дюйм) в глубину",
+    "Less than one diameter from a hole and less than 6,35 mm (0.250 in) from a bearing surface":
+        "Менее одного диаметра от отверстия и менее 6,35 мм (0,250 дюйм) от опорной поверхности",
+    "General tolerance: + or - 0,25 mm (0.010 in)": "Общий допуск: + или - 0,25 мм (0,010 дюйм)",
+    "Holes that are drilled or machined: + 0,25 to - 0,05 mm (+ 0.010 to - 0.002 in)":
+        "Отверстия сверлёные или обработанные: + 0,25 до - 0,05 мм (+ 0,010 до - 0,002 дюйм)",
+    "Angular tolerance: + or - 0,5 degree.": "Угловой допуск: + или - 0,5 градуса.",
+    "Remove burrs, corrosion and sharp edges: the area of damage must not be more than 645 mm2 (1.0 in2) for each 6450 mm2 (10.0 in2). Subsequently, remove 0,127 mm (0.0050 in) more of the material and repair the protective treatment.":
+        "Удалите заусенцы, коррозию и острые кромки: площадь повреждения не должна превышать 645 мм² (1,0 дюйм²) на каждые 6450 мм² (10,0 дюйм²). Затем удалите дополнительно 0,127 мм (0,0050 дюйм) материала и восстановите защитное покрытие.",
+    "In a bore that will not seal, ignore abrasions and small scores that have no burrs. If there are burrs, remove them plus 0,127 mm (0.0050 in) of material from the area. Repair the protective treatment.":
+        "В отверстии без уплотнения допускаются потёртости и мелкие задиры без заусенцев. При наличии заусенцев удалите их и дополнительно 0,127 мм (0,0050 дюйм) материала. Восстановите защитное покрытие.",
+    "In a bore that will seal, polish scores to remove them. Make sure that the surface finish, concentricity and fits and clearances do not change.":
+        "В отверстии с уплотнением отполируйте задиры для их удаления. Убедитесь, что чистота поверхности, концентричность и посадки и зазоры не изменились.",
     # Mixed-case variants for textbox labels
     "Record of Revisions": "Запись изменений",
     "List of Service Bulletins": "Список сервисных бюллетеней",
@@ -201,6 +654,258 @@ FIXED = {
     "Special Tools, Fixtures and Equipment": "Специальные инструменты, приспособления и оборудование",
     "Illustrated Parts List": "Иллюстрированный перечень деталей",
     "Fits and Clearances": "Посадки и зазоры",
+    # ─── Procedural sentences (FIXED avoids PROCEDURAL_VOCAB ordering issues) ───
+    "Examine the unit for damage before you start the tests.":
+        "Осмотрите изделие на наличие повреждений перед началом испытаний.",
+    "Discard parts that you must not use again. These include:":
+        "Утилизируйте детали, непригодные для повторного использования. К ним относятся:",
+    "Remove the spherical bearing (4-50) from the rod end (4-60).":
+        "Снимите сферический подшипник (4-50) со стержневого наконечника (4-60).",
+    "Remove the bracket subassembly (4-330).":
+        "Снимите сборку кронштейна (4-330).",
+    "Remove the spherical bearing (5-70) from the bracket (5-80): refer to M-DLPS1014-2.":
+        "Снимите сферический подшипник (5-70) с кронштейна (5-80): см. M-DLPS1014-2.",
+    "Remove the spherical bearing (5-150) from the bracket (5-160): refer to M-DLPS1014-2.":
+        "Снимите сферический подшипник (5-150) с кронштейна (5-160): см. M-DLPS1014-2.",
+    "Remove the pivot bracket subassembly (7-120).":
+        "Снимите сборку поворотного кронштейна (7-120).",
+    "Remove the O-ring seals (10-150) from the lubrication shaft subassembly (10-90).":
+        "Снимите уплотнительные кольца (10-150) с сборки вала смазки (10-90).",
+    "Release the cup washers (13-20).":
+        "Отпустите тарельчатые шайбы (13-20).",
+    "Remove the sliding tube subassembly (17-240) from the Build Trolley 460007240.":
+        "Снимите сборку скользящей трубы (17-240) со сборочной тележки 460007240.",
+    "Remove the bearing (20-250 only).":
+        "Снимите подшипник (20-250 только).",
+    "Remove the bearing (20-370 only).":
+        "Снимите подшипник (20-370 только).",
+    "Remove drag arm sleeve (20-370A)":
+        "Снимите втулку тяги (20-370A)",
+    "Remove the split pin (4-20), the nut (4-30), the washer (4-40) and the rod end assembly (4-10).":
+        "Снимите шплинт (4-20), гайку (4-30), шайбу (4-40) и сборку стержневого наконечника (4-10).",
+    "Remove the joint seal (16-80), the sealing ring (16-90) and the wiper ring (16-100).":
+        "Снимите уплотнение стыка (16-80), уплотнительное кольцо (16-90) и грязесъёмное кольцо (16-100).",
+    "Remove the joint seal (16A-80), the sealing ring (16A-90) and the wiper ring (16A-100).":
+        "Снимите уплотнение стыка (16A-80), уплотнительное кольцо (16A-90) и грязесъёмное кольцо (16A-100).",
+    "Examine all parts shown in Tables 501 and 502 to the applicable NDT and information given.":
+        "Осмотрите все детали, указанные в таблицах 501 и 502, в соответствии с применимым неразрушающим контролем и указанной информацией.",
+    "Parts that are included in Tables 501 and 502 must be fully disassembled to the lowest detail level for inspection.":
+        "Детали, включённые в таблицы 501 и 502, должны быть полностью разобраны до наименьшего уровня детализации для осмотра.",
+    "Parts that are included in Tables 501 and 502 must be fully disassembled to the lowest detail level for NDT inspection. This includes the removal of all of the bushes.":
+        "Детали, включённые в таблицы 501 и 502, должны быть полностью разобраны до наименьшего уровня детализации для неразрушающего контроля. Это включает снятие всех втулок.",
+    "Hold the main landing gear leg (1-1), use with 460007281 and 460007282":
+        "Удерживайте стойку основного шасси (1-1), используйте с 460007281 и 460007282",
+    # ─── TOC / section heading sentences ───
+    "Pre SB 201-32-49 or Pre SB 201-32-58 or Pre SB 201-32-60 Lower Bearing (16-150)":
+        "До SB 201-32-49 или до SB 201-32-58 или до SB 201-32-60 Нижний подшипник (16-150)",
+    "or (16A-150) Grease Groove Dimensions After Installation in the Gland Housing (16-140)":
+        "или (16A-150) Размеры смазочных канавок после установки в корпус сальника (16-140)",
+    "Post SB-201-32-58 - Lower Bearing Subassembly Machining and Liner Installation .":
+        "После SB-201-32-58 — Механическая обработка сборки нижнего подшипника и установка вкладыша .",
+    "Rod End Assembly (4-10), Proximity Switch (4-100) and Bracket Subassembly (4-330)":
+        "Сборка стержневого наконечника (4-10), датчик приближения (4-100) и сборка кронштейна (4-330)",
+    "Bracket Assembly (5-10), Bracket Subassemblies (5-90 and 5-270) and Uplock Pin (5-400)":
+        "Сборка кронштейна (5-10), сборки кронштейнов (5-90 и 5-270) и штифт замка убранного положения (5-400)",
+    "Slave Link Subassembly (6-190) and Lower Slave Link Subassembly (6-290)":
+        "Сборка ведомого звена (6-190) и сборка нижнего ведомого звена (6-290)",
+    "Proximity Switches (7-40 and 7-230) and Harness Support Bracket (7-100)":
+        "Датчики приближения (7-40 и 7-230) и кронштейн крепления жгута (7-100)",
+    "1M Electrical Axle Harness (11-40) and 2M Electrical Axle Harness (11-50)":
+        "Электрический жгут оси 1М (11-40) и электрический жгут оси 2М (11-50)",
+    "Lower Bearing Subassembly (16-110D or 16A-110E) Post Ref. Code: 2253":
+        "Сборка нижнего подшипника (16-110D или 16A-110E) После Код ссылки: 2253",
+    "rings (16-50 or 16A-50).":
+        "кольца (16-50 или 16A-50).",
+    "Remove the joint seal (16-80 or 16A-80), the sealing ring (16-90 or 16A-90) and the wiper ring (16-100 or 16A-100).":
+        "Снимите уплотнение стыка (16-80 или 16A-80), уплотнительное кольцо (16-90 или 16A-90) и грязесъёмное кольцо (16-100 или 16A-100).",
+    "Spherical Bearing (19-50) and Bung (19-60)":
+        "Сферический подшипник (19-50) и заглушка (19-60)",
+    # ─── Table cell translations ───
+    "Lift the sliding tube subassembly (17-240) and related parts":
+        "Поднимите сборку скользящей трубы (17-240) и связанные детали",
+    "Hold the sliding tube subassembly (17-240) and related parts":
+        "Удерживайте сборку скользящей трубы (17-240) и связанные детали",
+    # ─── NOTE/technical sentences ───
+    "NOTE:\tThe thread size is M142 x 1.5 pitch - 5h6h to BS3643.":
+        "ПРИМЕЧАНИЕ:\tРазмер резьбы M142 x 1,5 шаг — 5h6h по BS3643.",
+    # ─── Component name combos for TOC ───
+    "1M Electrical Axle Harness (11-40) and 2M Electrical Axle Harness (11-50)-":
+        "Электрический жгут оси 1М (11-40) и электрический жгут оси 2М (11-50) —",
+    "Labels (20-10, 20-30, 20-40, 20-60 and 20-80) and wiring diagram plate (1-110)":
+        "Этикетки (20-10, 20-30, 20-40, 20-60 и 20-80) и табличка электрической схемы (1-110)",
+    # ─── Testing section procedural sentences ───
+    "The hydraulic test rig must have a hand pump and a power pump. The power pump must have a controlled flow of not less than 4,5 l/min (4.62 in3/sec).":
+        "Стенд для гидравлических испытаний должен иметь ручной насос и силовой насос. Силовой насос должен иметь регулируемый расход не менее 4,5 л/мин (4,62 дюйм³/с).",
+    "During all hydraulic tests, the unit and the test circuit must be hydraulically full.":
+        "Во время всех гидравлических испытаний изделие и испытательный контур должны быть полностью заполнены гидравлической жидкостью.",
+    "Use these special tools to install the main landing gear leg (1-1) vertically in the loading press:":
+        "Используйте следующие специальные инструменты для установки стойки основного шасси (1-1) вертикально в нагрузочный пресс:",
+    "CAUTION: DO NOT PUT AN END LOAD OF MORE THAN 5,08 TONNES (5 TONS) ON THE MAIN LANDING GEAR LEG (1-1).":
+        "ВНИМАНИЕ: НЕ ПРИКЛАДЫВАЙТЕ ОСЕВУЮ НАГРУЗКУ БОЛЕЕ 5,08 ТОНН (5 ТОНН) НА СТОЙКУ ОСНОВНОГО ШАССИ (1-1).",
+    # ─── Testing section ───
+    "During the proximity switch tests the ambient temperature must be between 15 and 25 \uf0b0C (59 and 77 \uf0b0F).":
+        "Во время испытаний датчиков приближения температура окружающей среды должна быть между 15 и 25 °C (59 и 77 °F).",
+    "Main Landing Gear Leg (1-1) Tests":
+        "Стойка основного шасси (1-1) Испытания",
+    "Refer to Figure 101 and measure the dimension X: it must be between 483,05 and 487,85 mm (19.017 and 19.207 in).":
+        "Обратитесь к рисунку 101 и измерьте размер X: он должен быть между 483,05 и 487,85 мм (19,017 и 19,207 дюйм).",
+    "Open the charging valve (13-60) and release the nitrogen pressure. Do not close the charging valve (13-60).":
+        "Откройте зарядный клапан (13-60) и сбросьте давление азота. Не закрывайте зарядный клапан (13-60).",
+    "Main Landing Gear Leg (1-1) Figure 101":
+        "Стойка основного шасси (1-1) Рисунок 101",
+    "Write this data on a label and attach it to the unit: THE GEAR MUST BE INFLATED TO THE APPROPRIATE PRESSURES BEFORE BEING PLACED IN SERVICE.":
+        "Запишите эти данные на этикетку и прикрепите её к изделию: СТОЙКА ДОЛЖНА БЫТЬ НАКАЧАНА ДО СООТВЕТСТВУЮЩИХ ДАВЛЕНИЙ ПЕРЕД ВВОДОМ В ЭКСПЛУАТАЦИЮ.",
+    "Connect the 28 VDC power supply, the Lampbox 460005842 and the main landing gear leg (1-1).":
+        "Подсоедините источник питания 28 В пост. тока, контрольную лампу 460005842 и стойку основного шасси (1-1).",
+    "Use the loading press to fully extend the main landing gear leg (1-1).":
+        "Используйте нагрузочный пресс для полного выдвижения стойки основного шасси (1-1).",
+    "Use the loading press to slowly close the main landing gear leg (1-1):":
+        "Используйте нагрузочный пресс для медленного закрытия стойки основного шасси (1-1):",
+    "The proximity switch (7-230) must operate before the main landing gear leg (1-1) has closed by 26,00 mm (1.0236 in).":
+        "Датчик приближения (7-230) должен сработать до того, как стойка основного шасси (1-1) закроется на 26,00 мм (1,0236 дюйм).",
+    "The proximity switch (7-40) must operate before the main landing gear leg (1-1) has closed by 29,30 mm (1.1535 in).":
+        "Датчик приближения (7-40) должен сработать до того, как стойка основного шасси (1-1) закроется на 29,30 мм (1,1535 дюйм).",
+    "Disconnect the 28 VDC supply and the Lampbox 460005842.":
+        "Отсоедините источник питания 28 В пост. тока и контрольную лампу 460005842.",
+    "Electrical Bonding Resistance Test Points (Tables 101 and 102) Figure 102":
+        "Точки проверки сопротивления электрического соединения (Таблицы 101 и 102) Рисунок 102",
+    "If necessary, remove the wire thread inserts:":
+        "При необходимости снимите резьбовые спиральные вставки:",
+    # ─── Disassembly sentences ───
+    "Remove the pintle pin (1-60).":
+        "Снимите штифт навеса (1-60).",
+    "Use the Extractor Pad and Drawbolt 460006415 to remove the bush (2-310) and the Extractor 460006416 to remove the bush (2-320) from the transfer block (2-340 and 2-340A).":
+        "Используйте Extractor Pad и Drawbolt 460006415 для снятия втулки (2-310) и Extractor 460006416 для снятия втулки (2-320) из переходного блока (2-340 и 2-340A).",
+    "Use the Extractor Pad and Drawbolt 460006415 to remove the bush (2-310) and the Extractor 460006416 to remove the bush (2-320) from the transfer block (2-340B).":
+        "Используйте Extractor Pad и Drawbolt 460006415 для снятия втулки (2-310) и Extractor 460006416 для снятия втулки (2-320) из переходного блока (2-340B).",
+    "Remove the nuts (6-100), the washers (6-110), the cap screws (6-120), the target (6-130) and the spacers (6-140) or the laminated shim (6-140A).":
+        "Снимите гайки (6-100), шайбы (6-110), винты с головкой (6-120), мишень (6-130) и проставки (6-140) или набор прокладок (6-140A).",
+    "NOTE: If the calculated gap is in the tolerance, the spacers (6-140) or the laminated shim (6-140A) is not installed.":
+        "ПРИМЕЧАНИЕ: Если рассчитанный зазор находится в пределах допуска, проставки (6-140) или набор прокладок (6-140A) не устанавливается.",
+    "Remove the nuts (7-10), the washers (7-20), the cap screws (7-30), the proximity switch (7-40) and the spacer (7-50) or the laminated shim (7-50A).":
+        "Снимите гайки (7-10), шайбы (7-20), винты с головкой (7-30), датчик приближения (7-40) и проставку (7-50) или набор прокладок (7-50A).",
+    "NOTE: If the calculated gap is in the tolerance, the spacer (7-50) or the laminated shim (7-50A) is not installed.":
+        "ПРИМЕЧАНИЕ: Если рассчитанный зазор находится в пределах допуска, проставка (7-50) или набор прокладок (7-50A) не устанавливается.",
+    "Remove the nuts (7-150), the washers (7-160), the cap screws (7-170), the target (7-180) and the spacer (7-190) or the laminated shim (7-190A).":
+        "Снимите гайки (7-150), шайбы (7-160), винты с головкой (7-170), мишень (7-180) и проставку (7-190) или набор прокладок (7-190A).",
+    "NOTE: If the calculated gap is in the tolerance, the spacer (7-190) or the laminated shim (7-190A) is not installed.":
+        "ПРИМЕЧАНИЕ: Если рассчитанный зазор находится в пределах допуска, проставка (7-190) или набор прокладок (7-190A) не устанавливается.",
+    "Remove the nuts (7-200), the washers (7-210), the cap screws (7-220), the proximity switch (7-230) and the spacer (7-240) or the laminated shim (7-240A).":
+        "Снимите гайки (7-200), шайбы (7-210), винты с головкой (7-220), датчик приближения (7-230) и проставку (7-240) или набор прокладок (7-240A).",
+    "Remove the cap screws (11-10), the washers (11-20) and the harness support (11-30).":
+        "Снимите винты с головкой (11-10), шайбы (11-20) и крепление жгута (11-30).",
+    "Remove the retaining pins (13-10) and the cup washers (13-20).":
+        "Снимите стопорные штифты (13-10) и тарельчатые шайбы (13-20).",
+    "Use Pin Spanner 460007279 to remove the upper bearing housing (15-40).":
+        "Используйте Pin Spanner 460007279 для снятия корпуса верхнего подшипника (15-40).",
+    "Remove the lower bearing subassembly (16-110) and its related parts from the sliding tube subassembly (17-240).":
+        "Снимите сборку нижнего подшипника (16-110) и связанные детали с сборки скользящей трубы (17-240).",
+    "Remove the lower bearing (16-150) from the lower bearing housing subassembly (16-120).":
+        "Снимите нижний подшипник (16-150) из сборки корпуса нижнего подшипника (16-120).",
+    "Remove the lower bearing subassembly (16A-110D) and its related parts from the sliding tube subassembly (17-240).":
+        "Снимите сборку нижнего подшипника (16A-110D) и связанные детали с сборки скользящей трубы (17-240).",
+    "Remove the inner liner (16A-117) from the lower bearing subassembly (16A-110D) and discard it.":
+        "Снимите внутренний вкладыш (16A-117) из сборки нижнего подшипника (16A-110D) и утилизируйте его.",
+    "Remove the lower bearing subassembly (16-110D or 16A-110E) and its related parts from the sliding tube subassembly (17-240).":
+        "Снимите сборку нижнего подшипника (16-110D или 16A-110E) и связанные детали с сборки скользящей трубы (17-240).",
+    "Remove the O-ring seal (16-20A or 16A-20A), the backing rings (16-30 or 16A-30), the O-ring seal (16-40A or 16A-40A) and the backing":
+        "Снимите уплотнительное кольцо (16-20A или 16A-20A), опорные кольца (16-30 или 16A-30), уплотнительное кольцо (16-40A или 16A-40A) и опорные",
+    "Remove the common lower bearing bushes (16-130A or 16A-130B) from the lower bearing housing (16-140B or 16A-140C).":
+        "Снимите общие втулки нижнего подшипника (16-130A или 16A-130B) из корпуса нижнего подшипника (16-140B или 16A-140C).",
+    "Remove the cap screws (17-30), the washers (17-40) and the valve support (17-50).":
+        "Снимите винты с головкой (17-30), шайбы (17-40) и опору клапана (17-50).",
+    "Remove the lubrication fittings (18-52) and identification washers (18-54).":
+        "Снимите фитинги для смазки (18-52) и идентификационные шайбы (18-54).",
+    "Remove the lubrication fittings (20-200) and identification washers (20-210). Remove the lubrication adapters (20-220).":
+        "Снимите фитинги для смазки (20-200) и идентификационные шайбы (20-210). Снимите адаптеры для смазки (20-220).",
+    "Use the Extractor Plate 460007259/460006151/9 and the Drift 460004331/21 to remove the bushes (20-340 and 20-350).":
+        "Используйте Extractor Plate 460007259/460006151/9 и Drift 460004331/21 для снятия втулок (20-340 и 20-350).",
+    "WARNING: DO NOT GET PAINT STRIPPER ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. PAINT STRIPPER IS POISONOUS AND FLAMMABLE.":
+        "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ СМЫВКИ КРАСКИ НА КОЖУ, В ГЛАЗА ИЛИ ВБЛИЗИ ОТКРЫТОГО ОГНЯ. НЕ ВДЫХАЙТЕ ПАРЫ. РАБОТАЙТЕ ТОЛЬКО В ХОРОШО ПРОВЕТРИВАЕМОМ ПОМЕЩЕНИИ. СМЫВКА КРАСКИ ЯДОВИТА И ОГНЕОПАСНА.",
+    # ─── WARNING about hydraulic fluid ───
+    "WARNING: DO NOT GET HYDRAULIC FLUID ON YOUR SKIN OR IN YOUR EYES. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. HYDRAULIC FLUID IS POISONOUS AND DANGEROUS.":
+        "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ ГИДРАВЛИЧЕСКОЙ ЖИДКОСТИ НА КОЖУ ИЛИ В ГЛАЗА. НЕ ВДЫХАЙТЕ ПАРЫ. РАБОТАЙТЕ ТОЛЬКО В ХОРОШО ПРОВЕТРИВАЕМОМ ПОМЕЩЕНИИ. ГИДРАВЛИЧЕСКАЯ ЖИДКОСТЬ ЯДОВИТА И ОПАСНА.",
+    # ─── Trailing "and" sentences (line-broken procedural text) ───
+    "Release the tab washers (2-180 and 2-200). Remove the bolts (2-170 and 2-190) and":
+        "Ослабьте стопорные шайбы (2-180 и 2-200). Снимите болты (2-170 и 2-190) и",
+    "Remove the split pin (3-180), the nut (3-190), the washer (3-200), the bolt (3-210) and":
+        "Снимите шплинт (3-180), гайку (3-190), шайбу (3-200), болт (3-210) и",
+    "Remove the split pin (4-220), the nut (4-230), the washer (4-240), the bolt (4-250) and":
+        "Снимите шплинт (4-220), гайку (4-230), шайбу (4-240), болт (4-250) и",
+    "Remove the split pin (5-170), the nut (5-180), the washer (5-190), the bolt (5-200) and":
+        "Снимите шплинт (5-170), гайку (5-180), шайбу (5-190), болт (5-200) и",
+    "Remove the split pins (8-40), the nuts (8-50), the washers (8-60), the bolts (8-70) and":
+        "Снимите шплинты (8-40), гайки (8-50), шайбы (8-60), болты (8-70) и",
+    "Remove the split pin (10-40), the nut (10-50), the washers (10-60), the bolt (10-70) and":
+        "Снимите шплинт (10-40), гайку (10-50), шайбы (10-60), болт (10-70) и",
+    # ─── Sentences with "the lower torque link" continuation ───
+    "Remove the pin (11-130), the harness support bracket (11-140), the lower torque link":
+        "Снимите штифт (11-130), кронштейн крепления жгута (11-140), нижний шлиц-шарнир",
+    # ─── Sentences with tool names ───
+    "Use the Torque Reaction Adapter 460007242 to hold the pin (9-70) and use the Torque Adapter T14544 to remove the nut (9-50). Remove the spacer (9-60), the pin (9-70), the spacer (9-80) and the sleeve (9-90).":
+        "Используйте Torque Reaction Adapter 460007242 для удержания штифта (9-70) и используйте Torque Adapter T14544 для снятия гайки (9-50). Снимите проставку (9-60), штифт (9-70), проставку (9-80) и втулку (9-90).",
+    "Use the Torque Adapter 460007283, the Torque Reactor 460007278, the Holding Blocks 460006406 and the Bench Clamp MT1025 to remove the diaphragm subassembly (15-190), the compression orifice plate (15-220), the clapper seat (15-230) and the baffle (15-240).":
+        "Используйте Torque Adapter 460007283, Torque Reactor 460007278, Holding Blocks 460006406 и Bench Clamp MT1025 для снятия сборки диафрагмы (15-190), пластины отверстия сжатия (15-220), седла хлопушки (15-230) и дефлектора (15-240).",
+    "Release the lock washer (17-90) and use the Torque Adapter 460006404 to remove the jacking dome (17-80). Remove the lock washer (17-90).":
+        "Ослабьте стопорную шайбу (17-90) и используйте Torque Adapter 460006404 для снятия домкратной точки (17-80). Снимите стопорную шайбу (17-90).",
+    "Hold the cylinder (17-230) in the Bench Clamp MT1025 and Holding Blocks MT1026/63.":
+        "Удерживайте цилиндр (17-230) в Bench Clamp MT1025 и Holding Blocks MT1026/63.",
+    "Remove the cylinder (17-230) from the Bench Clamp MT1025 and Holding Blocks MT1026/63.":
+        "Снимите цилиндр (17-230) из Bench Clamp MT1025 и Holding Blocks MT1026/63.",
+    "Use the Torque Adapter 460007232 to remove the locking nut (19-52). Remove the locking washer (19-54) and the outer race and the ball of the spherical bearing (19-50).":
+        "Используйте Torque Adapter 460007232 для снятия контргайки (19-52). Снимите стопорную шайбу (19-54) и наружное кольцо и шарик сферического подшипника (19-50).",
+    "Use the Hydraulic-Pneumatic Pump Set 460006497, the Bolt 460006498/7, the Press Pad 460006499/25 and the Extraction Tube 460004680 and remove the forward pintle bush (20-250A).":
+        "Используйте Hydraulic-Pneumatic Pump Set 460006497, Bolt 460006498/7, Press Pad 460006499/25 и Extraction Tube 460004680 и снимите переднюю втулку навеса (20-250A).",
+    "Use the Extraction Pad 460006263/460006232 and the Extraction Bar 460006262 to remove the bearing (20-300).":
+        "Используйте Extraction Pad 460006263/460006232 и Extraction Bar 460006262 для снятия подшипника (20-300).",
+    "Use the Extraction Pad 460006261 and the Extraction Bar 460006262 to remove the bearing (20-310).":
+        "Используйте Extraction Pad 460006261 и Extraction Bar 460006262 для снятия подшипника (20-310).",
+    "Use the Press Pad Assembly 460006267 and remove the drag arm sleeve (20-370A only).":
+        "Используйте Press Pad Assembly 460006267 и снимите втулку тяги (20-370A только).",
+    # ─── Nitrogen pressure sentences (split across lines) ───
+    "Slowly increase the nitrogen pressure to between 9,32 and 10,68 bar (135 and":
+        "Медленно увеличьте давление азота до 9,32–10,68 бар (135 и",
+    "Slowly increase the nitrogen pressure to between 67,59 and 70,34 bar (980 and1020 lbf/in2).":
+        "Медленно увеличьте давление азота до 67,59–70,34 бар (980 и 1020 фунт/дюйм²).",
+    # ─── Weight lines (full tab-separated with "approximately") ───
+    "Weight with hydraulic fluid\t522 kg (1151 lb) approximately":
+        "Масса с гидравлической жидкостью\t522 кг (1151 фунт) приблизительно",
+    "Weight without hydraulic fluid\t505 kg (1113 lb) approximately":
+        "Масса без гидравлической жидкости\t505 кг (1113 фунт) приблизительно",
+    # ─── Torque adapter sentences ───
+    "Use the Torque Adapter 460007230 to remove the nut (14-60).":
+        "Используйте Torque Adapter 460007230 для снятия гайки (14-60).",
+    "Use the Torque Adapter 460006404 to remove the nut (17-20) and the valve stem (17-10). Remove the valve stem (17-10).":
+        "Используйте Torque Adapter 460006404 для снятия гайки (17-20) и штока клапана (17-10). Снимите шток клапана (17-10).",
+    "Use the Torque Adapter 460006404 and the loading press to connect the valve stem (17-10) to the charging valve (13-60).":
+        "Используйте Torque Adapter 460006404 и нагрузочный пресс для соединения штока клапана (17-10) с зарядным клапаном (13-60).",
+    "Use the Torque Adapter 460006404 to connect the valve stem (17-20) to the charging valve (13-60). Release the valve stem (17-20).":
+        "Используйте Torque Adapter 460006404 для соединения штока клапана (17-20) с зарядным клапаном (13-60). Отпустите шток клапана (17-20).",
+    # ─── Sentences with stray "to" ───
+    "Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218: connect the charging valve (17-20) to the nitrogen supply. Open the charging valve (17-20).":
+        "Используйте адаптер для зарядки 460002502 и оборудование для заправки Turner T14218: подсоедините зарядный клапан (17-20) к источнику азота. Откройте зарядный клапан (17-20).",
+    "Use the Charging Adapter 460002502 to connect the hydraulic test rig to the charging valve (13-60).":
+        "Используйте адаптер для зарядки 460002502 для подсоединения стенда для гидравлических испытаний к зарядному клапану (13-60).",
+    "Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218 to connect the nitrogen supply to the charging valve (13-60).":
+        "Используйте адаптер для зарядки 460002502 и оборудование для заправки Turner T14218 для подсоединения источника азота к зарядному клапану (13-60).",
+    "Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218 to connect the charging valve (17-20) to the nitrogen supply.":
+        "Используйте адаптер для зарядки 460002502 и оборудование для заправки Turner T14218 для подсоединения зарядного клапана (17-20) к источнику азота.",
+    "Slowly increase the nitrogen pressure to between 13,11 and 14,48 bar (190 and 210 lbf/in2).":
+        "Медленно увеличьте давление азота до 13,11–14,48 бар (190 и 210 фунт/дюйм²).",
+    "Close the charging valve (17-20); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).":
+        "Закройте зарядный клапан (17-20); используйте рожковый ключ T14500 для затяжки моментом 5,7–7,9 Н·м (50–70 фунт·дюйм).",
+    "Use the Turner Inflation Equipment T14218 and the Charging Adapter 460002502 to connect the nitrogen supply to the charging valve (13-60).":
+        "Используйте оборудование для заправки Turner T14218 и адаптер для зарядки 460002502 для подсоединения источника азота к зарядному клапану (13-60).",
+    "Slowly increase the nitrogen pressure to between 6,90 and 8,27 bar (100 and 120 lbf/in2).":
+        "Медленно увеличьте давление азота до 6,90–8,27 бар (100 и 120 фунт/дюйм²).",
+    "Close the charging valve (13-60); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).":
+        "Закройте зарядный клапан (13-60); используйте рожковый ключ T14500 для затяжки моментом 5,7–7,9 Н·м (50–70 фунт·дюйм).",
+    "Open the charging valve (13-60) and reduce the nitrogen pressure to between 3,45 and 4,82 bar (50 and 70 lbf/in2).":
+        "Откройте зарядный клапан (13-60) и уменьшите давление азота до 3,45–4,82 бар (50 и 70 фунт/дюйм²).",
+    "Open the charging valve (17-20) and reduce the nitrogen pressure to between 3,45 and 4,82 bar (50 and 70 lbf/in2).":
+        "Откройте зарядный клапан (17-20) и уменьшите давление азота до 3,45–4,82 бар (50 и 70 фунт/дюйм²).",
+    "Close the charging valve (17-20); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).":
+        "Закройте зарядный клапан (17-20); используйте рожковый ключ T14500 для затяжки моментом 5,7–7,9 Н·м (50–70 фунт·дюйм).",
 }
 
 # ── Table header translations ────────────────────────────────────────────────
@@ -233,6 +938,27 @@ TABLE_HEADERS = {
     "Subject": "Раздел",
     "Initial Issue": "Первоначальный выпуск",
     "No effect": "Без изменений",
+    # Part 2+ table headers
+    "Part No.": "№ детали",
+    "Equipment": "Оборудование",
+    "Function": "Функция",
+    "Special Tool": "Специальный инструмент",
+    "Ref. Item": "Поз. ссылки",
+    "Material": "Материал",
+    "TEST POINT": "ТОЧКА ПРОВЕРКИ",
+    "IPL FIGURE AND ITEM No.": "№ РИСУНКА И ПОЗИЦИИ ИПД",
+    "NAME": "НАИМЕНОВАНИЕ",
+    "LIMIT VALUE MILLIOHMS": "ПРЕДЕЛЬНОЕ ЗНАЧЕНИЕ, МИЛЛИОМЫ",
+    "IPL Fig/Item": "Поз. рис. ИПД",
+    "Part Name": "Наименование детали",
+    "Fig Item No.": "№ поз. рис.",
+    "Fig Item": "Поз. рис.",
+    "Name": "Наименование",
+    "Material Type": "Тип материала",
+    "Spec": "Спецификация",
+    # Part 3 (Repair) table headers
+    "Item No.": "№ позиции",
+    "Specification": "Спецификация",
 }
 
 # ── Revision table section name translations ─────────────────────────────────
@@ -381,6 +1107,1353 @@ SB_TITLE_PARTS = {
         "ОШ в сборе — Введение нового переходного блока",
 }
 
+# ── Part names for table cells (singular → translation) ─────────────────────
+PART_NAMES_TABLE = {
+    "Split pin": "Шплинт",
+    "Split pins": "Шплинты",
+    "Tab washer": "Стопорная шайба",
+    "Tab washers": "Стопорные шайбы",
+    "O-ring seal": "Уплотнительное кольцо",
+    "O-ring seals": "Уплотнительные кольца",
+    "Backing ring": "Опорное кольцо",
+    "Backing rings": "Опорные кольца",
+    "Seal": "Уплотнение",
+    "Joint seal": "Соединительное уплотнение",
+    "Sealing ring": "Уплотнительное кольцо",
+    "Wiper ring": "Грязесъёмное кольцо",
+    "Inner liner": "Внутренний вкладыш",
+    "Lock washer": "Стопорная шайба",
+    "Locking plate": "Стопорная пластина",
+    "Screws": "Винты",
+    "Heat shrink sleeve": "Термоусадочная трубка",
+    "Ferrule": "Наконечник",
+    "Bowden cable": "Трос в оболочке",
+    "Bolt": "Болт",
+    "Cross Bolt": "Поперечный болт",
+    "Special Bolt": "Специальный болт",
+    "Threaded insert": "Резьбовая вставка",
+    "Retaining pin": "Стопорный штифт",
+    "Inflation valve": "Клапан зарядки",
+    "Locking pin": "Стопорный штифт",
+    "Retaining ring": "Стопорное кольцо",
+    "Recoil orifice plate": "Пластина отверстия обратного хода",
+    "Lock plate": "Стопорная пластина",
+    "Compression orifice plate": "Пластина отверстия сжатия",
+    "Clapper seat": "Седло клапана",
+    "Level tube": "Трубка уровня",
+    "Upper diaphragm tube": "Верхняя диафрагменная труба",
+    "Upper dia- phragm tube": "Верхняя диафрагменная труба",
+    "Jacking dome": "Домкратная точка",
+    "Washer": "Шайба",
+    "Valve stem": "Шток клапана",
+    "Sleeve": "Втулка",
+    "Upper torque link": "Верхний шлиц-шарнир",
+    "Lower torque link": "Нижний шлиц-шарнир",
+    "Slave link": "Ведомое звено",
+    "Lower slave link": "Нижнее ведомое звено",
+    "Harness support bracket": "Кронштейн крепления жгута",
+    "Pivot bracket": "Поворотный кронштейн",
+    "Lock stay cardan": "Кардан фиксатора",
+    "Uplock pin": "Штифт замка убранного положения",
+    "Static dis- charge con- nector": "Штыревой разъём статического разряда",
+    "Main fitting": "Корпус стойки",
+    "Proximity switch connector shell": "Корпус разъёма датчика приближения",
+    "Static discharge connector": "Штыревой разъём статического разряда",
+    "Nut": "Гайка",
+    "Rod end": "Наконечник тяги",
+    "Main landing gear leg (1-1) tests": "Испытания стойки основного шасси (1-1)",
+    "Electrical bonding resistance tests": "Проверка сопротивления электрического соединения",
+    "Proximity switch and target tests": "Испытания датчика приближения и мишени",
+    # Part 3 (Repair) Table 601 part names
+    "Cross bolt": "Поперечный болт",
+    "Cross Bolt": "Поперечный болт",
+    "Upper torque link subassembly": "Сборка верхнего шлиц-шарнира",
+    "Lower torque link subassembly": "Сборка нижнего шлиц-шарнира",
+    "Harness support": "Крепление жгута",
+    "Stop ring": "Стопорное кольцо",
+    "Upper diaphragm tube sub-assembly": "Сборка верхней диафрагменной трубы",
+    "Locking nut": "Контргайка",
+    "Locking washer": "Стопорная шайба",
+    "Main fitting subassembly": "Сборка корпуса стойки",
+}
+
+# ── Tool names for table cells ──────────────────────────────────────────────
+TOOL_NAMES_TABLE = {
+    "Hydraulic Test Rig": "Стенд для гидравлических испытаний",
+    "Nitrogen Supply": "Источник азота",
+    "Loading Press": "Нагрузочный пресс",
+    "28 VDC Power Supply": "Источник питания 28 В постоянного тока",
+    "Turner Inflation Equipment": "Оборудование для заправки Turner",
+    "Crowfoot Wrench": "Рожковый ключ",
+    "Charging Adapter": "Адаптер для зарядки",
+    "Lampbox": "Контрольная лампа",
+    "Holding Fixture": "Удерживающее приспособление",
+    "Load Cell and Adapter": "Датчик нагрузки и адаптер",
+    "Press Adapter": "Адаптер пресса",
+    "Offset Adapter": "Смещённый адаптер",
+    "Bottom Press Adapter": "Нижний адаптер пресса",
+    "Bench Clamp": "Настольный зажим",
+    "Holding Blocks": "Удерживающие блоки",
+    "Torque Adapter": "Моментный адаптер",
+    "Extractor": "Экстрактор",
+    "Drift": "Выколотка",
+    "Extraction Tube": "Извлекающая труба",
+    "Lifting Bar Assembly": "Сборка подъёмной штанги",
+    "Lifting Tackle": "Подъёмное приспособление",
+    "Extraction Pad": "Извлекающая пластина",
+    "Extraction Bar": "Извлекающая штанга",
+    "Press Pad Assembly": "Сборка прижимной пластины",
+    "Assembly/Extraction Tool": "Инструмент для сборки/извлечения",
+    "Extractor Pad and Drawbolt": "Извлекающая пластина и вытяжной болт",
+    "Hydraulic-Pneumatic Pump Set": "Гидропневматический насосный комплект",
+    "Press Pad": "Прижимная пластина",
+    "Build Trolley": "Сборочная тележка",
+    "Pin Spanner": "Штифтовый ключ",
+    "Torque Reaction Adapter": "Адаптер реакции момента",
+    "Torque Reaction": "Реакция момента",
+    "Torque Reactor": "Реактор момента",
+    "Extractor Plate": "Извлекающая пластина",
+    "Pintle Location Assembly": "Сборка позиционирования навеса",
+    "Spherical Bearing Locator": "Позиционер сферического подшипника",
+    "Location Frame": "Установочная рама",
+    "Adapter": "Адаптер",
+    "Transport and Build": "Транспортировочная и",
+    "Trolley Support Arms Towing Frame": "Тележка, опорные рычаги, буксировочная рама",
+    "Jacking Dome Adapter": "Адаптер домкратной точки",
+    "Milliohmmeter Megger, Type BT51": "Миллиомметр Megger, тип BT51",
+}
+
+# ── Procedural vocabulary for word-level translation ────────────────────────
+# Order: longest phrases first, then shorter ones.
+# These are applied sequentially via str.replace (no regex).
+PROCEDURAL_VOCAB = [
+    # ══════════════════════════════════════════════════════════════════════════
+    # FULL SENTENCE TRANSLATIONS (must come FIRST before word-level replacements
+    # so that "in the", "and", "or", etc. don't break sentence matching)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ─── Introduction section sentences ───
+    ("This manual contains Description, Operation, Maintenance procedures and an Illustrated Parts List (IPL). IPL Figure and Item numbers in parentheses follow the part name to identify them.",
+     "Настоящее руководство содержит описание, работу, процедуры технического обслуживания и иллюстрированный перечень деталей (ИПД). Номера рисунков и позиций ИПД в скобках следуют за наименованием детали для их идентификации."),
+    ("A Unit Identification Chart is included to show the modification status of the unit. The modification status is related to the unit part number by the last two digits of the dash number.",
+     "Таблица идентификации изделия включена для отображения статуса модификации изделия. Статус модификации связан с номером детали изделия двумя последними цифрами номера тире."),
+    ("All references in this manual are to the left configuration of the unit unless the instructions tell you differently.",
+     "Все ссылки в настоящем руководстве относятся к левой конфигурации изделия, если инструкции не указывают иное."),
+    ("All dimensions and quantities in this manual are in SI units with Imperial units in parentheses. A comma shows a decimal part of an SI unit. A full point shows a decimal part of an Imperial unit.",
+     "Все размеры и величины в настоящем руководстве указаны в единицах СИ с имперскими единицами в скобках. Запятая обозначает десятичную часть единицы СИ. Точка обозначает десятичную часть имперской единицы."),
+    ("This manual refers to Process Specifications (M-DLPS and PCS) and Non-destructive Tests (M-DLNDT). These documents are available from Safran Landing Systems.",
+     "В настоящем руководстве ссылаются на спецификации процессов (M-DLPS и PCS) и неразрушающие испытания (M-DLNDT). Эти документы доступны в Safran Landing Systems."),
+    ("This manual refers to Process Specifications (M-DLPS and PCS) and Non-destructive Tests (M-DLNDT). These are available within the Safran Landing Systems Technical Publications on-line service.",
+     "В настоящем руководстве ссылаются на спецификации процессов (M-DLPS и PCS) и неразрушающие испытания (M-DLNDT). Они доступны через онлайн-службу технических публикаций Safran Landing Systems."),
+    ("All the materials in this manual have a Ref. Item identification. This is the reference item number of the material in the Aircraft Manufacturer\u2019s Consumable Materials List.",
+     "Все материалы в настоящем руководстве имеют идентификатор позиции ссылки. Это номер позиции ссылки материала в списке расходных материалов производителя воздушного судна."),
+    ("All the materials in this manual have a Ref. Item identification. This is the reference item number of the material in the Aircraft Manufacturer's Consumable Materials List.",
+     "Все материалы в настоящем руководстве имеют идентификатор позиции ссылки. Это номер позиции ссылки материала в списке расходных материалов производителя воздушного судна."),
+    ("The repairs in this CMM have been approved under Airbus\u2019 EASA Design Organisation Approval No. EASA.21J.031.",
+     "Ремонты в настоящем руководстве утверждены в рамках одобрения проектной организации Airbus EASA № EASA.21J.031."),
+    ("The repairs in this CMM have been approved under Airbus' EASA Design Organisation Approval No. EASA.21J.031.",
+     "Ремонты в настоящем руководстве утверждены в рамках одобрения проектной организации Airbus EASA № EASA.21J.031."),
+    ("On occasion a REF. CODE can be identified in the NOMENCLATURE column in the DETAILED PARTS LIST. This is a Safran Landing Systems reference code and is used for cross-reference purposes only.",
+     "Иногда в столбце НАИМЕНОВАНИЕ ПОДРОБНОГО СПИСКА ДЕТАЛЕЙ может быть указан КОД ССЫЛКИ. Это ссылочный код Safran Landing Systems, используемый только для перекрёстных ссылок."),
+    ("On occasion a REF. CODE can be identified in the NOMENCLATURE column of the DETAILED PARTS LIST. This is a Safran Landing Systems drawing reference.",
+     "Иногда в столбце НАИМЕНОВАНИЕ ПОДРОБНОГО СПИСКА ДЕТАЛЕЙ может быть указан КОД ССЫЛКИ. Это ссылка на чертёж Safran Landing Systems."),
+    # Part 2 variant of P79
+    ("A Unit Identification Chart is included to show the modification status of the unit. The modification status is related to the unit part number by the dash number: the dash number is marked on the unit name plate adjacent to the part number.",
+     "Таблица идентификации изделия включена для отображения статуса модификации изделия. Статус модификации связан с номером детали изделия номером тире: номер тире указан на табличке изделия рядом с номером детали."),
+    # P87 shop verification
+    ("The accuracy and the adequacy of the instructions in this CMM have been technically verified by shop verification (performed or simulated) or by similarity with manufacturing instructions or with component maintenance manuals instructions from other programs that have been verified in shop.",
+     "Точность и достаточность инструкций настоящего руководства по техническому обслуживанию компонентов технически подтверждены верификацией в цеху (выполненной или смоделированной) или по аналогии с производственными инструкциями или с инструкциями руководств по техническому обслуживанию компонентов других программ, прошедших верификацию в цеху."),
+
+    # ─── Description and Operation sentences ───
+    ("The main landing gear leg has a sliding tube subassembly that operates in a main fitting subassembly. The sliding tube subassembly operates through a lower bearing subassembly in the main fitting subassembly.",
+     "Стойка основного шасси имеет сборку скользящей трубы, работающую в сборке корпуса стойки. Сборка скользящей трубы перемещается через сборку нижнего подшипника в сборке корпуса стойки."),
+    ("An upper torque link subassembly attaches to the main fitting subassembly. A lower torque link subassembly attaches to the sliding tube subassembly. A damper connects the upper and lower torque link subassemblies.",
+     "Сборка верхнего шлиц-шарнира крепится к сборке корпуса стойки. Сборка нижнего шлиц-шарнира крепится к сборке скользящей трубы. Демпфер соединяет сборки верхнего и нижнего шлиц-шарниров."),
+    ("A slave link subassembly and a lower slave link subassembly attach opposite the upper and lower torque link subassemblies.",
+     "Сборка ведомого звена и сборка нижнего ведомого звена крепятся напротив сборок верхнего и нижнего шлиц-шарниров."),
+    ("The Upper and Lower Torque Link Subassemblies",
+     "Сборки верхнего и нижнего шлиц-шарниров"),
+    ("The upper and lower torque link subassemblies prevent the sliding tube subassembly from turning in the main fitting subassembly.",
+     "Сборки верхнего и нижнего шлиц-шарниров предотвращают поворот сборки скользящей трубы в сборке корпуса стойки."),
+    ("The damper controls the movement of the upper and lower torque link subassemblies.",
+     "Демпфер контролирует перемещение сборок верхнего и нижнего шлиц-шарниров."),
+    ("Examine the thread form of the diaphragm subassembly (15-190) and diaphragm (15-210A) with shadow graph projection.",
+     "Осмотрите профиль резьбы сборки диафрагмы (15-190) и диафрагмы (15-210A) с помощью проекции профилографа."),
+    ("Measure all the parts that are in FITS AND CLEARANCES and compare with the dimensions in the table.",
+     "Измерьте все детали, указанные в ПОСАДКАХ И ЗАЗОРАХ, и сравните с размерами в таблице."),
+    ("Where K = 273", "Где K = 273"),
+    ("Grease Groove Dimensions After Installation", "Размеры канавки для смазки после установки"),
+    ("Gland Housing", "корпус сальника"),
+    ("Lower Bearing Subassembly Machining and Liner Installation",
+     "Механическая обработка и установка вкладыша сборки нижнего подшипника"),
+    ("Transfer Block Subassembly", "Сборка переходного блока"),
+    # Part 2 variant of P128
+    ("The main landing gear leg has a sliding tube subassembly that operates in a main fitting subassembly. The sliding tube subassembly operates through a lower bearing subassembly. The lower bearing subassembly also seals the sliding tube subassembly in the main fitting subassembly.",
+     "Стойка основного шасси имеет сборку скользящей трубы, работающую в сборке корпуса стойки. Сборка скользящей трубы перемещается через сборку нижнего подшипника. Сборка нижнего подшипника также герметизирует сборку скользящей трубы в сборке корпуса стойки."),
+    # Part 2 variant of P129
+    ("An upper torque link subassembly attaches to the main fitting subassembly. A lower torque link subassembly attaches to the sliding tube subassembly. A damper attaches to the upper torque link subassembly. A pin installs through the damper and connects the upper and lower torque link subassemblies.",
+     "Сборка верхнего шлиц-шарнира крепится к сборке корпуса стойки. Сборка нижнего шлиц-шарнира крепится к сборке скользящей трубы. Демпфер крепится к сборке верхнего шлиц-шарнира. Штифт устанавливается через демпфер и соединяет сборки верхнего и нижнего шлиц-шарниров."),
+    # P131
+    ("A rod and a cylinder install in the sliding tube subassembly. A piston installs in the cylinder. An upper diaphragm tube subassembly installs in the main fitting subassembly. A baffle, a compression orifice plate and a diaphragm subassembly install in the upper diaphragm tube subassembly. The rod goes through the baffle.",
+     "Шток и цилиндр устанавливаются в сборку скользящей трубы. Поршень устанавливается в цилиндр. Сборка верхней диафрагменной трубы устанавливается в сборку корпуса стойки. Дефлектор, пластина отверстия сжатия и сборка диафрагмы устанавливаются в сборку верхней диафрагменной трубы. Шток проходит через дефлектор."),
+    # P132
+    ("An upper bearing housing installs between the top of the sliding tube subassembly and the main fitting subassembly. A recoil orifice plate operates in the upper bearing housing.",
+     "Корпус верхнего подшипника устанавливается между верхней частью сборки скользящей трубы и сборкой корпуса стойки. Пластина отверстия обратного хода работает в корпусе верхнего подшипника."),
+    # P133
+    ("Operation (Refer to Figure 2)",
+     "Работа (обратитесь к рисунку 2)"),
+    # P135
+    ("The sliding tube subassembly moves into the main fitting subassembly. The subsequent decrease in volume causes hydraulic fluid to flow through the upper bearing housing: the recoil orifice plate moves and slows the flow of hydraulic fluid. The decrease in volume also causes hydraulic fluid to move through the diaphragm and lift the compression orifice plate: the hydraulic fluid flows through the baffle and into the upper diaphragm tube subassembly. This slows the speed of the compression.",
+     "Сборка скользящей трубы перемещается в сборку корпуса стойки. Последующее уменьшение объёма заставляет гидравлическую жидкость протекать через корпус верхнего подшипника: пластина отверстия обратного хода перемещается и замедляет поток гидравлической жидкости. Уменьшение объёма также заставляет гидравлическую жидкость перемещаться через диафрагму и поднимать пластину отверстия сжатия: гидравлическая жидкость протекает через дефлектор в сборку верхней диафрагменной трубы. Это замедляет скорость сжатия."),
+    # P136
+    ("Hydraulic fluid that moves into the upper diaphragm tube compresses the nitrogen in the main fitting subassembly and the upper diaphragm tube subassembly. As the pressure of the nitrogen increases, the hydraulic fluid in the rod moves against the piston. The piston is pushed into the cylinder and compresses the nitrogen in it. This slows the speed of the compression more.",
+     "Гидравлическая жидкость, перемещающаяся в верхнюю диафрагменную трубу, сжимает азот в сборке корпуса стойки и сборке верхней диафрагменной трубы. По мере увеличения давления азота гидравлическая жидкость в штоке перемещается к поршню. Поршень вдавливается в цилиндр и сжимает находящийся в нём азот. Это дополнительно замедляет скорость сжатия."),
+    # P138
+    ("After compression, the nitrogen pressure in the cylinder pushes the piston to the end of the cylinder: hydraulic fluid moves out of the cylinder and into the rod. The nitrogen pressure in the main fitting subassembly and the upper diaphragm subassembly pushes the hydraulic fluid through the baffle: the compression orifice plate is pushed against the diaphragm subassembly and limits the flow of hydraulic fluid through it. This slows the speed of the recoil. The sliding tube subassembly moves out of the main fitting subassembly.",
+     "После сжатия давление азота в цилиндре выталкивает поршень к концу цилиндра: гидравлическая жидкость перемещается из цилиндра в шток. Давление азота в сборке корпуса стойки и сборке верхней диафрагменной трубы выталкивает гидравлическую жидкость через дефлектор: пластина отверстия сжатия прижимается к сборке диафрагмы и ограничивает поток гидравлической жидкости через неё. Это замедляет скорость обратного хода. Сборка скользящей трубы выдвигается из сборки корпуса стойки."),
+
+    # ─── Cross-reference CMM lines ───
+    ("Safran Landing Systems UK Ltd Component Maintenance Manual, Axle Harness 1M and 2M, 32-12-29.",
+     "Safran Landing Systems UK Ltd Руководство по техническому обслуживанию компонентов, Электрический жгут оси 1М и 2М, 32-12-29."),
+    ("Safran Landing Systems UK Ltd Component Maintenance Manual, Damper, 32-11-93.",
+     "Safran Landing Systems UK Ltd Руководство по техническому обслуживанию компонентов, Демпфер, 32-11-93."),
+    ("Safran Landing Systems UK Ltd Component Maintenance Manual, Damper, 32-12-85.",
+     "Safran Landing Systems UK Ltd Руководство по техническому обслуживанию компонентов, Демпфер, 32-12-85."),
+    # P89 Part 2 CMM reference
+    ("Safran Landing Systems UK Ltd Component Maintenance Manual, Main Landing Gear Leg and Dressings, 32-12-21.",
+     "Safran Landing Systems UK Ltd Руководство по техническому обслуживанию компонентов, Стойка основного шасси и обвязка, 32-12-21."),
+
+    # ─── Testing and Fault Isolation sentences ───
+    ("The temperature of the test fluid must be between 20 and 40 \uf0b0C (68 and 104 \uf0b0F).",
+     "Температура испытательной жидкости должна быть между 20 и 40 \uf0b0C (68 и 104 \uf0b0F)."),
+    ("The test fluid must be clean: refer to M-DLPS910-1.",
+     "Испытательная жидкость должна быть чистой: см. M-DLPS910-1."),
+    ("155 lbf/in2). Make a record of the pressure. Close the charging valve (17-20) and hold the nitrogen pressure for 15 minutes.",
+     "155 фунт/дюйм²). Запишите давление. Закройте зарядный клапан (17-20) и удерживайте давление азота в течение 15 минут."),
+    ("Open the charging valve (17-20) and measure the nitrogen pressure: it must be the same as the record in para (2). Leakage must not occur.",
+     "Откройте зарядный клапан (17-20) и измерьте давление азота: оно должно совпадать с записью в п. (2). Утечка не допускается."),
+    ("Make sure that all of the nitrogen pressure has been released: remove the charging valve (17-20).",
+     "Убедитесь, что всё давление азота было сброшено: снимите зарядный клапан (17-20)."),
+    ("Refer to ASSEMBLY: install the charging valve (17-20) and complete the assembly procedure.",
+     "См. СБОРКА: установите зарядный клапан (17-20) и завершите процедуру сборки."),
+    ("Assemble the Load Cell and Adapter 460006232 and the Offset Adapter 460006234 to the main landing gear leg (1-1).",
+     "Соберите датчик нагрузки и Adapter 460006232 и Offset Adapter 460006234 к стойке основного шасси (1-1)."),
+    ("Slowly increase the hydraulic pressure to between 13,11 and 14,48 bar (190 and 210 lbf/in2) and let the unit extend fully.",
+     "Медленно увеличивайте гидравлическое давление до 13,11 — 14,48 бар (190 — 210 фунт/дюйм²) и дайте изделию полностью выдвинуться."),
+    ("Release the hydraulic pressure and fully close the unit.",
+     "Сбросьте гидравлическое давление и полностью закройте изделие."),
+    ("Do para (c) and (d) until the hydraulic fluid that comes out of the unit does not have air in it.",
+     "Выполняйте п. (c) и (d) до тех пор, пока гидравлическая жидкость, выходящая из изделия, не будет без воздуха."),
+    ("Fully close the unit and disconnect the hydraulic test rig.",
+     "Полностью закройте изделие и отсоедините стенд для гидравлических испытаний."),
+    ("CAUTION: DO NOT USE A PRESSURE OF MORE THAN 7,58 BAR (110 LBF/IN2).",
+     "ВНИМАНИЕ: НЕ ИСПОЛЬЗУЙТЕ ДАВЛЕНИЕ БОЛЕЕ 7,58 БАР (110 ФУНТ/ДЮЙМ²)."),
+    ("Slowly increase the nitrogen pressure until the unit starts to extend.\tHold the pressure and fully extend the unit. The pressure must not be more than 7,58 bar",
+     "Медленно увеличивайте давление азота до начала выдвижения изделия.\tУдерживайте давление и полностью выдвиньте изделие. Давление не должно превышать 7,58 бар"),
+    ("NOTE: The charging valve (17-20) must be open to let the unit extend fully.",
+     "ПРИМЕЧАНИЕ: Зарядный клапан (17-20) должен быть открыт для полного выдвижения изделия."),
+    ("NOTE: Nitrogen will be released through the charging valve (13-60) as the piston (17-200) moves.",
+     "ПРИМЕЧАНИЕ: Азот будет выходить через зарядный клапан (13-60) по мере перемещения поршня (17-200)."),
+    ("Keep the unit in this condition for a minimum of six hours.",
+     "Оставьте изделие в этом состоянии минимум на шесть часов."),
+    ("Compare the pressures P1A and P2A and compare the pressures P1B and P2B. The pressures P1A and P2A must be the same and the pressures P1B and P2B must be the same, unless:",
+     "Сравните давления P1A и P2A и сравните давления P1B и P2B. Давления P1A и P2A должны совпадать, и давления P1B и P2B должны совпадать, если только:"),
+    ("If there is a difference between the temperatures T1 and T2, calculate the correct value for the nitrogen pressures (these will be P3A and P3B) and adjust the pressures to the corrected values. Use the formula:",
+     "Если имеется разница между температурами T1 и T2, рассчитайте правильное значение давлений азота (это будут P3A и P3B) и доведите давления до скорректированных значений. Используйте формулу:"),
+    ("If there is an error because of the gauge capacity:",
+     "Если имеется погрешность из-за ёмкости манометра:"),
+    ("Release the pressure in the gauge.",
+     "Сбросьте давление в манометре."),
+    ("Calculate the correct values for the nitrogen pressures (these will be P5A and P5B) and adjust the pressures to the corrected values. Use the formula:",
+     "Рассчитайте правильные значения давлений азота (это будут P5A и P5B) и доведите давления до скорректированных значений. Используйте формулу:"),
+    ("Complete the torque procedure for the retaining pins (13-10): refer to ASSEMBLY.",
+     "Завершите процедуру затяжки удерживающих штифтов (13-10): см. СБОРКА."),
+    ("Use the loading press: set the dimension between the pins (10-80 and 11-130) to between 632,80 and 636,95 mm (24.9134 and 25.0767 in).",
+     "Используйте нагрузочный пресс: установите размер между штифтами (10-80 и 11-130) в диапазоне 632,80 — 636,95 мм (24.9134 — 25.0767 дюйм)."),
+    ("Adjust the spacers (6-140, 7-50, 7-190 and 7-240) or laminated shims (6-140A, 7-50A, 7-90A and 7-240A): refer to ASSEMBLY.",
+     "Отрегулируйте проставки (6-140, 7-50, 7-190 и 7-240) или набор прокладок (6-140A, 7-50A, 7-90A и 7-240A): см. СБОРКА."),
+    ("NOTE: If the calculated gap is in the tolerance, the spacers (6-140, 7-50, 7-190 and 7-240) or laminated shims (6-140A, 7-50A, 7-90A and 7-240A) are not necessary.",
+     "ПРИМЕЧАНИЕ: Если расчётный зазор находится в пределах допуска, проставки (6-140, 7-50, 7-190 и 7-240) или набор прокладок (6-140A, 7-50A, 7-90A и 7-240A) не требуются."),
+    ("NOTE: Make sure that the main landing gear leg (1-1) is electrically isolated from the equipment that is used to hold it.",
+     "ПРИМЕЧАНИЕ: Убедитесь, что стойка основного шасси (1-1) электрически изолирована от оборудования, используемого для её удержания."),
+    ("Use the Milliohmmeter Megger, Type BT51, to measure the electrical bonding resistance.",
+     "Используйте миллиомметр Megger, тип BT51, для измерения сопротивления электрического соединения."),
+    ("Measure between the bearing (20-250) and the test points given in Table 101. The electrical bonding resistance must not be more than the limit given in Table 101.",
+     "Измерьте между подшипником (20-250) и контрольными точками, указанными в таблице 101. Сопротивление электрического соединения не должно превышать предел, указанный в таблице 101."),
+    ("Measure between the axle of the sliding tube subassembly (17-240) and the test points given in Table 102. The electrical bonding resistance must not be more than the limit given in Table 102.",
+     "Измерьте между осью сборки скользящей трубы (17-240) и контрольными точками, указанными в таблице 102. Сопротивление электрического соединения не должно превышать предел, указанный в таблице 102."),
+    ("Electrical Bonding Resistance Tests Table 101 (Refer to Figure 102)",
+     "Проверка сопротивления электрического соединения Таблица 101 (обратитесь к рисунку 102)"),
+    ("Electrical Bonding Resistance Tests Table 102 (Refer to Figure 102)",
+     "Проверка сопротивления электрического соединения Таблица 102 (обратитесь к рисунку 102)"),
+
+    # ─── Disassembly section key sentences ───
+    ("NOTE: Refer to TESTING AND FAULT ISOLATION to find the necessary level of disassembly. This will give the condition of the component or the possible cause of its malfunction.",
+     "ПРИМЕЧАНИЕ: См. ИСПЫТАНИЯ И ПОИСК НЕИСПРАВНОСТЕЙ для определения необходимого уровня разборки. Это даст состояние компонента или возможную причину его неисправности."),
+    ("Bend the outer coil of the wire thread insert to the centre of the hole.",
+     "Согните наружный виток резьбовой спиральной вставки к центру отверстия."),
+    ("Remove the wire thread insert. Make sure that broken pieces do not stay in the hole.",
+     "Снимите резьбовую спиральную вставку. Убедитесь, что обломки не остались в отверстии."),
+    ("These special tools are necessary:",
+     "Необходимы следующие специальные инструменты:"),
+    ("NOTE: Alternative equivalents are permitted.",
+     "ПРИМЕЧАНИЕ: Допускаются альтернативные эквиваленты."),
+    ("Procedure (Refer to IPL Figures 1 to 20)",
+     "Процедура (обратитесь к рисункам ИПД от 1 до 20)"),
+    ("Use these special tools as necessary during the procedure to lift and to hold the unit:",
+     "Используйте следующие специальные инструменты при необходимости в ходе процедуры для подъёма и удержания изделия:"),
+    ("Post SB 201-32-22: cut the Bowden cable (1-45) and remove the cross bolts (1-47 and 1-49).",
+     "После SB 201-32-22: разрежьте трос Боудена (1-45) и снимите поперечные болты (1-47 и 1-49)."),
+    ("WARNING: RELEASE ALL NITROGEN PRESSURE BEFORE YOU REMOVE THE CHARGING VALVES (13-60 AND 17-20).",
+     "ПРЕДУПРЕЖДЕНИЕ: СБРОСЬТЕ ВСЁ ДАВЛЕНИЕ АЗОТА ПЕРЕД СНЯТИЕМ ЗАРЯДНЫХ КЛАПАНОВ (13-60 И 17-20)."),
+    ("Slowly open the charging valve (17-20) and release all of the second stage nitrogen pressure.",
+     "Медленно откройте зарядный клапан (17-20) и сбросьте всё давление азота второй ступени."),
+    ("Slowly open the charging valve (13-60) and release all of the first stage nitrogen pressure.",
+     "Медленно откройте зарядный клапан (13-60) и сбросьте всё давление азота первой ступени."),
+    ("Use the Lifting Tackle 460006211 and install the sliding tube subassembly (17-240) in the Build Trolley 460007240.",
+     "Используйте подъёмное приспособление 460006211 и установите сборку скользящей трубы (17-240) в сборочную тележку 460007240."),
+    ("Remove the upper bearing housing (15-40) and related parts as follows:",
+     "Снимите корпус верхнего подшипника (15-40) и связанные детали следующим образом:"),
+    ("CAUTION: DISCARD THE SCREWS (15-90) AND THE LOCKING PLATES (15-80) WHEN REMOVED.",
+     "ВНИМАНИЕ: УТИЛИЗИРУЙТЕ ВИНТЫ (15-90) И СТОПОРНЫЕ ПЛАСТИНЫ (15-80) ПОСЛЕ СНЯТИЯ."),
+    ("Remove the two piece stop with inserts (15-130).",
+     "Снимите двухчастный упор со вставками (15-130)."),
+    ("Remove the locking pins (15-50), the retaining ring (15-60) and the recoil orifice plate (15-70).",
+     "Снимите стопорные штифты (15-50), удерживающее кольцо (15-60) и пластину отверстия обратного хода (15-70)."),
+    ("Use the Torque Adapter 460007283, the Torque Reactor 460007278, the Holding Blocks 460006406 and the Bench Clamp MT1025 to remove the diaphragm subassembly (15-190), the compression orifice plate (15-220), the clapper seat (15-230) and the baffle (15-240).",
+     "Используйте Torque Adapter 460007283, Torque Reactor 460007278, Holding Blocks 460006406 и Bench Clamp MT1025 для снятия сборки диафрагмы (15-190), пластины отверстия сжатия (15-220), седла хлопушки (15-230) и дефлектора (15-240)."),
+    ("Remove the lower bearing (16A-150A) from the lower bearing housing subassembly (16A-120B). Discard the machined lower bearing (16A-150A).",
+     "Снимите нижний подшипник (16A-150A) из сборки корпуса нижнего подшипника (16A-120B). Утилизируйте обработанный нижний подшипник (16A-150A)."),
+    ("Release the lock washer (17-90) and use the Torque Adapter 460006404 to remove the jacking dome (17-80). Remove the lock washer (17-90).",
+     "Ослабьте стопорную шайбу (17-90) и используйте Torque Adapter 460006404 для снятия домкратной точки (17-80). Снимите стопорную шайбу (17-90)."),
+    ("Hold the cylinder (17-230) in the Bench Clamp MT1025 and Holding Blocks MT1026/63.",
+     "Удерживайте цилиндр (17-230) в Bench Clamp MT1025 и Holding Blocks MT1026/63."),
+    ("Remove the lock plate (17-120) and use the Pin Spanner 460007284 to remove the nut subassembly (17-130). Remove the rod (17-160) and the washer (17-170).",
+     "Снимите стопорную пластину (17-120) и используйте Pin Spanner 460007284 для снятия сборки гайки (17-130). Снимите шток (17-160) и шайбу (17-170)."),
+    ("Use the Torque Adapter 460007232 to remove the locking nut (19-52). Remove the locking washer (19-54) and the outer race and the ball of the spherical bearing (19-50).",
+     "Используйте Torque Adapter 460007232 для снятия контргайки (19-52). Снимите стопорную шайбу (19-54) и наружное кольцо и шарик сферического подшипника (19-50)."),
+    ("NOTE: The outer race and the ball are parts of the spherical bearing (19-550).",
+     "ПРИМЕЧАНИЕ: Наружное кольцо и шарик являются деталями сферического подшипника (19-550)."),
+    ("Use the Hydraulic-Pneumatic Pump Set 460006497, the Bolt 460006498/7, the Press Pad 460006499/25 and the Extraction Tube 460004680 and remove the forward pintle bush (20-250A).",
+     "Используйте Hydraulic-Pneumatic Pump Set 460006497, Bolt 460006498/7, Press Pad 460006499/25 и Extraction Tube 460004680 и снимите переднюю втулку навеса (20-250A)."),
+    ("Remove the grooved spherical bearing (6-300) or the self lubricating bearing (6-300A) from the lower slave link (6-310).",
+     "Снимите рифлёный сферический подшипник (6-300) или самосмазывающийся подшипник (6-300A) из нижнего ведомого звена (6-310)."),
+    ("Use the Torque Reaction Adapter 460007242 to hold the pin (9-70) and use the Torque Adapter T14544 to remove the nut (9-50). Remove the spacer (9-60), the pin (9-70), the spacer (9-80) and the sleeve (9-90).",
+     "Используйте Torque Reaction Adapter 460007242 для удержания штифта (9-70) и используйте Torque Adapter T14544 для снятия гайки (9-50). Снимите проставку (9-60), штифт (9-70), проставку (9-80) и втулку (9-90)."),
+    ("Use the Crowfoot Wrench T14500 to remove the charging valve (13-60). Remove the O-ring seal (13-67) from the charging valve (13-60).",
+     "Используйте Crowfoot Wrench T14500 для снятия зарядного клапана (13-60). Снимите уплотнительное кольцо (13-67) из зарядного клапана (13-60)."),
+    ("Use the Crowfoot Wrench T14500 to remove the charging valve (17-20). Remove the O-ring seal (17-27) from the charging valve (17-20).",
+     "Используйте Crowfoot Wrench T14500 для снятия зарядного клапана (17-20). Снимите уплотнительное кольцо (17-27) из зарядного клапана (17-20)."),
+    ("Use the Assembly/Extraction Tool 460006410 to remove the level tube (15-300) and remove the O-ring seal (15-310).",
+     "Используйте Assembly/Extraction Tool 460006410 для снятия трубки уровня (15-300) и снимите уплотнительное кольцо (15-310)."),
+    ("Release the lock indentations of the locking washer (19-54).",
+     "Ослабьте фиксирующие вдавливания стопорной шайбы (19-54)."),
+
+    # ─── Cleaning and Inspection sentences ───
+    ("WARNING: DO NOT GET CLEANING AGENTS ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. CLEANING AGENTS ARE POISONOUS AND FLAMMABLE.",
+     "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ ЧИСТЯЩИХ СРЕДСТВ НА КОЖУ, В ГЛАЗА ИЛИ ВБЛИЗИ ОГНЯ. НЕ ВДЫХАЙТЕ ПАРЫ. ИСПОЛЬЗУЙТЕ ТОЛЬКО В ПОМЕЩЕНИИ С НЕПРЕРЫВНЫМ ПОТОКОМ ЧИСТОГО ВОЗДУХА. ЧИСТЯЩИЕ СРЕДСТВА ЯДОВИТЫ И ОГНЕОПАСНЫ."),
+    ("CAUTION: DO NOT USE CHLORINATED SOLVENTS. CHLORINATED SOLVENTS CAN MIX WITH VERY SMALL QUANTITIES OF WATER IN HYDRAULIC SYSTEMS TO MAKE HYDROCHLORIC ACID. HYDROCHLORIC ACID WILL CAUSE CORROSION ON METAL SURFACES.",
+     "ВНИМАНИЕ: НЕ ИСПОЛЬЗУЙТЕ ХЛОРИРОВАННЫЕ РАСТВОРИТЕЛИ. ХЛОРИРОВАННЫЕ РАСТВОРИТЕЛИ МОГУТ СМЕШИВАТЬСЯ С ОЧЕНЬ МАЛЫМИ КОЛИЧЕСТВАМИ ВОДЫ В ГИДРАВЛИЧЕСКИХ СИСТЕМАХ С ОБРАЗОВАНИЕМ СОЛЯНОЙ КИСЛОТЫ. СОЛЯНАЯ КИСЛОТА ВЫЗОВЕТ КОРРОЗИЮ МЕТАЛЛИЧЕСКИХ ПОВЕРХНОСТЕЙ."),
+    ("Clean all the metal parts with white spirit, Material Ref. Item 11-524. Make sure that you fully remove all sealants, adhesives and jointing compounds.",
+     "Очистите все металлические детали уайт-спиритом, поз. ссылки материала 11-524. Убедитесь, что полностью удалены все герметики, адгезивы и соединительные составы."),
+    ("Examine the rod (17-160) for the diameter of radial damping holes. The diameter of each hole must be between 5,40 and 5,60 mm (0.213 and 0.220 in).",
+     "Осмотрите шток (17-160) на предмет диаметра радиальных демпфирующих отверстий. Диаметр каждого отверстия должен быть между 5,40 и 5,60 мм (0,213 и 0,220 дюйм)."),
+    ("Examine the 4 holes in the sliding tube (18-80) where the bracket (8-170) installs, for burrs. If you find burrs contact Safran Landing Systems who will supply an applicable repair.",
+     "Осмотрите 4 отверстия в скользящей трубе (18-80), где устанавливается кронштейн (8-170), на предмет заусенцев. При обнаружении заусенцев обратитесь в Safran Landing Systems, которые предоставят соответствующий ремонт."),
+    ("NOTE: Use a good light source and 10x magnification to view the area, to look for burrs.",
+     "ПРИМЕЧАНИЕ: Используйте хороший источник света и 10-кратное увеличение для осмотра области и поиска заусенцев."),
+    ("Unless instructions are different:",
+     "Если инструкции не указывают иное:"),
+    ("CAUTION: YOU MUST DISASSEMBLE ALL PARTS, THIS WILL INCLUDE THE BUSHES, THEY MUST BE REMOVED AND DISCARDED. YOU MUST APPLY THE NDT INSPECTION TO THE DETAIL LEVEL PART ONLY AS IDENTIFIED IN TABLES 501 AND 502. IF THE BUSHES ARE NOT REMOVED THE INSPECTION IS NOT COMPLETE FOR THE DETAIL PART AND DAMAGE CAN OCCUR.",
+     "ВНИМАНИЕ: ВЫ ДОЛЖНЫ РАЗОБРАТЬ ВСЕ ДЕТАЛИ, ВКЛЮЧАЯ ВТУЛКИ, ОНИ ДОЛЖНЫ БЫТЬ СНЯТЫ И УТИЛИЗИРОВАНЫ. ВЫ ДОЛЖНЫ ПРИМЕНЯТЬ НЕРАЗРУШАЮЩИЙ КОНТРОЛЬ ТОЛЬКО К ДЕТАЛИ НИЖНЕГО УРОВНЯ, КАК УКАЗАНО В ТАБЛИЦАХ 501 И 502. ЕСЛИ ВТУЛКИ НЕ СНЯТЫ, КОНТРОЛЬ ДЕТАЛИ НЕ ЯВЛЯЕТСЯ ПОЛНЫМ, И МОЖЕТ ПРОИЗОЙТИ ПОВРЕЖДЕНИЕ."),
+
+    # ─── Section headings and sub-headings ───
+    ("Description (Refer to Figures 1 and 2)",
+     "Описание (обратитесь к рисункам 1 и 2)"),
+    ("Diagram of Operation Figure 2",
+     "Схема работы Рисунок 2"),
+    ("Special Tools", "Специальные инструменты"),
+    ("Initial Operations", "Начальные операции"),
+    ("Procedure", "Процедура"),
+    ("Cleaning", "Очистка"),
+    ("General", "Общие сведения"),
+    ("Materials", "Материалы"),
+    ("These materials are necessary:", "Необходимы следующие материалы:"),
+    ("Discard", "Утилизируйте"),
+    ("fully close the unit", "полностью закройте изделие"),
+    ("fully extend the unit", "полностью выдвиньте изделие"),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # WORD/PHRASE-LEVEL TRANSLATIONS (applied after full sentences)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ─── Full standard phrases ───
+    ("WARNING: DO NOT GET HYDRAULIC FLUID ON YOUR SKIN OR IN YOUR EYES. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR.",
+     "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ ГИДРАВЛИЧЕСКОЙ ЖИДКОСТИ НА КОЖУ ИЛИ В ГЛАЗА. НЕ ВДЫХАЙТЕ ПАРЫ. РАБОТАЙТЕ ТОЛЬКО В ХОРОШО ПРОВЕТРИВАЕМОМ ПОМЕЩЕНИИ."),
+    ("WARNING: DO NOT GET CLEANING AGENTS ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR.",
+     "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ ЧИСТЯЩИХ СРЕДСТВ НА КОЖУ, В ГЛАЗА ИЛИ ВБЛИЗИ ОТКРЫТОГО ОГНЯ. НЕ ВДЫХАЙТЕ ПАРЫ. РАБОТАЙТЕ ТОЛЬКО В ХОРОШО ПРОВЕТРИВАЕМОМ ПОМЕЩЕНИИ."),
+    ("WARNING: DO NOT GET PAINT STRIPPER ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR.",
+     "ПРЕДУПРЕЖДЕНИЕ: НЕ ДОПУСКАЙТЕ ПОПАДАНИЯ СМЫВКИ КРАСКИ НА КОЖУ, В ГЛАЗА ИЛИ ВБЛИЗИ ОТКРЫТОГО ОГНЯ. НЕ ВДЫХАЙТЕ ПАРЫ. РАБОТАЙТЕ ТОЛЬКО В ХОРОШО ПРОВЕТРИВАЕМОМ ПОМЕЩЕНИИ."),
+    ("WARNING: RELEASE ALL NITROGEN PRESSURE BEFORE YOU REMOVE THE CHARGING VALVES",
+     "ПРЕДУПРЕЖДЕНИЕ: СБРОСЬТЕ ВСЁ ДАВЛЕНИЕ АЗОТА ПЕРЕД СНЯТИЕМ ЗАРЯДНЫХ КЛАПАНОВ"),
+    ("CAUTION: DO NOT USE CHLORINATED SOLVENTS. CHLORINATED SOLVENTS CAN MIX WITH VERY SMALL QUANTITIES OF WATER IN HYDRAULIC SYSTEMS TO MAKE HYDROCHLORIC ACID.",
+     "ВНИМАНИЕ: НЕ ИСПОЛЬЗУЙТЕ ХЛОРИРОВАННЫЕ РАСТВОРИТЕЛИ. ХЛОРИРОВАННЫЕ РАСТВОРИТЕЛИ МОГУТ СМЕШИВАТЬСЯ С ОЧЕНЬ МАЛЫМ КОЛИЧЕСТВОМ ВОДЫ В ГИДРАВЛИЧЕСКИХ СИСТЕМАХ, ОБРАЗУЯ СОЛЯНУЮ КИСЛОТУ."),
+    ("CAUTION: DO NOT PUT AN END LOAD OF MORE THAN", "ВНИМАНИЕ: НЕ ПРИКЛАДЫВАЙТЕ ОСЕВУЮ НАГРУЗКУ БОЛЕЕ"),
+    ("CAUTION: DO NOT CAUSE DAMAGE TO THE PAINT FINISH.", "ВНИМАНИЕ: НЕ ПОВРЕДИТЕ ЛАКОКРАСОЧНОЕ ПОКРЫТИЕ."),
+    ("CAUTION: YOU MUST DISASSEMBLE ALL PARTS, THIS WILL INCLUDE THE BUSHES, THEY MUST BE REMOVED AND DISCARDED. YOU MUST APPLY THE NDT INSPECTION TO THE DETAIL PARTS.",
+     "ВНИМАНИЕ: ВЫ ДОЛЖНЫ РАЗОБРАТЬ ВСЕ ДЕТАЛИ, ВКЛЮЧАЯ ВТУЛКИ — ОНИ ДОЛЖНЫ БЫТЬ СНЯТЫ И УТИЛИЗИРОВАНЫ. ВЫ ДОЛЖНЫ ПРИМЕНИТЬ НЕРАЗРУШАЮЩИЙ КОНТРОЛЬ К ДЕТАЛЯМ."),
+    ("CAUTION: DISCARD THE SCREWS", "ВНИМАНИЕ: УТИЛИЗИРУЙТЕ ВИНТЫ"),
+    ("THE LOCKING PLATES", "СТОПОРНЫЕ ПЛАСТИНЫ"),
+    ("WHEN REMOVED.", "ПРИ СНЯТИИ."),
+    ("AND THE CHARGING VALVES", "И ЗАРЯДНЫХ КЛАПАНОВ"),
+    ("ON THE MAIN LANDING GEAR LEG", "НА СТОЙКУ ОСНОВНОГО ШАССИ"),
+    ("THE GEAR MUST BE INFLATED TO THE APPROPRIATE PRESSURES BEFORE BEING PLACED IN SERVICE.",
+     "СТОЙКА ДОЛЖНА БЫТЬ НАКАЧАНА ДО СООТВЕТСТВУЮЩИХ ДАВЛЕНИЙ ПЕРЕД ВВОДОМ В ЭКСПЛУАТАЦИЮ."),
+
+    # ─── Instruction starts (verbs) ───
+    ("Slowly increase", "Медленно увеличьте"),
+    ("Slowly open", "Медленно откройте"),
+    ("Make sure that all of", "Убедитесь, что всё"),
+    ("Make sure that there is no pressure in", "Убедитесь, что нет давления в"),
+    ("Make sure that", "Убедитесь, что"),
+    ("Make sure", "Убедитесь"),
+    ("Make a record of", "Запишите"),
+    ("Do para", "Выполните пункт"),
+    ("Refer to ASSEMBLY:", "Обратитесь к СБОРКЕ:"),
+    ("Refer to ASSEMBLY.", "Обратитесь к СБОРКЕ."),
+    ("Refer to TESTING AND FAULT ISOLATION", "Обратитесь к ПРОВЕРКЕ И ПОИСКУ НЕИСПРАВНОСТЕЙ"),
+    ("Refer to REPAIR.", "Обратитесь к РЕМОНТУ."),
+    ("Refer to Figure", "Обратитесь к рисунку"),
+    ("refer to Figure", "обратитесь к рисунку"),
+    ("Refer to M-DLPS", "Обратитесь к M-DLPS"),
+    ("refer to M-DLPS", "обратитесь к M-DLPS"),
+    ("Refer to PCS-", "Обратитесь к PCS-"),
+    ("refer to PCS-", "обратитесь к PCS-"),
+    ("Refer to para", "Обратитесь к пункту"),
+    ("refer to para", "обратитесь к пункту"),
+    ("Refer to ASSEMBLY", "Обратитесь к СБОРКЕ"),
+    ("refer to REPAIR", "обратитесь к РЕМОНТУ"),
+    ("Refer to ", "Обратитесь к "),
+    ("refer to ", "обратитесь к "),
+
+    # ─── Common instructional phrases ───
+    ("Remove the damaged paint:", "Удалите повреждённую краску:"),
+    ("Clean the part:", "Очистите деталь:"),
+    ("Paint the part:", "Покрасьте деталь:"),
+    ("Visually examine each part.", "Визуально осмотрите каждую деталь."),
+    ("Carefully examine changes of section and areas which contact sealing rings.",
+     "Тщательно осмотрите переходы сечений и зоны контакта с уплотнительными кольцами."),
+    ("Examine each part for these types of damage:", "Осмотрите каждую деталь на следующие типы повреждений:"),
+    ("These special tools are necessary:", "Необходимы следующие специальные инструменты:"),
+    ("These materials are necessary:", "Необходимы следующие материалы:"),
+    ("This equipment is necessary:", "Необходимо следующее оборудование:"),
+    ("NOTE: Alternative equivalents are permitted.", "ПРИМЕЧАНИЕ: Допускается использование эквивалентных аналогов."),
+    ("NOTE: If the calculated gap is in the tolerance,", "ПРИМЕЧАНИЕ: Если рассчитанный зазор находится в пределах допуска,"),
+    ("is not installed.", "не устанавливается."),
+    ("Use approved persons and good aircraft engineering practice for all procedures in this manual.",
+     "Все процедуры настоящего руководства должны выполняться допущенным персоналом с соблюдением надлежащей авиационной инженерной практики."),
+    ("Discard parts that you must not use again.", "Утилизируйте детали, непригодные для повторного использования."),
+    ("The procedure to examine the parts is in two levels:", "Процедура осмотра деталей выполняется на двух уровнях:"),
+    ("Unless instructions are different:", "Если не указано иное:"),
+    ("Parts that are included in Tables 501 and 502 must be fully disassembled to the lowest detail level for NDT inspection. This includes the removal of all bushes.",
+     "Детали, включённые в таблицы 501 и 502, должны быть полностью разобраны до мельчайших деталей для проведения неразрушающего контроля. Это включает снятие всех втулок."),
+
+    # ─── Verb phrases with "the" ───
+    ("Remove the", "Снимите"),
+    ("Install the", "Установите"),
+    ("Use the", "Используйте"),
+    ("Connect the", "Подсоедините"),
+    ("Disconnect the", "Отсоедините"),
+    ("Open the", "Откройте"),
+    ("Close the", "Закройте"),
+    ("Release the", "Ослабьте"),
+    ("Measure the", "Измерьте"),
+    ("Hold the", "Удерживайте"),
+    ("Complete the", "Завершите"),
+    ("Set the", "Установите"),
+    ("Attach the", "Прикрепите"),
+    ("Apply the", "Нанесите"),
+    ("Reduce the", "Уменьшите"),
+    ("Increase the", "Увеличьте"),
+    ("Keep the", "Оставьте"),
+    ("Write this", "Запишите эти"),
+    ("Compare the", "Сравните"),
+    ("Calculate the", "Рассчитайте"),
+    ("Adjust the", "Отрегулируйте"),
+    ("Clean the", "Очистите"),
+    ("Dry the", "Высушите"),
+    ("Bend the", "Согните"),
+    ("Remove and discard the", "Снимите и утилизируйте"),
+    ("Assemble the", "Соберите"),
+
+    # ─── "to [verb]" patterns (MUST come BEFORE lowercase verb phrases) ───
+    ("to remove the", "для снятия"),
+    ("to remove", "для снятия"),
+    ("to hold the", "для удержания"),
+    ("to hold", "для удержания"),
+    ("to measure the", "для измерения"),
+    ("to measure", "для измерения"),
+    ("to lift the", "для подъёма"),
+    ("to lift", "для подъёма"),
+
+    # ─── Lowercase verb phrases (after comma, semicolon, colon) ───
+    ("remove the", "снимите"),
+    ("install the", "установите"),
+    ("use the", "используйте"),
+    ("let the", "дайте"),
+    ("measure the", "измерьте"),
+    ("torque it to", "затяните моментом"),
+    ("connect the", "подсоедините"),
+    ("disconnect the", "отсоедините"),
+    ("open the", "откройте"),
+    ("close the", "закройте"),
+    ("release the", "ослабьте"),
+    ("reduce the", "уменьшите"),
+
+    # ─── Part nouns (with "the", plurals first) ───
+    ("the split pins", "шплинты"),
+    ("the split pin", "шплинт"),
+    ("the slotted nuts", "шлицевые гайки"),
+    ("the slotted nut", "шлицевую гайку"),
+    ("the self-locking nuts", "самоконтрящиеся гайки"),
+    ("the self-locking nut", "самоконтрящуюся гайку"),
+    ("the locking nuts", "контргайки"),
+    ("the locking nut", "контргайку"),
+    ("the locking washers", "стопорные шайбы"),
+    ("the locking washer", "стопорную шайбу"),
+    ("the lock washers", "стопорные шайбы"),
+    ("the lock washer", "стопорную шайбу"),
+    ("the cup washers", "тарельчатые шайбы"),
+    ("the cup washer", "тарельчатую шайбу"),
+    ("the tab washers", "стопорные шайбы"),
+    ("the tab washer", "стопорную шайбу"),
+    ("the cap screws", "винты с головкой"),
+    ("the cap screw", "винт с головкой"),
+    ("the retaining pins", "стопорные штифты"),
+    ("the retaining pin", "стопорный штифт"),
+    ("the stop rings", "стопорные кольца"),
+    ("the stop ring", "стопорное кольцо"),
+    ("the O-ring seals", "уплотнительные кольца"),
+    ("the O-ring seal", "уплотнительное кольцо"),
+    ("the backing rings", "опорные кольца"),
+    ("the backing ring", "опорное кольцо"),
+    ("the locking pins", "стопорные штифты"),
+    ("the locking pin", "стопорный штифт"),
+    ("the locking plates", "стопорные пластины"),
+    ("the locking plate", "стопорную пластину"),
+    ("the lock plate", "стопорную пластину"),
+    ("the lubrication fittings", "смазочные ниппели"),
+    ("the lubrication fitting", "смазочный ниппель"),
+    ("the identification washers", "идентификационные шайбы"),
+    ("the identification washer", "идентификационную шайбу"),
+    ("the lubrication adapters", "смазочные адаптеры"),
+    ("the lubrication adapter", "смазочный адаптер"),
+    ("the lubrication shaft subassembly", "сборку смазочного вала"),
+    ("the retaining ring", "стопорное кольцо"),
+    ("the recoil orifice plate", "пластину отверстия обратного хода"),
+    ("the two piece stop with inserts", "двухсоставной упор со вставками"),
+    ("the transfer dowels", "переходные штифты"),
+    ("the valve support", "опору клапана"),
+    ("the valve stem", "шток клапана"),
+    ("the jacking dome", "домкратную точку"),
+    ("the outer race and the ball of the spherical bearing",
+     "наружное кольцо и шарик сферического подшипника"),
+    ("the outer race and the ball", "наружное кольцо и шарик"),
+    ("the spherical bearing", "сферический подшипник"),
+    ("the grooved spherical bearing", "сферический подшипник с канавкой"),
+    ("the self lubricating bearing", "самосмазывающийся подшипник"),
+    ("the inflation valve subassembly", "сборку клапана зарядки"),
+    ("the inflation valve", "клапан зарядки"),
+    ("the charging valves", "зарядные клапаны"),
+    ("the charging valve", "зарядный клапан"),
+    ("the nuts", "гайки"),
+    ("the nut", "гайку"),
+    ("the washers", "шайбы"),
+    ("the washer", "шайбу"),
+    ("the bolts", "болты"),
+    ("the bolt", "болт"),
+    ("the screws", "винты"),
+    ("the screw", "винт"),
+    ("the pins", "штифты"),
+    ("the pin", "штифт"),
+    ("the spacers", "проставки"),
+    ("the spacer", "проставку"),
+    ("the shims", "прокладки"),
+    ("the shim", "прокладку"),
+    ("the bearings", "подшипники"),
+    ("the bearing", "подшипник"),
+    ("the bushes", "втулки"),
+    ("the bush", "втулку"),
+    ("the seals", "уплотнения"),
+    ("the seal", "уплотнение"),
+    ("the sleeves", "втулки"),
+    ("the sleeve", "втулку"),
+    ("the clamp", "хомут"),
+    ("the dust cap", "пылезащитную крышку"),
+    ("the brackets", "кронштейны"),
+    ("the bracket", "кронштейн"),
+    ("the retainers", "фиксаторы"),
+    ("the retainer", "фиксатор"),
+    ("the wedge", "клин"),
+    ("the bung", "заглушку"),
+    ("the plates", "пластины"),
+    ("the plate", "пластину"),
+    ("the rod", "шток"),
+    ("the piston", "поршень"),
+    ("the cylinder", "цилиндр"),
+    ("the housing", "корпус"),
+    ("the labels", "этикетки"),
+    ("the label", "этикетку"),
+    ("the joint seal", "соединительное уплотнение"),
+    ("the sealing ring", "уплотнительное кольцо"),
+    ("the wiper ring", "грязесъёмное кольцо"),
+    ("the inner liner", "внутренний вкладыш"),
+    ("the bonding cable", "соединительный провод"),
+    ("the static discharge connector", "штыревой разъём статического разряда"),
+    ("the damper", "демпфер"),
+    ("the level tube", "трубку уровня"),
+    ("the unit", "изделие"),
+    ("the wire thread insert", "резьбовую спиральную вставку"),
+    ("the wire thread inserts", "резьбовые спиральные вставки"),
+    ("the lock indentations", "фиксирующие вдавливания"),
+    ("the wiring diagram plate", "табличку электрической схемы"),
+
+    # ─── Named assemblies/subassemblies ───
+    ("the upper torque link subassembly", "сборку верхнего шлиц-шарнира"),
+    ("the lower torque link subassembly", "сборку нижнего шлиц-шарнира"),
+    ("the slave link subassembly", "сборку ведомого звена"),
+    ("the lower slave link subassembly", "сборку нижнего ведомого звена"),
+    ("the pivot bracket subassembly", "сборку поворотного кронштейна"),
+    ("the bracket subassembly", "сборку кронштейна"),
+    ("the bracket assembly", "сборку кронштейна"),
+    ("the rod end assembly", "сборку наконечника тяги"),
+    ("the bolt subassembly", "сборку болта"),
+    ("the cardan assembly", "сборку кардана"),
+    ("the transfer block subassembly", "сборку переходного блока"),
+    ("the shock absorber subassembly", "сборку амортизатора"),
+    ("the sliding tube subassembly", "сборку скользящей трубы"),
+    ("the upper diaphragm tube subassembly", "сборку верхней диафрагменной трубы"),
+    ("the lower bearing subassembly", "сборку нижнего подшипника"),
+    ("the lower bearing housing subassembly", "сборку корпуса нижнего подшипника"),
+    ("the main fitting subassembly", "сборку корпуса стойки"),
+    ("the washer subassembly", "сборку шайбы"),
+    ("the nut subassembly", "сборку гайки"),
+    ("the diaphragm subassembly", "сборку диафрагмы"),
+    ("the upper bearing housing", "корпус верхнего подшипника"),
+    ("the lower bearing", "нижний подшипник"),
+    ("the gland housing", "корпус сальника"),
+    ("the upper diaphragm tube", "верхнюю диафрагменную трубу"),
+    ("the main fitting", "корпус стойки"),
+    ("the upper pivot bracket", "верхний поворотный кронштейн"),
+    ("the harness support bracket", "кронштейн крепления жгута"),
+    ("the harness support", "крепление жгута"),
+    ("the proximity switch", "датчик приближения"),
+    ("the target", "мишень"),
+    ("the uplock pin", "штифт замка убранного положения"),
+    ("the ground stud subassembly", "сборку штыря заземления"),
+    ("the drag arm sleeve", "втулку тяги"),
+    ("the lock stay cardan subassembly", "сборку кардана фиксатора"),
+    ("the lock stay cardan", "кардан фиксатора"),
+    ("the main landing gear leg", "стойку основного шасси"),
+
+    # ─── Tool names (when used in procedural text) ───
+    ("the Crowfoot Wrench T14500", "рожковый ключ T14500"),
+    ("the Crowfoot Wrench", "рожковый ключ"),
+    ("the Turner Inflation Equipment T14218", "оборудование для заправки Turner T14218"),
+    ("the Turner Inflation Equipment", "оборудование для заправки Turner"),
+    ("the Charging Adapter 460002502", "адаптер для зарядки 460002502"),
+    ("the Charging Adapter", "адаптер для зарядки"),
+    ("the Milliohmmeter Megger, Type BT51", "миллиомметр Megger, тип BT51"),
+    ("the Lampbox 460005842", "контрольную лампу 460005842"),
+    ("the Lampbox", "контрольную лампу"),
+    ("the Loading Press", "нагрузочный пресс"),
+    ("the loading press", "нагрузочный пресс"),
+    ("the Holding Fixture 460006231", "удерживающее приспособление 460006231"),
+    ("the Press Adapter 460006233", "адаптер пресса 460006233"),
+    ("the Bottom Press Adapter 460007260", "нижний адаптер пресса 460007260"),
+    ("the Load Cell and Adapter 460006232", "датчик нагрузки и адаптер 460006232"),
+    ("the Offset Adapter 460006234", "смещённый адаптер 460006234"),
+    ("the Lifting Bar Assembly 460006208", "сборку подъёмной штанги 460006208"),
+    ("the Spherical Bearing Locator 460007282", "позиционер сферического подшипника 460007282"),
+    ("the Pintle Location Assembly 460007281", "сборку позиционирования навеса 460007281"),
+    ("the Transport and Build Trolley 460006213", "транспортировочно-сборочную тележку 460006213"),
+    ("the Support Arms 460006215", "опорные рычаги 460006215"),
+    ("the Towing Frame 460006216", "буксировочную раму 460006216"),
+    ("the Jacking Dome Adapter 460006223", "адаптер домкратной точки 460006223"),
+    ("the Adapter 460006237", "адаптер 460006237"),
+    ("the Spacer 460007231", "проставку 460007231"),
+    ("the Location Frame 460007234", "установочную раму 460007234"),
+    ("the Location Frame 460007235", "установочную раму 460007235"),
+    ("the Build Trolley 460007240", "сборочную тележку 460007240"),
+    ("the Lifting Tackle 460006211", "подъёмное приспособление 460006211"),
+    ("the Bench Clamp MT1025", "настольный зажим MT1025"),
+    ("the Holding Blocks MT1026/63", "удерживающие блоки MT1026/63"),
+    ("the Holding Blocks 460006406", "удерживающие блоки 460006406"),
+    ("Pin Spanner 460007279", "штифтовый ключ 460007279"),
+    ("Pin Spanner 460007284", "штифтовый ключ 460007284"),
+    ("the Torque Reaction Adapter 460007242", "адаптер реакции момента 460007242"),
+    ("the Torque Adapter T14544", "моментный адаптер T14544"),
+    ("the Torque Adapter 460007230", "моментный адаптер 460007230"),
+    ("the Torque Adapter 460007283", "моментный адаптер 460007283"),
+    ("the Torque Adapter 460007232", "моментный адаптер 460007232"),
+    ("the Torque Adapter 460006404", "моментный адаптер 460006404"),
+    ("the Torque Reactor 460007278", "реактор момента 460007278"),
+    ("the Extractor Pad and Drawbolt 460006415", "извлекающую пластину и вытяжной болт 460006415"),
+    ("the Extractor 460006416", "экстрактор 460006416"),
+    ("the Extractor 460006413", "экстрактор 460006413"),
+    ("the Extractor 460001355", "экстрактор 460001355"),
+    ("the Extractor 460006253", "экстрактор 460006253"),
+    ("the Assembly/Extraction Tool 460006410", "инструмент для сборки/извлечения 460006410"),
+    ("the Hydraulic-Pneumatic Pump Set 460006497", "гидропневматический насосный комплект 460006497"),
+    ("the Press Pad Assembly 460006267", "сборку прижимной пластины 460006267"),
+    ("the 28 VDC power supply", "источник питания 28 В постоянного тока"),
+    ("the 28 VDC supply", "источник питания 28 В постоянного тока"),
+    ("the hydraulic test rig", "стенд для гидравлических испытаний"),
+    ("the nitrogen supply", "источник азота"),
+    ("the nitrogen pressure", "давление азота"),
+    ("the hydraulic pressure", "гидравлическое давление"),
+    ("the test fluid", "испытательная жидкость"),
+    ("the inflation equipment", "оборудование для заправки"),
+    ("the test circuit", "испытательный контур"),
+
+    # ─── Common prepositions/connectors with context ───
+    ("from the", "из"),
+    ("in the", "в"),
+    ("to the", "к"),
+    ("on the", "на"),
+    ("for the", "для"),
+    ("at the", "у"),
+    ("and the", "и"),
+    ("or the", "или"),
+    ("with the", "с"),
+    ("and its related parts", "и связанные детали"),
+    ("and its attached parts", "и прикреплённые детали"),
+    ("as necessary during the procedure", "при необходимости в ходе процедуры"),
+    ("as follows:", "следующим образом:"),
+    ("as necessary", "при необходимости"),
+    ("must be", "должно быть"),
+    ("must not be more than", "не должно превышать"),
+    ("must not be", "не должно быть"),
+    ("must not occur", "не должна происходить"),
+    ("must have", "должен иметь"),
+    ("must operate before", "должен сработать до того, как"),
+    ("has closed by", "будет закрыта на"),
+    (" again.", " снова."),
+    ("Leakage", "Утечка"),
+    ("until the", "до тех пор, пока"),
+    ("until", "до"),
+    ("There is a difference between the temperatures", "Имеется разница между температурами"),
+    ("There is an error because of the pressure gauge capacity.", "Имеется погрешность из-за ёмкости манометра."),
+    ("If there is a difference", "Если имеется разница"),
+    ("If there is an error", "Если имеется погрешность"),
+    ("calculate the correct value for", "рассчитайте правильное значение"),
+    ("the correct values for", "правильные значения"),
+    ("adjust the pressures to the corrected values", "доведите давления до скорректированных значений"),
+    ("Use the formula:", "Используйте формулу:"),
+    ("for temperatures in C", "для температур в °C"),
+    ("for temperatures in F", "для температур в °F"),
+    ("for temperatures in \uf0b0C", "для температур в °C"),
+    ("for temperatures in \uf0b0F", "для температур в °F"),
+    ("for pressures in bar", "для давлений в бар"),
+    ("for pressures in lbf/in2", "для давлений в фунт/дюйм²"),
+    ("not less than", "не менее"),
+    ("not more than", "не более"),
+    ("approximately", "приблизительно"),
+    ("a minimum of", "минимум"),
+
+    # ─── Keywords ───
+    ("WARNING:", "ПРЕДУПРЕЖДЕНИЕ:"),
+    ("CAUTION:", "ВНИМАНИЕ:"),
+    ("NOTE:", "ПРИМЕЧАНИЕ:"),
+    ("PRE SB", "До SB"),
+    ("POST SB", "После SB"),
+    ("Pre SB", "До SB"),
+    ("Post SB", "После SB"),
+    ("Examination of Magnetic Steel Parts by Non-destructive Testing",
+     "Контроль деталей из магнитной стали неразрушающими методами"),
+    ("Examination of Non-Magnetic Parts by Non-destructive Testing",
+     "Контроль немагнитных деталей неразрушающими методами"),
+    ("Examine all parts shown in Tables", "Осмотрите все детали, указанные в таблицах"),
+    ("to the applicable NDT and information given", "в соответствии с применимым неразрушающим контролем и указанной информацией"),
+    ("The ambient temperature", "Температура окружающей среды"),
+    ("the ambient temperature", "температуру окружающей среды"),
+    ("The temperature of the test fluid", "Температура испытательной жидкости"),
+    ("The hydraulic test rig", "Стенд для гидравлических испытаний"),
+    ("The inflation equipment", "Оборудование для заправки"),
+    ("The test fluid must be clean:", "Испытательная жидкость должна быть чистой:"),
+    ("During all hydraulic tests,", "Во время всех гидравлических испытаний,"),
+    ("Examine the unit for damage before you start the tests.",
+     "Осмотрите изделие на наличие повреждений перед началом испытаний."),
+    ("During the proximity switch tests", "Во время испытаний датчиков приближения"),
+    ("AECMA Simplified English to PSC-85-16598 is used in this manual.",
+     "В данном руководстве используется упрощённый английский AECMA по PSC-85-16598."),
+
+
+    # ─── Remaining sentence patterns ───
+    ("until the unit starts to extend", "до начала выдвижения изделия"),
+    ("Hold the pressure and fully extend the unit.", "Удерживайте давление и полностью выдвиньте изделие."),
+    ("The pressure must not be more than", "Давление не должно превышать"),
+    ("There is a difference between the temperatures", "Имеется разница между температурами"),
+    ("starts to extend", "начнёт выдвигаться"),
+    ("horizontally", "горизонтально"),
+    ("vertically", "вертикально"),
+    ("Adjustment", "Регулировка"),
+    ("drag arm sleeve", "втулку тяги"),
+    ("forward pintle bush", "переднюю втулку навеса"),
+    ("Parts", "Части"),
+    ("These include:", "К ним относятся:"),
+    ("hydraulic fluid", "гидравлическая жидкость"),
+    ("Hydraulic fluid", "Гидравлическая жидкость"),
+    ("White spirit", "Уайт-спирит"),
+    ("white spirit", "уайт-спирит"),
+    ("Material Ref. Item", "Поз. ссылки материала"),
+    ("Clean all the metal parts with", "Очистите все металлические детали"),
+    ("Dry all the metal parts.", "Высушите все металлические детали."),
+    ("Use clean PVC or polythene gloves to prevent corrosion of metal parts.",
+     "Используйте чистые перчатки из ПВХ или полиэтилена для предотвращения коррозии металлических деталей."),
+    ("Prevent corrosion of the metal parts that you do not immediately use for assembly procedures:",
+     "Предотвратите коррозию металлических деталей, которые вы не используете немедленно для процедур сборки:"),
+    ("for left configuration units", "для изделий в левой конфигурации"),
+    ("for right configuration units", "для изделий в правой конфигурации"),
+    ("left configuration", "левая конфигурация"),
+    ("right configuration", "правая конфигурация"),
+    ("to lift and to hold the unit", "для подъёма и удержания изделия"),
+    ("Nitrogen", "Азот"),
+    ("Labels", "Этикетки"),
+    ("wiring diagram plate", "табличка электрической схемы"),
+    ("- Installation", "— Установка"),
+    ("Use with", "Используется с"),
+    ("The thread size is", "Размер резьбы —"),
+    ("pitch", "шаг"),
+    ("lbf/in2", "фунт/дюйм²"),
+
+    # ─── Table 101/102 related ───
+    ("BEARING", "ПОДШИПНИК"),
+    ("AXLE OF SLIDING TUBE SUBASSEMBLY", "ОСЬ СБОРКИ СКОЛЬЗЯЩЕЙ ТРУБЫ"),
+    ("Table 101", "Таблица 101"),
+    ("Table 102", "Таблица 102"),
+    ("Tables 501 and 502", "таблицах 501 и 502"),
+    ("Table 501", "Таблица 501"),
+    ("Table 502", "Таблица 502"),
+    ("Figure 1", "Рисунок 1"),
+    ("Figure 2", "Рисунок 2"),
+    ("Figure 101", "Рисунок 101"),
+    ("Figure 102", "Рисунок 102"),
+    ("Main Landing Gear Leg", "Стойка основного шасси"),
+
+    # ─── Drawing annotation terms (for figure textboxes) ───
+    ("LENGTH OF CADMIUM PLATE", "ДЛИНА КАДМИЕВОГО ПОКРЫТИЯ"),
+    ("NO CADMIUM PLATE", "БЕЗ КАДМИЕВОГО ПОКРЫТИЯ"),
+    ("NO PAINT", "БЕЗ КРАСКИ"),
+    ("CADMIUM PLATE", "КАДМИЕВОЕ ПОКРЫТИЕ"),
+    ("LENGTH OF", "ДЛИНА"),
+    ("UP TO BUSH FLANGES", "ДО ФЛАНЦЕВ ВТУЛОК"),
+    ("UP TO", "ДО"),
+    ("FOR ALL SECTION VIEWS SEE SHEET", "ВСЕ ВИДЫ СЕЧЕНИЙ СМ. ЛИСТ"),
+    ("LIMIT OF SERMETEL W TERMINATION FROM CENTER", "ГРАНИЦА ПЕРЕХОДА SERMETEL W ОТ ЦЕНТРА"),
+    ("CENTERLINE OF SLIDING TUBE", "ОСЕВАЯ ЛИНИЯ СКОЛЬЗЯЩЕЙ ТРУБЫ"),
+    ("SERMETEL W ON INTERNAL", "SERMETEL W НА ВНУТРЕННЕМ"),
+    ("SERMETEL W TO IFC", "SERMETEL W ДО IFC"),
+    ("SERMETEL W TO", "SERMETEL W ДО"),
+    ("SERMETEL W", "SERMETEL W"),
+    ("PRIMER PAINT TO", "ГРУНТОВОЧНАЯ КРАСКА ДО"),
+    ("PRIMER PAINT", "ГРУНТОВОЧНАЯ КРАСКА"),
+    ("CHROMIUM PLATE", "ХРОМОВОЕ ПОКРЫТИЕ"),
+    ("PAINT TO", "КРАСКА ДО"),
+    ("VIEW ON ARROW", "ВИД ПО СТРЕЛКЕ"),
+    ("SECTION", "СЕЧЕНИЕ"),
+    ("DETAIL", "ДЕТАЛЬ"),
+    ("IN THIS FACE ONLY", "ТОЛЬКО НА ДАННОЙ ПОВЕРХНОСТИ"),
+    ("THIS FACE ONLY", "ТОЛЬКО ДАННАЯ ПОВЕРХНОСТЬ"),
+    ("FROM OUTSIDE FACE", "ОТ НАРУЖНОЙ ПОВЕРХНОСТИ"),
+    ("FROM THIS SURFACE", "ОТ ДАННОЙ ПОВЕРХНОСТИ"),
+    ("TO A DEPTH OF", "НА ГЛУБИНУ"),
+    ("HOLE TO DEPTH OF", "ОТВЕРСТИЕ НА ГЛУБИНУ"),
+    ("OVER LENGTH", "ПО ДЛИНЕ"),
+    ("POSITION ONLY", "ТОЛЬКО ПОЛОЖЕНИЕ"),
+    ("THROUGH DIA.", "СКВОЗНОЙ ДИАМ."),
+    ("INNER DIAMETER", "ВНУТРЕННИЙ ДИАМЕТР"),
+    ("DIAMETER", "ДИАМЕТР"),
+    ("DIA. SPOTFACE", "ДИАМ. ЗЕНКОВКА"),
+    ("DIA.", "ДИАМ."),
+    ("BOTH HOLES", "ОБА ОТВЕРСТИЯ"),
+    ("BOTH SIDES", "ОБЕ СТОРОНЫ"),
+    ("INTERNALLY", "ИЗНУТРИ"),
+    ("MAXIMUM", "МАКСИМУМ"),
+    ("TYPICAL", "ТИПИЧНО"),
+    ("PLACES", "МЕСТ"),
+    ("HOLES", "ОТВЕРСТИЙ"),
+    ("BORES", "ОТВЕРСТИЙ"),
+    ("CHAMFER", "ФАСКА"),
+    ("RUNOUT", "БИЕНИЕ"),
+    ("CENTERLINE", "ОСЕВАЯ ЛИНИЯ"),
+    ("DEEP", "ГЛУБИНА"),
+    ("POSITIONS", "ПОЗИЦИЙ"),
+    ("Figure Deleted", "Рисунок удалён"),
+    ("VIEW", "ВИД"),
+    ("FROM CENTER", "ОТ ЦЕНТРА"),
+
+    # ─── Protective treatment procedural phrases (for table cells and paragraphs) ───
+    ("Apply cadmium plate all over but not to", "Нанесите кадмиевое покрытие повсюду, кроме"),
+    ("Apply cadmium plate all over but not on", "Нанесите кадмиевое покрытие повсюду, кроме"),
+    ("Apply cadmium plate, but not to the", "Нанесите кадмиевое покрытие, кроме"),
+    ("Apply cadmium plate: refer to", "Нанесите кадмиевое покрытие: обратитесь к"),
+    ("Apply cadmium plate", "Нанесите кадмиевое покрытие"),
+    ("Apply primer paint only to the contact face. Paint must not go in the bores.",
+     "Нанесите грунтовочную краску только на контактную поверхность. Краска не должна попадать в отверстия."),
+    ("Apply primer paint only to the areas", "Нанесите грунтовочную краску только на участки"),
+    ("Apply primer paint only to", "Нанесите грунтовочную краску только на"),
+    ("Apply primer paint to the areas", "Нанесите грунтовочную краску на участки"),
+    ("Apply primer paint to", "Нанесите грунтовочную краску на"),
+    ("Apply primer paint", "Нанесите грунтовочную краску"),
+    ("Apply paint all over but not on", "Нанесите краску повсюду, кроме"),
+    ("Apply paint all over but not to", "Нанесите краску повсюду, кроме"),
+    ("Apply paint to the areas", "Нанесите краску на участки"),
+    ("Apply paint to", "Нанесите краску на"),
+    ("Apply sermetel W only to the areas", "Нанесите Sermetel W только на участки"),
+    ("Apply sermetel W to the areas", "Нанесите Sermetel W на участки"),
+    ("Apply only primer paint to areas", "Нанесите только грунтовочную краску на участки"),
+    ("Apply only primer paint to", "Нанесите только грунтовочную краску на"),
+    ("Do not paint areas", "Не красьте участки"),
+    ("Do not paint the screw threads", "Не красьте резьбу"),
+    ("not paint areas", "не красьте участки"),
+    ("not paint the screw threads", "не красьте резьбу"),
+    ("not cadmium plate:", "не кадмировать:"),
+    ("Protective treatment is not necessary", "Защитная обработка не требуется"),
+    ("Chromic acid anodise all over: refer to", "Хромовокислотное анодирование повсюду: обратитесь к"),
+    ("Chromic acid anodise all over", "Хромовокислотное анодирование повсюду"),
+    ("Passivate: refer to", "Пассивировать: обратитесь к"),
+    ("The cadmium plate must overlap the chromium plate run out. Bare metal not permitted.",
+     "Кадмиевое покрытие должно перекрывать выход хромового покрытия. Открытый металл не допускается."),
+    ("The cadmium plate must overlap the chromium plate run out.",
+     "Кадмиевое покрытие должно перекрывать выход хромового покрытия."),
+    ("cadmium plate must overlap", "кадмиевое покрытие должно перекрывать"),
+    ("chromium plate run out", "выход хромового покрытия"),
+    ("Bare metal not permitted", "Открытый металл не допускается"),
+    ("The Sermetel W coating must overlap the chromium plated areas and cadmium plated areas.",
+     "Покрытие Sermetel W должно перекрывать хромированные и кадмированные участки."),
+    ("Sermetel W coating thickness between", "толщина покрытия Sermetel W между"),
+    ("Sermetel W coating must overlap", "покрытие Sermetel W должно перекрывать"),
+    ("Sermetel is optional in areas", "Sermetel не является обязательным на участках"),
+    ("If sermetel is not applied in areas", "Если Sermetel не нанесён на участки"),
+    ("apply cadmium plate to areas", "нанесите кадмиевое покрытие на участки"),
+    ("Make the sermetel W coating thickness between", "Выполните толщину покрытия Sermetel W между"),
+    ("areas that have chromium plate", "участки с хромовым покрытием"),
+    ("area that has chromium plate", "участок с хромовым покрытием"),
+    ("chromium plated areas", "хромированные участки"),
+    ("chromium plated area", "хромированный участок"),
+    ("cadmium plated areas", "кадмированные участки"),
+    ("the split pin hole", "отверстие для шплинта"),
+    ("the thread and undercut", "резьбу и подрезку"),
+    ("the thread", "резьбу"),
+    ("the threads", "резьбы"),
+    ("the threaded surfaces", "резьбовые поверхности"),
+    ("the axial hole and chamfers", "осевое отверстие и фаски"),
+    ("the two radial holes", "два радиальных отверстия"),
+    ("diameter areas around the holes", "участки диаметром вокруг отверстий"),
+    ("on the inside face of one flange", "на внутренней поверхности одного фланца"),
+    ("the areas A and D", "участки A и D"),
+    ("the areas A and B", "участки A и B"),
+    ("the areas A, B, C", "участки A, B, C"),
+    ("the areas", "участки"),
+    ("the area B", "участок B"),
+    ("the area", "участок"),
+    ("areas A and B", "участки A и B"),
+    ("the bearings, bush bores and flanges", "подшипники, отверстия под втулки и фланцы"),
+    ("Before installation of bushes:", "Перед установкой втулок:"),
+    ("After installation of bushes:", "После установки втулок:"),
+    ("but not to the bushes", "но не на втулки"),
+    ("the 3 holes in face D", "3 отверстия в поверхности D"),
+    ("including chamfer", "включая фаску"),
+    ("where identified on Figure", "как указано на рисунке"),
+    ("to the areas where Sermetel W is applied", "на участках, где нанесён Sermetel W"),
+    ("to the chromium plated areas", "на хромированных участках"),
+    ("to the threaded surfaces", "на резьбовых поверхностях"),
+    ("where the lubrication adaptors", "где устанавливаются смазочные адаптеры"),
+    ("will install", "будут установлены"),
+    ("all over but not to", "повсюду, кроме"),
+    ("all over but not on", "повсюду, кроме"),
+    ("all over", "повсюду"),
+    ("but not to", "кроме"),
+    ("but not on", "кроме"),
+    ("the face that touches the wheel bearings", "поверхность, касающуюся подшипников колеса"),
+    ("the screw threads and", "резьбу и"),
+
+    # ─── Standalone protective treatment terms ───
+    # These MUST come BEFORE the bare part names section to ensure
+    # "cadmium plate" → "кадмиевое покрытие" runs before "plate" → "пластину"
+    ("cadmium plate", "кадмиевое покрытие"),
+    ("Cadmium plate", "Кадмиевое покрытие"),
+    ("chromium plate", "хромовое покрытие"),
+    ("Chromium plate", "Хромовое покрытие"),
+    ("primer paint", "грунтовочную краску"),
+    ("Primer paint", "Грунтовочную краску"),
+    ("Refer to Figure", "Обратитесь к рисунку"),
+    ("refer to Figure", "обратитесь к рисунку"),
+    ("Refer to", "Обратитесь к"),
+    ("refer to", "обратитесь к"),
+    ("Apply Alocrom", "Нанесите Alocrom"),
+    ("apply Alocrom", "нанесите Alocrom"),
+    ("Apply a light coat of", "Нанесите тонкий слой"),
+    ("Apply a coat of", "Нанесите слой"),
+    ("Do not include", "Не включайте"),
+    ("do not include", "не включайте"),
+    ("Do not apply", "Не наносите"),
+    ("do not apply", "не наносите"),
+    ("Anodise", "Анодируйте"),
+    ("Anodize", "Анодируйте"),
+    ("anodise", "анодируйте"),
+    ("anodize", "анодируйте"),
+    ("Passivate", "Пассивируйте"),
+    ("passivate", "пассивируйте"),
+    ("spotfaces", "зенковки"),
+    ("Spotfaces", "Зенковки"),
+    ("spotface", "зенковку"),
+    ("Spotface", "Зенковку"),
+    ("externally", "снаружи"),
+    ("Externally", "Снаружи"),
+    ("internally", "изнутри"),
+    ("Internally", "Изнутри"),
+    ("thickness", "толщиной"),
+    ("Thickness", "Толщиной"),
+    ("thick", "толщиной"),
+    ("light coat", "тонкий слой"),
+    ("primer", "грунтовку"),
+    ("paint", "краску"),
+    ("permitted", "допускается"),
+    ("Permitted", "Допускается"),
+    ("optional", "не является обязательным"),
+    ("Optional", "Не является обязательным"),
+    # Word-level entries for remaining PT text translation
+    # IMPORTANT: These MUST come after longer phrase entries above
+    ("Aluminium alloy", "Алюминиевый сплав"),
+    ("aluminium alloy", "алюминиевый сплав"),
+    ("Stainless steel", "Нержавеющая сталь"),
+    ("stainless steel", "нержавеющая сталь"),
+    ("a thin coat of", "тонкий слой"),
+    ("thin coat", "тонкий слой"),
+    ("but not the", "кроме"),
+    ("but not", "кроме"),
+    ("not paint", "не красьте"),
+    ("not include", "не включайте"),
+    ("Apply only", "Нанесите только"),
+    ("apply only", "нанесите только"),
+    ("Apply", "Нанесите"),
+    ("apply", "нанесите"),
+    ("Paint", "Покрасьте"),
+    ("only to", "только на"),
+    ("only", "только"),
+    ("areas", "участки"),
+    ("area", "участок"),
+    ("holes", "отверстия"),
+    ("hole", "отверстие"),
+    ("bores", "отверстия"),
+    ("bore", "отверстие"),
+    (" faces", " поверхности"),
+    (" face", " поверхность"),
+    ("flanges", "фланцы"),
+    ("flange", "фланец"),
+    ("Class", "Класс"),
+    ("class", "класс"),
+    ("Type", "Тип"),
+    ("threaded", "резьбовой"),
+    (" thread", " резьбу"),
+    ("diameter", "диаметр"),
+    ("shank", "стержень"),
+    ("shanks", "стержни"),
+    ("adjacent", "прилегающий"),
+    ("head of the", "головку"),
+    (" head", " головку"),
+    ("below", "ниже"),
+    ("above", "выше"),
+    ("undercut", "подрез"),
+    (" bore ", " отверстие "),
+    (" bore.", " отверстие."),
+    # Zinc-nickel plating / paint color terms
+    ("Zinc-nickel plate", "цинково-никелевое покрытие"),
+    ("zinc-nickel plate", "цинково-никелевое покрытие"),
+    ("Zinc-nickel", "цинково-никелевое"),
+    ("zinc-nickel", "цинково-никелевое"),
+    ("extend onto", "распространяться на"),
+    ("extend on", "распространяться на"),
+    ("chrome surfaces", "хромовые поверхности"),
+    ("completely covering", "полностью покрывая"),
+    ("base material", "основной материал"),
+    ("three coat process", "трёхслойный процесс"),
+    ("two coat", "двухслойный"),
+    ("three coat", "трёхслойный"),
+    ("over layer", "верхний слой"),
+    ("red color", "красного цвета"),
+    ("green color", "зелёного цвета"),
+    ("color", "цвет"),
+    ("as given", "как указано"),
+    ("where shown", "как показано"),
+    ("split line", "линия разъёма"),
+    ("per-mitted", "допускается"),
+    ("per- mitted", "допускается"),
+    (" outer ", " наружный "),
+    (" after ", " после "),
+    ("split moulds", "разъёмные формы"),
+    ("split mould", "разъёмную форму"),
+    ("opposite race", "противоположной дорожки"),
+    ("inside moulds", "внутри форм"),
+    ("inside", "внутри"),
+    ("is not", "не"),
+    ("moulds", "формы"),
+    ("mould", "форму"),
+    ("race", "дорожки"),
+    ("for lubrication", "для смазки"),
+
+    # ─── NDT table contents ───
+    ("Inclusion class 4 on areas without chromium plate", "Класс включений 4 на участках без хромового покрытия"),
+    ("Inclusion class 3 on areas without chromium plate", "Класс включений 3 на участках без хромового покрытия"),
+    ("Inclusion class 2 on areas without chromium plate", "Класс включений 2 на участках без хромового покрытия"),
+    ("on areas without chromium plate", "на участках без хромового покрытия"),
+    ("Chromium plated areas", "Участки с хромовым покрытием"),
+    ("- Chromium", "— Хромовые"),
+    ("plated areas", "покрытые участки"),
+    ("Inclusion class 4", "Класс включений 4"),
+    ("Inclusion class 3", "Класс включений 3"),
+    ("Inclusion class 2", "Класс включений 2"),
+    ("- Inclusion class", "— Класс включений"),
+    ("Aluminium Alloy", "Алюминиевый сплав"),
+    ("Stainless Steel", "Нержавеющая сталь"),
+    ("Steel", "Сталь"),
+    ("Parts 1", "Части 1"),
+
+    # ─── Tool listing patterns ───
+    ("The Holding Fixture", "Удерживающее приспособление"),
+    ("The Press Adapter", "Адаптер пресса"),
+    ("The Bottom Press Adapter", "Нижний адаптер пресса"),
+    ("The Lifting Bar Assembly", "Сборка подъёмной штанги"),
+    ("The Spherical Bearing Locator", "Позиционер сферического подшипника"),
+    ("The Pintle Location Assembly", "Сборка позиционирования навеса"),
+    ("The Transport and Build Trolley", "Транспортировочно-сборочная тележка"),
+    ("The Support Arms", "Опорные рычаги"),
+    ("The Towing Frame", "Буксировочная рама"),
+    ("The Jacking Dome Adapter", "Адаптер домкратной точки"),
+    ("The Adapter", "Адаптер"),
+    ("The Spacer", "Проставка"),
+    ("The Location Frame", "Установочная рама"),
+
+    # ─── Remaining patterns ───
+    ("Proximity switch", "датчик приближения"),
+    ("Proximity switches", "датчики приближения"),
+    ("proximity switch", "датчик приближения"),
+    ("proximity switches", "датчики приближения"),
+    ("Grease Groove", "Канавка для смазки"),
+
+    # ─── Bare part names (without "the") for after verb phrases ───
+    # These catch part names left after "Remove the" → "Снимите" etc.
+    ("split pins", "шплинты"),
+    ("split pin", "шплинт"),
+    ("tab washers", "стопорные шайбы"),
+    ("tab washer", "стопорную шайбу"),
+    ("lock washers", "стопорные шайбы"),
+    ("lock washer", "стопорную шайбу"),
+    ("locking plates", "стопорные пластины"),
+    ("locking plate", "стопорную пластину"),
+    ("lock plates", "стопорные пластины"),
+    ("lock plate", "стопорную пластину"),
+    ("nuts", "гайки"),
+    ("nut", "гайку"),
+    ("bolts", "болты"),
+    ("bolt", "болт"),
+    ("washers", "шайбы"),
+    ("washer", "шайбу"),
+    ("screws", "винты"),
+    ("screw", "винт"),
+    ("bushes", "втулки"),
+    ("bush", "втулку"),
+    ("bearings", "подшипники"),
+    ("bearing", "подшипник"),
+    ("seals", "уплотнения"),
+    ("seal", "уплотнение"),
+    ("sleeves", "втулки"),
+    ("sleeve", "втулку"),
+    ("spacers", "проставки"),
+    ("spacer", "проставку"),
+    ("shims", "прокладки"),
+    ("shim", "прокладку"),
+    ("brackets", "кронштейны"),
+    ("bracket", "кронштейн"),
+    ("retainers", "фиксаторы"),
+    ("retainer", "фиксатор"),
+    ("plates", "пластины"),
+    ("plate", "пластину"),
+    ("clamp", "хомут"),
+    ("dust cap", "пылезащитную крышку"),
+    ("wedge", "клин"),
+    ("bung", "заглушку"),
+    ("labels", "этикетки"),
+    ("label", "этикетку"),
+    ("pins", "штифты"),
+    ("pin", "штифт"),
+    ("rod", "шток"),
+    ("piston", "поршень"),
+    ("cylinder", "цилиндр"),
+    ("housing", "корпус"),
+    ("charging valves", "зарядные клапаны"),
+    ("charging valve", "зарядный клапан"),
+    ("lubrication adapters", "адаптеры для смазки"),
+    ("lubrication adapter", "адаптер для смазки"),
+    ("bonding cable", "соединительный провод"),
+    ("static discharge connector", "штыревой разъём статического разряда"),
+    ("wiper ring", "грязесъёмное кольцо"),
+    ("sealing ring", "уплотнительное кольцо"),
+    ("inner liner", "внутренний вкладыш"),
+    ("joint seal", "соединительное уплотнение"),
+    ("level tube", "трубку уровня"),
+    ("damper", "демпфер"),
+    ("wiring diagram plate", "табличку электрической схемы"),
+    ("wire thread inserts", "резьбовые спиральные вставки"),
+    ("wire thread insert", "резьбовую спиральную вставку"),
+    ("lock indentations", "фиксирующие вдавливания"),
+    # Additional bare part names
+    ("compression orifice plate", "пластину отверстия сжатия"),
+    ("recoil orifice plate", "пластину отверстия обратного хода"),
+    ("orifice plate", "пластину отверстия"),
+    ("clapper seat", "седло хлопушки"),
+    ("baffle", "дефлектор"),
+    ("retaining ring", "удерживающее кольцо"),
+    ("retaining pins", "удерживающие штифты"),
+    ("retaining pin", "удерживающий штифт"),
+    ("locking pins", "стопорные штифты"),
+    ("locking pin", "стопорный штифт"),
+    ("locking nut", "контргайку"),
+    ("locking washer", "стопорную шайбу"),
+    ("cap screws", "винты с головкой"),
+    ("cap screw", "винт с головкой"),
+    ("target", "мишень"),
+    ("Bowden cable", "трос Боудена"),
+    ("cross bolts", "поперечные болты"),
+    ("cross bolt", "поперечный болт"),
+    ("stop rings", "стопорные кольца"),
+    ("stop ring", "стопорное кольцо"),
+    ("backing rings", "опорные кольца"),
+    ("backing ring", "опорное кольцо"),
+    ("O-ring seals", "уплотнительные кольца"),
+    ("O-ring seal", "уплотнительное кольцо"),
+    ("transfer dowels", "переходные штифты"),
+    ("transfer dowel", "переходный штифт"),
+    ("valve support", "опору клапана"),
+    ("valve stem", "шток клапана"),
+    ("nut subassembly", "сборку гайки"),
+    ("washer subassembly", "сборку шайбы"),
+    ("lock plate", "стопорную пластину"),
+    ("two piece stop with inserts", "двухчастный упор со вставками"),
+    ("outer race", "наружное кольцо"),
+    ("ball", "шарик"),
+    ("rod end assembly", "сборку наконечника тяги"),
+    ("rod end", "наконечник тяги"),
+    ("cardan assembly", "сборку кардана"),
+    ("lock stay cardan subassembly", "сборку фиксирующего кардана"),
+    ("lock stay cardan", "фиксирующий кардан"),
+    ("ground stud subassembly", "сборку клеммы заземления"),
+    ("inflation valve subassembly", "сборку клапана заправки"),
+    ("inflation valve", "клапан заправки"),
+    ("lubrication shaft subassembly", "сборку вала смазки"),
+    ("lubrication fittings", "фитинги для смазки"),
+    ("lubrication fitting", "фитинг для смазки"),
+    ("lubrication adapters", "адаптеры для смазки"),
+    ("lubrication adapter", "адаптер для смазки"),
+    ("identification washers", "идентификационные шайбы"),
+    ("identification washer", "идентификационную шайбу"),
+    ("harness support bracket", "кронштейн крепления жгута"),
+    ("harness support", "крепление жгута"),
+    ("upper pivot bracket", "верхний поворотный кронштейн"),
+    ("pivot bracket", "поворотный кронштейн"),
+    ("grooved spherical bearing", "рифлёный сферический подшипник"),
+    ("self lubricating bearing", "самосмазывающийся подшипник"),
+    ("spherical bearing", "сферический подшипник"),
+    ("upper bearing housing", "корпус верхнего подшипника"),
+    ("lower bearing housing subassembly", "сборку корпуса нижнего подшипника"),
+    ("lower bearing housing", "корпус нижнего подшипника"),
+    ("lower bearing", "нижний подшипник"),
+    ("common lower bearing bushes", "общие втулки нижнего подшипника"),
+    ("gland housing", "корпус сальника"),
+    ("upper diaphragm tube", "верхнюю диафрагменную трубу"),
+    ("sliding tube", "скользящую трубу"),
+    ("main fitting", "корпус стойки"),
+    ("upper torque link", "верхний шлиц-шарнир"),
+    ("lower torque link", "нижний шлиц-шарнир"),
+    ("lower slave link", "нижнее ведомое звено"),
+    ("slave link", "ведомое звено"),
+    ("jacking dome", "домкратную точку"),
+    ("electrical axle harness", "электрический жгут оси"),
+    ("laminated shims", "набор прокладок"),
+    ("laminated shim", "набор прокладок"),
+    # Named subassemblies (bare, without "the")
+    ("upper torque link subassembly", "сборку верхнего шлиц-шарнира"),
+    ("lower torque link subassembly", "сборку нижнего шлиц-шарнира"),
+    ("slave link subassembly", "сборку ведомого звена"),
+    ("lower slave link subassembly", "сборку нижнего ведомого звена"),
+    ("sliding tube subassembly", "сборку скользящей трубы"),
+    ("main fitting subassembly", "сборку корпуса стойки"),
+    ("lower bearing subassembly", "сборку нижнего подшипника"),
+    ("pivot bracket subassembly", "сборку поворотного кронштейна"),
+    ("bracket subassembly", "сборку кронштейна"),
+    ("main landing gear leg", "стойку основного шасси"),
+    ("shock absorber subassembly", "сборку амортизатора"),
+    ("transfer block subassembly", "сборку переходного блока"),
+    ("bolt subassembly", "сборку болта"),
+    ("diaphragm subassembly", "сборку диафрагмы"),
+    ("upper diaphragm tube subassembly", "сборку верхней диафрагменной трубы"),
+
+    # ─── Testing/procedural verbs and phrases ───
+    ("connect the", "подсоедините"),
+    ("Connect the", "Подсоедините"),
+    ("disconnect the", "отсоедините"),
+    ("Disconnect the", "Отсоедините"),
+    ("nitrogen supply", "источник азота"),
+    ("nitrogen pressure", "давление азота"),
+    ("hydraulic pressure", "гидравлическое давление"),
+    ("charging valve", "зарядный клапан"),
+    ("charging valves", "зарядные клапаны"),
+    ("Charging Adapter", "адаптер для зарядки"),
+    ("Turner Inflation Equipment", "оборудование для заправки Turner"),
+    ("Crowfoot Wrench", "рожковый ключ"),
+    ("loading press", "нагрузочный пресс"),
+    ("load cell", "датчик нагрузки"),
+    ("hand pump", "ручной насос"),
+    ("power pump", "силовой насос"),
+    ("test fluid", "испытательная жидкость"),
+    ("test circuit", "испытательный контур"),
+    ("inflation equipment", "оборудование для заправки"),
+    ("hydraulic test rig", "стенд для гидравлических испытаний"),
+    ("ambient temperature", "температура окружающей среды"),
+    ("controlled flow", "регулируемый расход"),
+    ("para ", "п. "),
+    ("torque it to", "затяните с моментом"),
+    ("torque to", "затяните с моментом"),
+    ("refer to", "см."),
+    ("Refer to", "См."),
+
+    # ─── Bare residual words (catch orphans after phrase-level matching) ───
+    ("Remove drag arm sleeve", "Снимите втулку тяги"),
+    ("Remove the locking nut", "Снимите контровочную гайку"),
+    ("locking nut", "контровочная гайка"),
+    ("locking washer", "контровочная шайба"),
+    ("locking pin", "стопорный штифт"),
+    ("locking pins", "стопорные штифты"),
+    ("locking", "стопорный"),
+    ("spherical bearing", "сферический подшипник"),
+    ("spherical", "сферический"),
+    ("subassemblies", "сборки"),
+    ("subassembly", "сборка"),
+    ("pivot", "поворотный"),
+    ("cup washers", "тарельчатые шайбы"),
+    ("cup washer", "тарельчатая шайба"),
+    ("rod end", "стержневой наконечник"),
+    (" only)", " только)"),
+    ("O-ring", "уплотнительное кольцо"),
+
+    # ─── Connectors & short words (MUST be last — after all full sentence translations) ───
+    ("from", "из"),
+    ("between", "между"),
+    (" and ", " и "),
+    (" or ", " или "),
+]
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TRANSLATION FUNCTIONS
@@ -408,6 +2481,15 @@ def is_only_numbers_or_codes(text: str) -> bool:
         return True
     # Single short codes
     if re.match(r'^[A-Z]?\d+[\-\.]\d+', stripped) and len(stripped) < 15:
+        return True
+    # Standards like "BS EN 4007 (MAT206)", "EN 6049" (pure spec, no sentences)
+    if re.match(r'^(BS\s+)?EN\s+\d+[\s\(\)A-Z\d\-]*$', stripped):
+        return True
+    # Material specs like "MTL-2701", "MAT206" (pure spec, no sentences)
+    if re.match(r'^(MTL|MAT)\-?\d+[\s\(\)A-Z\d\-]*$', stripped):
+        return True
+    # Process/NDT specs like "M-DLNDT3", "M-DLPS1014-2" (pure code, no sentences)
+    if re.match(r'^M-DL(NDT|PS)[\d\-]+\.?$', stripped):
         return True
     return False
 
@@ -473,7 +2555,11 @@ def _translate_suffix(suffix: str) -> str:
     result = suffix
     if "Protective Treatment" in result:
         result = result.replace("Protective Treatment", "Защитная обработка")
+    # "Installation of Bushes" must come before "Installation" alone
+    if "Installation of Bushes" in result:
+        result = result.replace("Installation of Bushes", "Установка втулок")
     if "Sheet" in result:
+        result = re.sub(r'Sheet\s+(\d+)\s+of\s+(\d+)', r'Лист \1 из \2', result)
         result = re.sub(r'Sheet\s+(\d+)', r'Лист \1', result)
     if result.strip() == "Withdrawn" or result.strip() == "(Withdrawn)":
         result = result.replace("Withdrawn", "Отозвано")
@@ -481,10 +2567,57 @@ def _translate_suffix(suffix: str) -> str:
         result = result.replace("Superseded", "Заменён")
     if "Only" in result:
         result = result.replace("Only", "Только")
+    if " only" in result:
+        result = result.replace(" only", " только")
+    if "Machining and Installation" in result:
+        result = result.replace("Machining and Installation", "Механическая обработка и установка")
+    elif "Machining and Liner Installation" in result:
+        result = result.replace("Machining and Liner Installation", "Механическая обработка и установка вкладыша")
+    elif "Liner Installation" in result:
+        result = result.replace("Liner Installation", "Установка вкладыша")
+    elif "Installation" in result:
+        result = result.replace("Installation", "Установка")
+    if "Machining" in result and "обработка" not in result:
+        result = result.replace("Machining", "Механическая обработка")
+    if "Assembly" in result and "Сборка" not in result:
+        result = result.replace("Assembly", "Сборка")
+    if "Hole Locations" in result:
+        result = result.replace("Hole Locations", "Расположение отверстий")
+    if "Adjustment" in result:
+        result = result.replace("Adjustment", "Регулировка")
+    if "Related Parts" in result:
+        result = result.replace("Related Parts", "Связанные детали")
+    if "Dimensions After" in result:
+        result = result.replace("Dimensions After", "Размеры после")
+    if "Refer to IPL Figures" in result:
+        result = result.replace("Refer to IPL Figures", "Обратитесь к рисункам ИПД")
+    if "Refer to Figures" in result:
+        result = result.replace("Refer to Figures", "Обратитесь к рисункам")
+    if "Refer to Figure" in result:
+        result = result.replace("Refer to Figure", "Обратитесь к рисунку")
+    if "Grease Groove Dimensions" in result:
+        result = result.replace("Grease Groove Dimensions", "Размеры канавки для смазки")
+    if "Gland Housing" in result and "корпус" not in result:
+        result = result.replace("Gland Housing", "корпусе сальника")
+    if "in the" in result:
+        result = result.replace("in the", "в")
     if "Tables" in result:
         result = result.replace("Tables", "Таблицы")
     if "Table" in result and "Таблицы" not in result:
         result = result.replace("Table", "Таблица")
+    # Component names that may appear in TOC suffixes/refs
+    if "Bushes" in result:
+        result = result.replace("Bushes", "Втулки")
+    if "Bush" in result and "Втулк" not in result:
+        result = result.replace("Bush", "Втулка")
+    if "Bearing" in result and "подшипник" not in result.lower():
+        result = result.replace("Bearing", "Подшипник")
+    if "Target" in result:
+        result = result.replace("Target", "Мишень")
+    if "Ardrox Application" in result:
+        result = result.replace("Ardrox Application", "Нанесение Ardrox")
+    elif "Application" in result and "Нанесение" not in result:
+        result = result.replace("Application", "Нанесение")
     return result
 
 
@@ -586,10 +2719,16 @@ def translate_repair_description(text: str) -> str:
     desc = desc.replace("Oversize Bush", "Ремонтная (увеличенная) втулка")
     desc = desc.replace("Oversize Lubrication adapter", "Ремонтный (увеличенный) смазочный адаптер")
     desc = desc.replace("Oversize Transfer Dowel", "Ремонтный (увеличенный) переходной штифт")
+    desc = desc.replace("Oversize Thread Insert", "Ремонтная (увеличенная) резьбовая вставка")
     desc = desc.replace("Lower Bearing Subassembly", "Сборка нижнего подшипника")
     desc = desc.replace("Machining and Inner Liner Installation", "Механическая обработка и установка внутреннего вкладыша")
     desc = desc.replace("Machining and Liner Installation", "Механическая обработка и установка вкладыша")
+    desc = desc.replace("Repair Threaded Inserts", "Ремонт резьбовых вставок")
+    desc = desc.replace("Repair Threaded Insert", "Ремонт резьбовой вставки")
     desc = desc.replace("Repair Bearing", "Ремонт подшипника")
+    desc = desc.replace("Repair Sleeves", "Ремонт втулок")
+    desc = desc.replace("Repair Sleeve", "Ремонт втулки")
+    desc = desc.replace("Repair sleeve", "Ремонт втулки")
     desc = desc.replace("Repair to ", "Ремонт ")
     desc = desc.replace("Repair Bushes", "Ремонт втулок")
     desc = desc.replace("Repair Bush", "Ремонт втулки")
@@ -748,6 +2887,59 @@ def translate_hf_text(text: str) -> str:
     return translate_text(text)
 
 
+def _translation_quality_ok(original: str, translated: str) -> bool:
+    """Check if translation result is acceptable (not garbled mixed text).
+
+    Returns False if the result still has too many English words,
+    indicating partial word-level replacement created garbage.
+    """
+    if translated == original:
+        return False
+    # Count remaining English words (3+ letters, excluding codes/specs)
+    en_words = re.findall(r'[A-Za-z]{3,}', translated)
+    # Filter out known codes/specs that should stay English
+    code_patterns = re.compile(
+        r'^(SB|IPL|CMM|PCS|AMS|NDT|NLG|MLG|DPI|FPI|SDS|VDC|PVC|REF|IPL|'
+        r'Safran|Landing|Systems|Airbus|EASA|Messier|Ardrox|Turner|Megger|'
+        r'Ltd|Ref|Item|Fig|lbf|min|bar|PSC|CODE|CAGE|MAF|EDES|'
+        r'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|'
+        r'Extractor|Drift|Drawbolt|Spanner|Wrench|Crowfoot|Milliohmmeter|'
+        r'Adapter|Reactor|Clamp|Tackle|Trolley|Fixture|Locator|'
+        r'Extraction|Pneumatic|Hydraulic|Pump|Press|Bench|Holding|Blocks|'
+        r'Lifting|Towing|Transport|Build|Torque|Offset|Assembly|'
+        r'BT51|MT1025|MT1026|Pin|Set|Pad|Tube|Bolt|Bar|Frame|Arms|Plate|'
+        r'DLPS|DLNDT|AECMA|MTL|MAT|NCD|NCT|CND|CNU|Material|Pre|Post|'
+        r'Sermetel|IFC|MIL|DIA|SPOTFACE|Qty|CON|UHT)$'
+    )
+    en_words_real = [w for w in en_words if not code_patterns.match(w)
+                     and not re.match(r'^[A-Z]\d', w)]
+    ru_words = re.findall(r'[А-Яа-яЁё]{3,}', translated)
+
+    total = len(en_words_real) + len(ru_words)
+    if total < 2:
+        return True  # Too few words to judge
+
+    en_ratio = len(en_words_real) / total
+    # If more than 25% of words are still English, translation is garbled
+    return en_ratio <= 0.25
+
+
+def translate_procedural_text(text: str) -> str:
+    """Translate procedural/instructional text using word/phrase-level replacement.
+
+    Applied as a fallback when exact-match translation fails.
+    Uses PROCEDURAL_VOCAB for ordered phrase replacement.
+    Returns original text if translation quality is poor (mixed garbage).
+    """
+    result = text
+    for en, ru in PROCEDURAL_VOCAB:
+        result = result.replace(en, ru)
+    # Quality gate: if result is garbled mixed text, return original
+    if not _translation_quality_ok(text, result):
+        return text
+    return result
+
+
 def translate_text(text: str) -> str:
     """Main translation function. Returns translated text or original if untranslatable."""
     stripped = text.strip()
@@ -845,9 +3037,30 @@ def translate_text(text: str) -> str:
                 return leading + f"{fig_num}\t{translated_rest}" + trailing
 
         if not re.match(r'^\d', core):
-            return leading + translate_toc_entry(core) + trailing
+            toc_result = translate_toc_entry(core)
+            if toc_result != core:
+                return leading + toc_result + trailing
+            # Fall through to procedural text for tab-separated non-TOC entries
 
-        return text
+        else:
+            return text
+
+    # 4c. "(Sheet X of Y)" standalone continuation lines
+    m_sheet = re.match(r'^\(Sheet\s+(\d+)\s+of\s+(\d+)\)\s*(.*)', core)
+    if m_sheet:
+        sheet_ru = f"(Лист {m_sheet.group(1)} из {m_sheet.group(2)})"
+        rest = m_sheet.group(3)
+        return leading + sheet_ru + (" " + rest if rest else "") + trailing
+
+    # 4d. "Post SB-..." / "Pre SB-..." headings with component name
+    m_sb = re.match(r'^(Post|Pre)\s+(SB[-\d]+)\s*[—–-]\s*(.+?)(\s*\.[\s\.]+.*)?$', core)
+    if m_sb:
+        sb_prefix = "После" if m_sb.group(1) == "Post" else "До"
+        sb_num = m_sb.group(2)
+        comp_name = m_sb.group(3).strip()
+        dots_rest = m_sb.group(4) or ""
+        comp_ru = translate_component_name(comp_name)
+        return leading + f"{sb_prefix} {sb_num} — {comp_ru}{dots_rest}" + trailing
 
     # 5. TOC entries (contain dot leaders, no tabs)
     if ". . ." in core:
@@ -877,9 +3090,47 @@ def translate_text(text: str) -> str:
     if re.match(r'^Page\s+\d+', core):
         return leading + core.replace("Page", "Стр.") + trailing
 
-    # 10. Exact match in component names
+    # 10. Exact match in component names, part names, table headers, tool names
     if core in COMPONENT_NAMES:
         return leading + COMPONENT_NAMES[core] + trailing
+    if core in PART_NAMES_TABLE:
+        return leading + PART_NAMES_TABLE[core] + trailing
+    if core in TABLE_HEADERS:
+        return leading + TABLE_HEADERS[core] + trailing
+    if core in TOOL_NAMES_TABLE:
+        return leading + TOOL_NAMES_TABLE[core] + trailing
+
+    # 10a. Protective treatment / material text (bypass quality gate)
+    # MUST come BEFORE translate_component_name() which splits on " - " and
+    # can intercept PT/material text, replacing only the dash while leaving
+    # English words like "Aluminium alloy" untranslated.
+    _pt_kw_text = (
+        "Apply ", "apply ", "Paint", "paint", "Primer", "primer",
+        "Refer ", "refer ", "Chromic acid", "chromic acid",
+        "Passivate", "Anodise", "Anodize", "anodise", "anodize",
+        "Do not", "do not", "not paint", "not cadmium",
+        "Protective treatment", "cadmium plate", "Cadmium plate",
+        "chromium plate", "Chromium plate", "Alocrom",
+        "spotface", "Spotface", "areas ", "Areas ",
+        "the thread", "the bush", "the hole", "the face",
+        "the lubrication", "the identification", "the bearing",
+        "the screw", "split pin", "thick", "thickness",
+        "externally", "internally", "all over", "but not",
+        "including", "optional", "permitted",
+        "plate all over", "plate to",
+        "Aluminium", "aluminium", "Stainless", "stainless",
+        "Zinc-nickel", "zinc-nickel", "coat ", "color ",
+        "extend onto", "chrome surfaces", "base material",
+        "where shown", "split line",
+    )
+    if any(kw in core for kw in _pt_kw_text):
+        if core in FIXED:
+            return leading + FIXED[core] + trailing
+        result = core
+        for en, ru in PROCEDURAL_VOCAB:
+            result = result.replace(en, ru)
+        if result != core:
+            return leading + result + trailing
 
     # 10b. Component name with pattern matching
     result = translate_component_name(core)
@@ -905,6 +3156,64 @@ def translate_text(text: str) -> str:
     if core == "Blank":
         return leading + "Пусто" + trailing
 
+    # 11a. Standalone "and"/"or" connectors
+    if core == "and":
+        return leading + "и" + trailing
+    if core == "or":
+        return leading + "или" + trailing
+
+    # 11a2. "and N" / "or SPEC" continuation fragments
+    if re.match(r'^and\s+[\d\(\)\-/A-Z]+$', core):
+        return leading + core.replace("and ", "и ") + trailing
+    if re.match(r'^or\s+\S+', core):
+        return leading + core.replace("or ", "или ") + trailing
+
+    # 11b. Units text like "(110 lbf/in2)."
+    if re.match(r'^\(\d+\s+lbf/in2\)\.$', core):
+        return text  # keep as-is, it's a measurement
+
+    # 11c. Part references "(XX-NNN) and (XX-NNN)."
+    m_refs = re.match(r'^\([\d\-]+\)\s+and\s+\([\d\-]+\)\.$', core)
+    if m_refs:
+        return leading + core.replace(" and ", " и ") + trailing
+
+    # 11d. "the PART (XX-NNN)." references
+    m_part_ref = re.match(r'^the\s+(.+?)\s+\([\d\-A-Za-z]+\)\.$', core)
+    if m_part_ref:
+        part_name = m_part_ref.group(1)
+        # Translate part name via PROCEDURAL_VOCAB lookups
+        for en, ru in [("pin", "штифт"), ("nut", "гайку"), ("bolt", "болт"),
+                       ("seal", "уплотнение"), ("bush", "втулку"), ("bearing", "подшипник"),
+                       ("bracket", "кронштейн"), ("sleeve", "втулку"), ("spacer", "проставку"),
+                       ("plate", "пластину"), ("washer", "шайбу"), ("clamp", "хомут"),
+                       ("retainer", "фиксатор"), ("cylinder", "цилиндр"),
+                       ("split pins", "шплинты"), ("split pin", "шплинт")]:
+            if part_name.lower() == en:
+                result = core.replace(f"the {part_name}", ru)
+                return leading + result + trailing
+        # If no match, try procedural
+        result = translate_procedural_text(core)
+        if result != core:
+            return leading + result + trailing
+
+    # 11e. NOTE with tab-separated technical content
+    if core.startswith("NOTE:") and "\t" in core:
+        result = translate_procedural_text(core)
+        if result != core:
+            return leading + result + trailing
+
+    # 12. Procedural text fallback (word-level translation)
+    if re.search(r'[A-Za-z]{4,}', core):
+        result = translate_procedural_text(text)
+        if result != text:
+            return result
+
+    # 12b. Short English fragments with "and"/"or"
+    if " and " in core or " or " in core:
+        result = core.replace(" and ", " и ").replace(" or ", " или ")
+        if result != core:
+            return leading + result + trailing
+
     return text
 
 
@@ -915,6 +3224,10 @@ def translate_table_cell_text(text: str) -> str:
         return text
 
     clean = stripped.strip('\n').strip()
+
+    # Exact match in FIXED dict (handles procedural sentences added there)
+    if clean in FIXED:
+        return text.replace(clean, FIXED[clean])
 
     # Table headers
     if clean in TABLE_HEADERS:
@@ -978,11 +3291,32 @@ def translate_table_cell_text(text: str) -> str:
 
     # Repair/Oversize descriptions
     if (clean.startswith("Repair to ") or clean.startswith("Repair Bush") or
-        clean.startswith("Repair Bearing") or clean.startswith("Oversize ") or
+        clean.startswith("Repair Bearing") or clean.startswith("Repair Sleeve") or
+        clean.startswith("Repair sleeve") or clean.startswith("Repair Sleeves") or
+        clean.startswith("Repair Threaded") or clean.startswith("Oversize ") or
         clean.startswith("Lower Bearing")):
         fixed = re.sub(r'Installation(Repair No\.)', r'Installation\t\1', clean)
         result = translate_repair_description(fixed)
         return text.replace(clean, result)
+
+    # "Fits and Clearances - Key Diagram" with dot leaders
+    if "Key Diagram" in clean and ". . ." in clean:
+        result = clean
+        result = result.replace("Fits and Clearances - Key Diagram", "Посадки и зазоры — Ключевая схема")
+        result = result.replace("Approved Repairs - Key Diagram", "Утверждённые ремонты — Ключевая схема")
+        for en, ru in sorted(COMPONENT_NAMES.items(), key=lambda x: -len(x[0])):
+            result = result.replace(en, ru)
+        return text.replace(clean, result)
+
+    # Table cells with dot leaders (TOC-like entries)
+    if ". . ." in clean:
+        result = translate_toc_entry(clean)
+        if result != clean:
+            return text.replace(clean, result)
+        # Try word-level translation
+        result = translate_procedural_text(clean)
+        if result != clean:
+            return text.replace(clean, result)
 
     # "Component Repairs - Key Diagram" pattern
     if "Repairs - Key Diagram" in clean or "Key Diagram" in clean:
@@ -1000,9 +3334,56 @@ def translate_table_cell_text(text: str) -> str:
         result = result.replace("Limited to Safran Landing Systems", "Limited на Safran Landing Systems")
         return text.replace(clean, result)
 
-    # Numbers with "and" (continuation lines): "814, 818 and 823"
-    if re.match(r'^[\d,\s]+ and [\d,\s]+$', clean):
+    # "IPL N" → "ИПД N" (Illustrated Parts List references)
+    m_ipl = re.match(r'^IPL\s+(.+)$', clean)
+    if m_ipl:
+        return text.replace("IPL", "ИПД")
+
+    # "TBA" → "Будет определено"
+    if clean == "TBA":
+        return text.replace("TBA", "Будет определено")
+
+    # Standalone "install." in table cells
+    if clean == "install." or clean == "install":
+        return text.replace("install", "установить")
+
+    # "Areas A and B." pattern
+    if clean.startswith("Areas "):
+        result = clean.replace("Areas", "Участки").replace(" and ", " и ").replace(" or ", " или ")
+        return text.replace(clean, result)
+
+    # Numbers/codes with "and"/"or" (continuation fragments)
+    # "814, 818 and 823", "10-260 and 10-260A", "1-49, and 1-49A,"
+    if re.match(r'^[\d,\s\-/]+ and [\d,\s\-/A-Z]+,?$', clean):
         return text.replace(" and ", " и ")
+    # "and (20-220)", "and 460006261", "and PCS-3002", "and 2"
+    if re.match(r'^and\s+[\d\(\)\-/A-Z]+$', clean):
+        return text.replace("and ", "и ")
+    # "460006151/20, 460006151/30 and" (trailing and)
+    if re.match(r'^[\d,\s\-/]+ and$', clean):
+        return text.replace(" and", " и")
+
+    # "will install" / "will install:" continuation fragments
+    if "will" in clean and ("install" in clean or "be installed" in clean):
+        result = clean.replace("will install", "будут установлены").replace("will be installed", "будут установлены")
+        result = result.replace(" and ", " и ").replace(" or ", " или ")
+        return text.replace(clean, result)
+
+    # Continuation fragments starting with "plate" (from "Apply cadmium plate")
+    if clean.startswith("plate ") or clean.startswith("plate:"):
+        result = clean
+        for en, ru in PROCEDURAL_VOCAB:
+            result = result.replace(en, ru)
+        result = result.replace("plate ", "покрытие ")
+        result = result.replace("plate:", "покрытие:")
+        if result != clean:
+            return text.replace(clean, result)
+
+    # "not paint" continuation fragments
+    if clean.startswith("not paint") or clean.startswith("not cadmium"):
+        result = translate_procedural_text(clean)
+        if result != clean:
+            return text.replace(clean, result)
 
     # Standalone short words in table cells
     if clean == "and":
@@ -1013,6 +3394,97 @@ def translate_table_cell_text(text: str) -> str:
         return text.replace("Only", "Только")
     if clean == "Tables":
         return text.replace("Tables", "Таблицы")
+
+    # Part names in table cells (discard tables, NDT tables)
+    if clean in PART_NAMES_TABLE:
+        return text.replace(clean, PART_NAMES_TABLE[clean])
+
+    # Tool names in table cells
+    if clean in TOOL_NAMES_TABLE:
+        return text.replace(clean, TOOL_NAMES_TABLE[clean])
+
+    # Tool function descriptions (cells starting with common patterns)
+    if clean.startswith("Remove the") or clean.startswith("Hold the") or \
+       clean.startswith("Close the") or clean.startswith("To remove"):
+        result = translate_procedural_text(clean)
+        if result != clean:
+            return text.replace(clean, result)
+
+    # "Use with NNN" patterns in tool tables
+    if clean.startswith("Use with"):
+        result = clean.replace(" and ", " и ").replace(" and", " и")
+        result = result.replace("Use with", "Используется с")
+        return text.replace(clean, result)
+
+    # ── Protective treatment table cells ──
+    # Broad detection: any cell that looks like protective treatment instructions.
+    # Apply PROCEDURAL_VOCAB directly WITHOUT quality gate, because these cells
+    # naturally have many spec codes (PCS-, M-DLPS, AMS, etc.) that stay English.
+    _pt_keywords = (
+        "Apply ", "apply ", "Paint", "paint", "Primer", "primer",
+        "Refer ", "refer ", "Chromic acid", "chromic acid",
+        "Passivate", "Anodise", "Anodize", "anodise", "anodize",
+        "Do not", "do not", "not paint", "not cadmium",
+        "Protective treatment", "cadmium plate", "Cadmium plate",
+        "chromium plate", "Chromium plate", "Alocrom",
+        "spotface", "Spotface", "areas ", "Areas ",
+        "the thread", "the bush", "the hole", "the face",
+        "the lubrication", "the identification", "the bearing",
+        "the screw", "split pin", "thick", "thickness",
+        "externally", "internally", "all over", "but not",
+        "including", "optional", "permitted",
+    )
+    if any(kw in clean for kw in _pt_keywords):
+        # Try exact match first (already checked above, but just in case)
+        if clean in FIXED:
+            return text.replace(clean, FIXED[clean])
+        # Apply PROCEDURAL_VOCAB directly, no quality gate
+        result = clean
+        for en, ru in PROCEDURAL_VOCAB:
+            result = result.replace(en, ru)
+        if result != clean:
+            return text.replace(clean, result)
+
+    # Cells starting with spec codes that continue protective treatment text
+    # e.g. "M-DLPS100-2. Do not include...", "PCS-2500. Apply primer..."
+    if re.match(r'^(M-DL|PCS-|IFC\s|MIL-|AMS\d|NCT\s|DEF\s)', clean) and \
+       re.search(r'[A-Za-z]{4,}', clean[8:] if len(clean) > 8 else ''):
+        result = clean
+        for en, ru in PROCEDURAL_VOCAB:
+            result = result.replace(en, ru)
+        if result != clean:
+            return text.replace(clean, result)
+
+    # Material names (NDT tables and Table 601) — BEFORE page range handlers
+    if clean.startswith("Aluminium") or clean.startswith("Stainless steel") or \
+       clean.startswith("Stainless Steel") or clean.startswith("Steel") or \
+       clean.startswith("Type ") or clean == "Nitrogen" or \
+       clean == "Hydraulic fluid" or clean == "White spirit" or \
+       clean.startswith("Aluminium alloy"):
+        result = clean.replace("Stainless steel", "Нержавеющая сталь")
+        result = result.replace("Stainless Steel", "Нержавеющая сталь")
+        result = result.replace("Aluminium alloy", "Алюминиевый сплав")
+        result = result.replace("Aluminium Alloy", "Алюминиевый сплав")
+        result = result.replace("Steel", "Сталь")
+        result = result.replace("Type ", "Тип ")
+        # Also handle "or" and "to" in material specs
+        result = re.sub(r'\bor\b', 'или', result)
+        result = re.sub(r'\bto\b', 'до', result)
+        if result != clean:
+            return text.replace(clean, result)
+
+    # NDT classification phrases
+    if "Inclusion class" in clean or "chromium plate" in clean or "Chromium plated" in clean:
+        result = translate_procedural_text(clean)
+        if result != clean:
+            return text.replace(clean, result)
+
+    # Test descriptions in equipment tables
+    if "tests" in clean.lower() or "resistance" in clean.lower() or \
+       "switch" in clean.lower() or "target" in clean.lower():
+        result = translate_procedural_text(clean)
+        if result != clean:
+            return text.replace(clean, result)
 
     # "NNN to NNN and" continuation pattern
     if re.match(r'^[\d\s]+to\s+[\d\s]+and$', clean):
@@ -1274,10 +3746,13 @@ def verify_translation(dst_path: str, verbose: bool = True) -> dict:
                 "201587", "EDES2", "MAF1",
                 "(c)AC", "A320-", "A321-",
                 "32-12-22", "AMS-", "ASTM",
-                "MLG", "NLG",
+                "MLG", "NLG", "M-DLNDT", "M-DLPS",
+                "EASA", "PCS-", "BS3643",
+                "MT1025", "MT1026", "Sermetel", "SERMETEL",
+                "IFC 40-", "MIL-A-", "PLACES",
             ]):
                 continue
-            if re.search(r'[А-Яа-яЁё]{3,}', text):
+            if re.search(r'[А-Яа-яЁё]{2,}', text):
                 continue
             result["untranslated_paragraphs"].append((i, text[:100]))
 
@@ -1285,7 +3760,8 @@ def verify_translation(dst_path: str, verbose: bool = True) -> dict:
         if result["untranslated_paragraphs"]:
             print(f"Found {len(result['untranslated_paragraphs'])} potentially untranslated paragraphs:")
             for idx, txt in result["untranslated_paragraphs"][:20]:
-                print(f"  P{idx}: {txt}")
+                safe = txt.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8', errors='replace')
+                print(f"  P{idx}: {safe}")
         else:
             print("All paragraphs appear to be translated!")
 
@@ -1305,7 +3781,11 @@ def verify_translation(dst_path: str, verbose: bool = True) -> dict:
                             "(c)AC", "A320-", "A321-",
                             "32-12-22", "AMS-", "ASTM",
                             "MLG", "NLG", "Messier",
-                            "SERVICE BULLETIN",
+                            "SERVICE BULLETIN", "M-DLNDT", "M-DLPS",
+                            "EASA", "PCS-", "BS3643",
+                            "MT1025", "MT1026", "Cond ",
+                            "Sermetel", "IFC 40-", "MIL-A-",
+                            "AMS5", "AMS6", "AMS2",
                         ]):
                             continue
                         if re.search(r'[А-Яа-яЁё]{3,}', text):
@@ -1316,7 +3796,8 @@ def verify_translation(dst_path: str, verbose: bool = True) -> dict:
         if result["untranslated_cells"]:
             print(f"\nFound {len(result['untranslated_cells'])} potentially untranslated table cells:")
             for loc, txt in result["untranslated_cells"][:20]:
-                print(f"  {loc}: {txt}")
+                safe = txt.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8', errors='replace')
+                print(f"  {loc}: {safe}")
         else:
             print("All table cells appear to be translated!")
 

@@ -18,17 +18,25 @@ from scripts.render_docx_pages import render_docx_pages
 
 LATIN_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9./()_-]*")
 MONTH_RE = re.compile(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?")
-CODE_RE = re.compile(r"[A-Z]{1,8}[0-9A-Z./-]*")
+CODE_RE = re.compile(r"(?:[A-Z]{1,4}|[A-Z]{1,8}[0-9][0-9A-Z./-]*|[A-Z]{1,8}[./-][0-9A-Z./-]*)")
 SINGLE_LETTER_SUFFIX_RE = re.compile(r"^[A-Z]\)$")
+SINGLE_UPPER_RE = re.compile(r"^[A-Z]$")
 PARA_REF_RE = re.compile(r"^[A-Z]\.\(\d+\)\.?$")
 LOWER_PREFIX_CODE_RE = re.compile(r"^[a-z]\)[A-Z0-9.-]+$")
+LOWER_LIST_MARKER_RE = re.compile(r"^[a-z]$")
+MAGNIFICATION_RE = re.compile(r"^\d+[xX]\.?$")
+TEMP_RANGE_RE = re.compile(r"^(?:\d+)?o[CF]-(?:\d+)?o[CF]\.?$")
 ALLOW = {
     "SAFRAN",
     "Safran",
     "Landing",
+    "LANDING",
     "Systems",
+    "SYSTEMS",
     "UK",
+    "LTD",
     "Ltd",
+    "LIMITED",
     "CAGE",
     "K0654",
     "Airbus",
@@ -42,6 +50,21 @@ ALLOW = {
     "Messier-Dowty",
     "Limited",
     "www.safran-landing-systems.com",
+    "mm",
+    "in",
+    "oC",
+    "oF",
+    "Accomet",
+    "Araldite",
+    "Alocrom",
+    "Fibreslip",
+    "Loctite",
+    "Almen",
+    "Mastinox",
+    "Molykote",
+    "MOLYKOTE",
+    "Sermetel",
+    "SERMETEL",
 }
 
 
@@ -67,11 +90,19 @@ def _suspicious_tokens(text: str) -> list[str]:
             continue
         if CODE_RE.fullmatch(normalized):
             continue
+        if SINGLE_UPPER_RE.fullmatch(normalized):
+            continue
         if SINGLE_LETTER_SUFFIX_RE.fullmatch(token):
             continue
         if PARA_REF_RE.fullmatch(normalized):
             continue
         if LOWER_PREFIX_CODE_RE.fullmatch(normalized):
+            continue
+        if LOWER_LIST_MARKER_RE.fullmatch(normalized):
+            continue
+        if MAGNIFICATION_RE.fullmatch(normalized):
+            continue
+        if TEMP_RANGE_RE.fullmatch(normalized):
             continue
         out.append(token)
     return out

@@ -1,0 +1,1018 @@
+P1: TABLE OF CONTENTS
+
+P4: TABLE OF CONTENTS
+
+P7: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 1 of 6) . . . . . . . .	722
+
+P8: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 2 of 6) . . . . . . . .	723
+
+P9: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 3 of 6) . . . . . . . .	724
+
+P10: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 4 of 6) . . . . . . . .	725
+
+P11: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 5 of 6) . . . . . . . .	726
+
+P12: 703	Main Fitting Subassembly (20-90B) or (20-90C) - Installation (Sheet 6 of 6) . . . . . . . .	727
+
+P13: 704	Installation of Labels . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	728
+
+P14: 705	Label (18-70) - Installation. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	731
+
+P15: 706	Label (17-290) Only and Bush (18-50) Only - Installation . . . . . . . . . . . . . . . . . . . . . . .	732
+
+P16: 707	Sliding Tube Subassembly (17-240B or 17-240G) - Installation of Bushes (Sheet 1 of 5)	737
+
+P17: 707	Sliding Tube Subassembly (17-240B or 17-240G) - Installation of Bushes (Sheet 2 of 5)	738
+
+P18: 707	Sliding Tube Subassembly (17-240B or 17-240C or 17-240F) -
+
+P19: Installation of Bushes (Sheet 3 of 5) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	739
+
+P20: 707	Sliding Tube Subassembly (17-240C or 17-240F) - Installation of Bushes (Sheet 4 of 5)	740
+
+P21: Sliding Tube Subassembly (17-240C or 17-240F) - Installation of Bushes (Sheet 5 of 5)	741
+
+P22: Bushes (18-20 and 18-30) - Installation. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	743
+
+P23: Label (17-250) - Installation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	743
+
+P24: Application of Jointing Compound . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	751
+
+P25: Pre SB 201-32-49 or Pre SB 201-32-58 or Pre SB 201-32-60 Lower Bearing (16-150)
+
+P26: or (16A-150) Grease Groove Dimensions After Installation in the Gland Housing (16-140)
+
+P28: Post SB-201-32-58 - Lower Bearing Subassembly Machining and Liner Installation .
+
+P29: (Sheet 1 of 2) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	757
+
+P30: 712	Assembly of Lower Bearing Subassembly (16A-110C) (Sheet 2 of 2) . . . . . . . . . . . .	758
+
+P31: 713	Assembly of Lower Bearing Subassembly (16-110D or 16A-110E). . . . . . . . . . . . . . .	759
+
+P32: 714	Seal Configuration (Sheet 1 of 2) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	760
+
+P33: Seal Configuration (Sheet 2 of 2) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	761
+
+P34: Upper Diaphragm Tube Subassembly (15-360 only). . . . . . . . . . . . . . . . . . . . . . . . . .	768
+
+P35: Crimping of the Pin (15-120) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	769
+
+P36: Upper Diaphragm Tube Subassembly (15-360A) . . . . . . . . . . . . . . . . . . . . . . . . . . . .	776
+
+P37: Locking Plate (15-80) - Hole Locations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	777
+
+P38: Application of Ardrox AV100D to the Upper Diaphragm Tube (15-390) (Sheet 1 of 3)	778
+
+P39: 719	Application of Ardrox AV100D to the Upper Diaphragm Tube (15-390A) (Sheet 2 of 3)	779
+
+P40: Application of Ardrox AV100D to the Pin (13-190) (Sheet 3 of 3) . . . . . . . . . . . . . . . .	780
+
+P41: Bushes (10-240, 10-250, 11-220 and 11-230) - Installation. . . . . . . . . . . . . . . . . . . . .	785
+
+P42: 1M Electrical Axle Harness (11-40) and 2M Electrical Axle Harness (11-50)- . . . . . .
+
+P43: Installation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	787
+
+P44: Assembly of Damper (9-160). . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	789
+
+P45: Bracket Subassembly (5-270) - Installation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	797
+
+P46: Bracket Subassembly (5-90) - Installation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	798
+
+P47: Bushes (3-150 and 3-160) - Installation. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	798.3
+
+P48: Bolt Subassembly (1-40A) - Assembly . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .	798.7
+
+P51: TABLE OF CONTENTS
+
+P76: INTENTIONALLY BLANK
+
+P78: This manual contains Description, Operation, Maintenance procedures and an Illustrated Parts List (IPL). IPL Figure and Item numbers in parentheses follow the part name to identify them.
+
+P79: A Unit Identification Chart is included to show the modification status of the unit. The modification status is related to the unit part number by the dash number: the dash number is marked on the unit name plate adjacent to the part number.
+
+P80: All references in this manual are to the left configuration of the unit unless the instructions tell you differently.
+
+P81: All dimensions and quantities in this manual are in SI units with Imperial units in parentheses. A comma shows a decimal part of an SI unit. A full point shows a decimal part of an Imperial unit.
+
+P82: This manual refers to Process Specifications (M-DLPS and PCS) and Non-destructive Tests (M-DLNDT). These are available within the Safran Landing Systems Technical Publications on-line service.
+
+P83: All the materials in this manual have a Ref. Item identification. This is the reference item number of the material in the Aircraft Manufacturer’s Consumable Materials List.
+
+P84: Use approved persons and good aircraft engineering practice for all procedures in this manual.
+
+P85: The repairs in this CMM have been approved under Airbus’ EASA Design Organisation Approval No. EASA.21J.031.
+
+P86: On occasion a REF. CODE can be identified in the NOMENCLATURE column in the DETAILED PARTS LIST. This is a Safran Landing Systems reference code and is used for cross-reference purposes only.
+
+P87: The accuracy and the adequacy of the instructions in this CMM have been technically verified by shop verification (performed or simulated) or by similarity with manufacturing instructions or with component maintenance manuals instructions from other programs that have been verified in shop.
+
+P88: Reference Publications
+
+P89: Safran Landing Systems UK Ltd Component Maintenance Manual, Main Landing Gear Leg and Dressings, 32-12-21.
+
+P90: Safran Landing Systems UK Ltd Component Maintenance Manual, Axle Harness 1M and 2M, 32-12-29.
+
+P91: Safran Landing Systems UK Ltd Component Maintenance Manual, Damper, 32-11-93.
+
+P92: Safran Landing Systems UK Ltd Component Maintenance Manual, Damper, 32-12-85.
+
+P98: INTRODUCTION
+
+P122: INTENTIONALLY BLANK
+
+P124: DESCRIPTION AND OPERATION
+
+P126: The main landing gear leg is a two stage, telescopic shock absorber.
+
+P127: Description (Refer to Figures 1 and 2)
+
+P128: The main landing gear leg has a sliding tube subassembly that operates in a main fitting subassembly. The sliding tube subassembly operates through a lower bearing subassembly. The lower bearing subassembly also seals the sliding tube subassembly in the main fitting subassembly.
+
+P129: An upper torque link subassembly attaches to the main fitting subassembly. A lower torque link subassembly attaches to the sliding tube subassembly. A damper attaches to the upper torque link subassembly. A pin installs through the damper and connects the upper and lower torque link subassemblies.
+
+P130: A slave link subassembly and a lower slave link subassembly attach opposite the upper and lower torque link subassemblies.
+
+P131: A rod and a cylinder install in the sliding tube subassembly. A piston installs in the cylinder. An upper diaphragm tube subassembly installs in the main fitting subassembly. A baffle, a compression orifice plate and a diaphragm subassembly install in the upper diaphragm tube subassembly. The rod goes through the baffle.
+
+P132: An upper bearing housing installs between the top of the sliding tube subassembly and the main fitting subassembly. A recoil orifice plate operates in the upper bearing housing.
+
+P133: Operation (Refer to Figure 2)
+
+P134: Compression
+
+P135: The sliding tube subassembly moves into the main fitting subassembly. The subsequent decrease in volume causes hydraulic fluid to flow through the upper bearing housing: the recoil orifice plate moves and slows the flow of hydraulic fluid. The decrease in volume also causes hydraulic fluid to move through the diaphragm and lift the compression orifice plate: the hydraulic fluid flows through the baffle and into the upper diaphragm tube subassembly. This slows the speed of the compression.
+
+P136: Hydraulic fluid that moves into the upper diaphragm tube compresses the nitrogen in the main fitting subassembly and the upper diaphragm tube subassembly. As the pressure of the nitrogen increases, the hydraulic fluid in the rod moves against the piston. The piston is pushed into the cylinder and compresses the nitrogen in it. This slows the speed of the compression more.
+
+P138: After compression, the nitrogen pressure in the cylinder pushes the piston to the end of the cylinder: hydraulic fluid moves out of the cylinder and into the rod. The nitrogen pressure in the main fitting subassembly and the upper diaphragm subassembly pushes the hydraulic fluid through the baffle: the compression orifice plate is pushed against the diaphragm subassembly and limits the flow of hydraulic fluid through it. This slows the speed of the recoil. The sliding tube subassembly moves out of the main fitting subassembly.
+
+P140: The Upper and Lower Torque Link Subassemblies
+
+P141: The upper and lower torque link subassemblies prevent the sliding tube subassembly from turning in the main fitting subassembly.
+
+P142: The damper controls the movement of the upper and lower torque link subassemblies.
+
+P144: Weight with hydraulic fluid	522 kg (1151 lb) approximately
+
+P145: Weight without hydraulic fluid	505 kg (1113 lb) approximately
+
+P146: Hydraulic fluid . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . Material Ref. Item 02-501
+
+P151: Main Landing Gear Leg Figure 1
+
+P156: Diagram of Operation Figure 2
+
+P158: TESTING AND FAULT ISOLATION
+
+P159: Equipment and Materials
+
+P161: This equipment is necessary:
+
+P162: NOTE: Alternative equivalents are permitted.
+
+P165: These materials are necessary:
+
+P166: NOTE: Alternative equivalents are permitted.
+
+P169: Test Conditions
+
+P170: WARNING: DO NOT GET HYDRAULIC FLUID ON YOUR SKIN OR IN YOUR EYES. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. HYDRAULIC FLUID IS POISONOUS AND DANGEROUS.
+
+P172: The hydraulic test rig must have a hand pump and a power pump. The power pump must have a controlled flow of not less than 4,5 l/min (4.62 in3/sec).
+
+P173: The inflation equipment must be to MIL-G-8348.
+
+P174: The temperature of the test fluid must be between 20 and 40 C (68 and 104 F).
+
+P175: The test fluid must be clean: refer to M-DLPS910-1.
+
+P176: During all hydraulic tests, the unit and the test circuit must be hydraulically full.
+
+P177: Examine the unit for damage before you start the tests.
+
+P178: During the proximity switch tests the ambient temperature must be between 15 and 25 C (59 and 77 F).
+
+P180: Piston (17-200) Leakage Tests
+
+P181: Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218: connect the charging valve (17-20) to the nitrogen supply. Open the charging valve (17-20).
+
+P182: Slowly increase the nitrogen pressure to between 9,32 and 10,68 bar (135 and
+
+P183: 155 lbf/in2). Make a record of the pressure. Close the charging valve (17-20) and hold the nitrogen pressure for 15 minutes.
+
+P184: Open the charging valve (17-20) and measure the nitrogen pressure: it must be the same as the record in para (2). Leakage must not occur.
+
+P185: Release the nitrogen pressure.
+
+P186: Disconnect the nitrogen supply and remove the Turner Inflation Equipment T14218 and the Charging Adapter 460002502.
+
+P187: Make sure that all of the nitrogen pressure has been released: remove the charging valve (17-20).
+
+P188: Refer to ASSEMBLY: install the charging valve (17-20) and complete the assembly procedure.
+
+P189: Main Landing Gear Leg (1-1) Tests
+
+P190: Initial Operations
+
+P191: Use these special tools to install the main landing gear leg (1-1) vertically in the loading press:
+
+P192: The Holding Fixture 460006231.
+
+P193: The Press Adapter 460006233.
+
+P195: The Bottom Press Adapter 460007260.
+
+P196: Assemble the Load Cell and Adapter 460006232 and the Offset Adapter 460006234 to the main landing gear leg (1-1).
+
+P197: Procedure to Fill and Pressurize the Main Landing Gear Leg (1-1)
+
+P198: CAUTION: DO NOT PUT AN END LOAD OF MORE THAN 5,08 TONNES (5 TONS) ON THE MAIN LANDING GEAR LEG (1-1).
+
+P199: Make sure that there is no pressure in the main landing gear leg (1-1): open the charging valves (13-60 and 17-20).
+
+P200: Use the Charging Adapter 460002502 to connect the hydraulic test rig to the charging valve (13-60).
+
+P201: Slowly increase the hydraulic pressure to between 13,11 and 14,48 bar (190 and 210 lbf/in2) and let the unit extend fully.
+
+P202: Release the hydraulic pressure and fully close the unit.
+
+P203: Do para (c) and (d) until the hydraulic fluid that comes out of the unit does not have air in it.
+
+P204: Fully close the unit and disconnect the hydraulic test rig.
+
+P205: Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218 to connect the nitrogen supply to the charging valve (13-60).
+
+P206: CAUTION: DO NOT USE A PRESSURE OF MORE THAN 7,58 BAR (110 LBF/IN2).
+
+P207: Slowly increase the nitrogen pressure until the unit starts to extend.	Hold the pressure and fully extend the unit. The pressure must not be more than 7,58 bar
+
+P209: NOTE: The charging valve (17-20) must be open to let the unit extend fully.
+
+P210: Refer to Figure 101 and measure the dimension X: it must be between 483,05 and 487,85 mm (19.017 and 19.207 in).
+
+P211: Disconnect the nitrogen supply and remove the Turner Inflation Equipment T14218 and the Charging Adapter 460002502.
+
+P212: Open the charging valve (13-60) and release the nitrogen pressure. Do not close the charging valve (13-60).
+
+P213: Use the Charging Adapter 460002502 and the Turner Inflation Equipment T14218 to connect the charging valve (17-20) to the nitrogen supply.
+
+P214: Slowly increase the nitrogen pressure to between 13,11 and 14,48 bar (190 and 210 lbf/in2).
+
+P215: NOTE: Nitrogen will be released through the charging valve (13-60) as the piston (17-200) moves.
+
+P216: Slowly increase the nitrogen pressure to between 67,59 and 70,34 bar (980 and1020 lbf/in2).
+
+P218: Close the charging valve (17-20); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).
+
+P219: Disconnect the nitrogen supply and remove the Turner Inflation Equipment T14218 and the Charging Adapter 460002502.
+
+P220: Use the Turner Inflation Equipment T14218 and the Charging Adapter 460002502 to connect the nitrogen supply to the charging valve (13-60).
+
+P221: Slowly increase the nitrogen pressure to between 6,90 and 8,27 bar (100 and 120 lbf/in2).
+
+P222: Close the charging valve (13-60); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).
+
+P223: Disconnect the nitrogen supply and remove the Turner Inflation Equipment T14218 and the Charging Adapter 460002502.
+
+P224: Leakage Tests
+
+P225: Make a record of the nitrogen pressure at the charging valve (13-60), (P1A) and the charging valve (17-20), (P1B).
+
+P226: Make a record of the ambient temperature, (T1).
+
+P227: Keep the unit in this condition for a minimum of six hours.
+
+P228: Measure the nitrogen pressure at the charging valve (13-60), (P2A) and the charging valve (17-20), (P2B).
+
+P229: Measure the ambient temperature, (T2).
+
+P230: Compare the pressures P1A and P2A and compare the pressures P1B and P2B. The pressures P1A and P2A must be the same and the pressures P1B and P2B must be the same, unless:
+
+P231: There is a difference between the temperatures T1 and T2
+
+P232: There is an error because of the pressure gauge capacity.
+
+P233: If there is a difference between the temperatures T1 and T2, calculate the correct value for the nitrogen pressures (these will be P3A and P3B) and adjust the pressures to the corrected values. Use the formula:
+
+P249: Where K = 273 for temperatures in C
+
+P250: (459 for temperatures in F)
+
+P251: Z =  1 for pressures in bar
+
+P252: (15 for pressures in lbf/in2)
+
+P257: Main Landing Gear Leg (1-1) Figure 101
+
+P259: If there is an error because of the gauge capacity:
+
+P260: Close the charging valve (13-60).
+
+P261: Release the pressure in the gauge.
+
+P262: Open the charging valve (13-60) and measure the nitrogen pressure, (P4A).
+
+P263: Close the charging valve (13-60).
+
+P264: Close the charging valve (17-20).
+
+P265: Release the pressure in the gauge.
+
+P266: Open the charging valve (17-20) and measure the nitrogen pressure, (P4B).
+
+P267: Calculate the correct values for the nitrogen pressures (these will be P5A and P5B) and adjust the pressures to the corrected values. Use the formula:
+
+P270: Prepare for Transport and Storage
+
+P271: Open the charging valve (13-60) and reduce the nitrogen pressure to between 3,45 and 4,82 bar (50 and 70 lbf/in2).
+
+P272: Close the charging valve (13-60); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).
+
+P273: Open the charging valve (17-20) and reduce the nitrogen pressure to between 3,45 and 4,82 bar (50 and 70 lbf/in2).
+
+P274: Close the charging valve (17-20); use the Crowfoot Wrench T14500 to torque it to between 5,7 and 7,9 N m (50 and 70 lbf in).
+
+P275: Write this data on a label and attach it to the unit: THE GEAR MUST BE INFLATED TO THE APPROPRIATE PRESSURES BEFORE BEING PLACED IN SERVICE.
+
+P276: Complete the torque procedure for the retaining pins (13-10): refer to ASSEMBLY.
+
+P277: Proximity Switches (7-40 and 7-230) Adjustments and Tests
+
+P278: Use the loading press: set the dimension between the pins (10-80 and 11-130) to between 632,80 and 636,95 mm (24.9134 and 25.0767 in).
+
+P279: Adjust the spacers (6-140, 7-50, 7-190 and 7-240) or laminated shims (6-140A, 7-50A, 7-90A and 7-240A): refer to ASSEMBLY.
+
+P280: NOTE: If the calculated gap is in the tolerance, the spacers (6-140, 7-50, 7-190 and 7-240) or laminated shims (6-140A, 7-50A, 7-90A and 7-240A) are not necessary.
+
+P281: Connect the 28 VDC power supply, the Lampbox 460005842 and the main landing gear leg (1-1).
+
+P283: Use the loading press to fully extend the main landing gear leg (1-1).
+
+P284: Use the loading press to slowly close the main landing gear leg (1-1):
+
+P285: The proximity switch (7-230) must operate before the main landing gear leg (1-1) has closed by 26,00 mm (1.0236 in).
+
+P286: The proximity switch (7-40) must operate before the main landing gear leg (1-1) has closed by 29,30 mm (1.1535 in).
+
+P287: Do para (4) and (5) again.
+
+P288: Disconnect the 28 VDC supply and the Lampbox 460005842.
+
+P289: Remove the main landing gear leg (1-1) from the loading press.
+
+P290: Electrical Bonding Resistance Tests (Refer to Figure 102)
+
+P291: CAUTION: DO NOT CAUSE DAMAGE TO THE PAINT FINISH.
+
+P292: NOTE: Make sure that the main landing gear leg (1-1) is electrically isolated from the equipment that is used to hold it.
+
+P293: Use the Milliohmmeter Megger, Type BT51, to measure the electrical bonding resistance.
+
+P294: Measure between the bearing (20-250) and the test points given in Table 101. The electrical bonding resistance must not be more than the limit given in Table 101.
+
+P295: Measure between the axle of the sliding tube subassembly (17-240) and the test points given in Table 102. The electrical bonding resistance must not be more than the limit given in Table 102.
+
+P303: BEARING (20-250)
+
+P349: AXLE OF SLIDING TUBE SUBASSEMBLY (17-240)
+
+P357: Electrical Bonding Resistance Test Points (Tables 101 and 102) Figure 102
+
+P359: Electrical Bonding Resistance Tests Table 101 (Refer to Figure 102)
+
+P361: Electrical Bonding Resistance Tests Table 102 (Refer to Figure 102)
+
+P363: Fault Isolation
+
+P364: To be given subsequently.
+
+P387: INTENTIONALLY BLANK
+
+P389: DISASSEMBLY
+
+P391: WARNING: DO NOT GET HYDRAULIC FLUID ON YOUR SKIN OR IN YOUR EYES. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. HYDRAULIC FLUID IS POISONOUS AND DANGEROUS.
+
+P392: NOTE: Refer to TESTING AND FAULT ISOLATION to find the necessary level of disassembly. This will give the condition of the component or the possible cause of its malfunction.
+
+P393: Make sure that the work area, the tools and the equipment are clean.
+
+P394: Discard parts that you must not use again. These include:
+
+P400: Wire Thread Inserts
+
+P401: If necessary, remove the wire thread inserts:
+
+P402: Bend the outer coil of the wire thread insert to the centre of the hole.
+
+P403: Remove the wire thread insert. Make sure that broken pieces do not stay in the hole.
+
+P404: Special Tools
+
+P405: These special tools are necessary:
+
+P406: NOTE: Alternative equivalents are permitted.
+
+P416: Procedure (Refer to IPL Figures 1 to 20)
+
+P417: Initial Operations
+
+P418: Use these special tools as necessary during the procedure to lift and to hold the unit:
+
+P419: The Lifting Bar Assembly 460006208
+
+P420: The Spherical Bearing Locator 460007282
+
+P421: The Pintle Location Assembly 460007281
+
+P422: The Transport and Build Trolley 460006213
+
+P423: The Support Arms 460006215
+
+P424: The Towing Frame 460006216
+
+P425: The Jacking Dome Adapter 460006223
+
+P426: The Adapter 460006237
+
+P427: The Spacer 460007231
+
+P428: The Location Frame 460007234 (for left configuration units)
+
+P429: The Location Frame 460007235 (for right configuration units).
+
+P430: Pintle Pin (1-60)
+
+P431: Pre SB 201-32-22: remove the split pin (1-10), the nut (1-20), the washer (1-30), the bolt (1-40) and the washer (1-50).
+
+P432: Post SB 201-32-22: remove the split pins (1-10A), the nuts (1-20A), the spacers (1-25), the washers (1-30A), the shims (1-35), the bolt subassembly (1-40A) and the washers (1-50A).
+
+P433: Post SB 201-32-22: cut the Bowden cable (1-45) and remove the cross bolts (1-47 and 1-49).
+
+P434: Remove the pintle pin (1-60).
+
+P435: Remove the bolts (1-70), tab washers (1-80), nuts (1-90) and retainers (1-100).
+
+P436: Remove the wiring diagram plate (1-110).
+
+P437: PRE SB 201-32-81: Transfer Block Subassembly (2-290 and 2-290A)
+
+P438: Remove the bolt (2-10), the washer (2-20), the pin (2-30), the spacer (2-40) and the
+
+P439: threaded insert (2-50).
+
+P440: Release the tab washers (2-70). Remove the bolts (2-60), the tab washers (2-70) and the bracket (2-80).
+
+P441: Remove the bolts (2-100), the washers (2-110) and the bracket (2-120).
+
+P442: Release the tab washer (2-150). Remove the bolt (2-140), the tab washer (2-150) and the bonding cable (2-160).
+
+P443: Release the tab washers (2-180 and 2-200). Remove the bolts (2-170 and 2-190) and
+
+P444: the tab washers (2-180 and 2-200).
+
+P446: Remove the nuts (2-210) and retainers (2-220).
+
+P447: Remove the split pins (2-230), the nuts (2-240), the washers (2-250), the bolts (2-260) and the bracket (2-270).
+
+P448: Remove the transfer block subassembly (2-290 and 2-290A).
+
+P449: Use the Extractor Pad and Drawbolt 460006415 to remove the bush (2-310) and the Extractor 460006416 to remove the bush (2-320) from the transfer block (2-340 and 2-340A).
+
+P450: POST SB 201-32-81: Transfer Block Subassembly (2-290B)
+
+P451: Remove the bolt (2-10), the washer (2-20), the pin (2-30), the spacer (2-40) and the
+
+P452: threaded insert (2-50).
+
+P453: Release the tab washer (2-150). Remove the bolt (2-140), the tab washer (2-150) and the bonding cable (2-160).
+
+P454: Release the tab washers (2-180 and 2-200). Remove the bolts (2-170 and 2-190A) and the tab washers (2-180 and 2-200).
+
+P455: Remove the nuts (2-210) and retainers (2-220).
+
+P456: Remove the transfer block subassembly (2-290B).
+
+P457: Use the Extractor Pad and Drawbolt 460006415 to remove the bush (2-310) and the Extractor 460006416 to remove the bush (2-320) from the transfer block (2-340B).
+
+P458: Cardan Assembly (3-10)
+
+P459: Remove the split pin (3-20), the nut (3-30), the washer (3-40), the pin (3-50), the spacers (3-60 and 3-70) and the cardan assembly (3-10).
+
+P460: Remove the lubrication fittings (3-80, 3-100 and 3-120) and the identification washers
+
+P461: (3-90, 3-110 and 3-130) from the lock stay cardan subassembly (3-140).
+
+P462: Remove the bushes (3-150 and 3-160) from the lock stay cardan (3-170).
+
+P463: Remove the split pin (3-180), the nut (3-190), the washer (3-200), the bolt (3-210) and
+
+P464: the bracket (3-220).
+
+P465: Rod End Assembly (4-10), Proximity Switch (4-100) and Bracket Subassembly (4-330)
+
+P466: Remove the split pin (4-20), the nut (4-30), the washer (4-40) and the rod end assembly (4-10).
+
+P467: Remove the spherical bearing (4-50) from the rod end (4-60).
+
+P468: Remove the nuts (4-70), the washers (4-80), the cap screws (4-90) and the proximity switch (4-100).
+
+P469: Remove the split pins (4-110), the nuts (4-120), the washers (4-130) and the bracket (4-140).
+
+P470: Release the tab washers (4-170 and 4-200). Remove the nuts (4-160), the tab washers (4-170), the spacer (4-180), the bolts (4-190), the tab washers (4-200) and the bracket (4-210).
+
+P471: Remove the split pin (4-220), the nut (4-230), the washer (4-240), the bolt (4-250) and
+
+P472: the sleeve (4-260).
+
+P477: Remove the split pins (4-270), the nuts (4-280), the washers (4-290) and the bolts (4-300).
+
+P478: Remove the bonding cable (4-310) and the washer (4-320).
+
+P479: Remove the bracket subassembly (4-330).
+
+P480: Use the Drift 460004331/7 and the Extractor 460006151/25 to remove the bearing (4-340) from the bracket (4-360).
+
+P481: Use the Drift 460004331/7 and the Extractor 460006151/26 to remove the bearing (4-350) from the bracket (4-360).
+
+P482: Bracket Assembly (5-10), Bracket Subassemblies (5-90 and 5-270) and Uplock Pin (5-400)
+
+P483: Remove the bolts (5-20 and 5-40), the washers (5-30 and 5-50), the nut (5-60) and the
+
+P484: bracket assembly (5-10).
+
+P485: Remove the spherical bearing (5-70) from the bracket (5-80): refer to M-DLPS1014-2.
+
+P486: Remove the bolts (5-100 and 5-120), the washers (5-110 and 5-130), the nut (5-140) and the bracket subassembly (5-90).
+
+P487: Remove the spherical bearing (5-150) from the bracket (5-160): refer to M-DLPS1014-2.
+
+P488: Remove the split pin (5-170), the nut (5-180), the washer (5-190), the bolt (5-200) and
+
+P489: the sleeve (5-210).
+
+P490: Remove the bolt (5-220), the washer (5-230) and the bonding cable (5-240).
+
+P491: Remove the bolt (5-250), the washer (5-260), the bracket subassembly (5-270) and the nut (5-310).
+
+P492: Use the Drift 460004331/7 and the Extractor 460006151/24 to remove the bearings (5-280 and 5-290) from the bracket (5-300).
+
+P494: Remove the split pins (5-320), the nuts (5-330), the washers (5-340) and the bolts (5-350).
+
+P495: Remove the split pin (5-360), the nut (5-370), the washer (5-380), the static discharge connector (5-390) and the uplock pin (5-400).
+
+P496: POST SB 201-32-72:
+
+P497: Remove the split pins (5-320A), the nuts (5-330A), the washers (5-340B) and the bolts (5-350A).
+
+P498: Remove the ground stud subassembly (5-390A), the washer (5-380B), the bolt (5-395) and the uplock pin (5-400A).
+
+P499: Slave Link Subassembly (6-190) and Lower Slave Link Subassembly (6-290)
+
+P500: Remove the split pin (6-10), the nut (6-20), the washer (6-30), the bolt (6-40) and the spacer (6-50).
+
+P501: Remove the split pin (6-60), the slotted nut (6-70), the washer (6-80) and the pivot pin (6-90).
+
+P502: Remove the slave link subassembly (6-190) and its attached parts.
+
+P504: Remove the nuts (6-100), the washers (6-110), the cap screws (6-120), the target (6-130) and the spacers (6-140) or the laminated shim (6-140A).
+
+P505: NOTE: If the calculated gap is in the tolerance, the spacers (6-140) or the laminated shim (6-140A) is not installed.
+
+P506: Remove the bolts (6-150), the washers (6-160) and the bracket (6-170).
+
+P507: Remove the bushes (6-200) from the slave link (6-230).
+
+P508: Use the Drift 460004331/8 and the Extractor 460006151/30 to remove the bush (6-210) from the slave link (6-230).
+
+P509: Use the Drift 460004331/8 and the Extractor 460006151/31 to remove the bush (6-220) from the slave link (6-230).
+
+P510: Remove the split pin (6-240), the nut (6-250), the washer (6-260), the bolt (6-270) and the spacer (6-280): remove the lower slave link subassembly (6-290).
+
+P511: Remove the grooved spherical bearing (6-300) or the self lubricating bearing (6-300A) from the lower slave link (6-310).
+
+P512: Proximity Switches (7-40 and 7-230) and Harness Support Bracket (7-100)
+
+P513: Remove the nuts (7-10), the washers (7-20), the cap screws (7-30), the proximity switch (7-40) and the spacer (7-50) or the laminated shim (7-50A).
+
+P514: NOTE: If the calculated gap is in the tolerance, the spacer (7-50) or the laminated shim (7-50A) is not installed.
+
+P515: Remove the split pins (7-60), the nuts (7-70), the washers (7-80), the bolts (7-90) and the harness support bracket (7-100).
+
+P516: Remove the pivot bracket subassembly (7-120).
+
+P517: Use the Extractor 460006413 to remove the bushes (7-130) from the pivot bracket (7-140).
+
+P518: Remove the nuts (7-150), the washers (7-160), the cap screws (7-170), the target (7-180) and the spacer (7-190) or the laminated shim (7-190A).
+
+P519: NOTE: If the calculated gap is in the tolerance, the spacer (7-190) or the laminated shim (7-190A) is not installed.
+
+P520: Remove the nuts (7-200), the washers (7-210), the cap screws (7-220), the proximity switch (7-230) and the spacer (7-240) or the laminated shim (7-240A).
+
+P521: Bracket Subassembly (8-90)
+
+P522: Remove the nuts (8-10), the washers (8-20) and the bolts (8-30).
+
+P523: Remove the split pins (8-40), the nuts (8-50), the washers (8-60), the bolts (8-70) and
+
+P524: the bracket (8-80).
+
+P525: Remove the split pin (8-100), the nut (8-110), the washer (8-120), the sleeves (8-130) and the bolt (8-140). Remove the bracket subassembly (8-90).
+
+P526: Use the Extractor 460006151/31 and the Drift 460004331/8 to remove the bush (8-150).
+
+P527: Use the Extractor 460006151/30 and the Drift 460004331/8 to remove the bush (8-160).
+
+P529: Damper (9-160)
+
+P530: Remove the split pin (9-10), the nut (9-20), the washer(s) (9-30) and the bolt (9-40).
+
+P531: Remove the clamp (9-165) and the dust cap (9-170).
+
+P532: Use the Torque Reaction Adapter 460007242 to hold the pin (9-70) and use the Torque Adapter T14544 to remove the nut (9-50). Remove the spacer (9-60), the pin (9-70), the spacer (9-80) and the sleeve (9-90).
+
+P533: Remove the bolts (9-100), the washers (9-110), the bolts (9-120), the washers (9-130), the bolts (9-140), the washers (9-145) and the bracket (9-150).
+
+P534: Remove the damper (9-160), the spacers (9-180 and 9-190) and the sleeve (9-200).
+
+P535: Upper Torque Link Subassembly (10-170)
+
+P536: Release the tab washers (10-20). Remove the bolts (10-10), the tab washers (10-20) and the wedge (10-30).
+
+P537: Remove the split pin (10-40), the nut (10-50), the washers (10-60), the bolt (10-70) and
+
+P539: Remove the upper torque link subassembly (10-170), the upper pivot bracket (10-160) and the spacers (10-270).
+
+P540: Remove the lubrication shaft subassembly (10-90) from the pin (10-80).
+
+P541: Remove the O-ring seals (10-150) from the lubrication shaft subassembly (10-90).
+
+P542: Remove the lubrication fittings (10-120) and the identification washers (10-130).
+
+P543: Release the tab washers (10-100). Remove the lubrication adapters (10-110) and the tab washers (10-100).
+
+P544: Remove the lubrication fittings (10-180 and 10-210) and the identification washers (10-190 and 10-220). Remove the lubrication adapters (10-200 and 10-230).
+
+P545: Remove the bushes (10-240).
+
+P546: Use the Extractor 460006151/10 to remove the bushes (10-250) from the upper torque link (10-260).
+
+P547: 1M Electrical Axle Harness (11-40) and 2M Electrical Axle Harness (11-50)
+
+P548: Remove the cap screws (11-10), the washers (11-20) and the harness support (11-30).
+
+P549: Remove the 2M electrical axle harness (11-50).
+
+P550: Remove the 1M electrical axle harness (11-40).
+
+P551: Lower Torque Link Subassembly (11-150)
+
+P552: Release the tab washers (11-70).
+
+P553: Remove the bolts (11-60), the tab washers (11-70) and the wedge (11-80).
+
+P554: Remove the split pin (11-90), the nut (11-100), the washer (11-110) and the bolt (11-120).
+
+P555: Remove the pin (11-130), the harness support bracket (11-140), the lower torque link
+
+P556: subassembly (11-150) and the spacers (11-250).
+
+P558: Remove the lubrication fittings (11-160 and 11-190) and the identification washers (11-170 and 11-200). Remove the lubrication adapters (11-180 and 11-210).
+
+P559: Remove the bushes (11-220).
+
+P560: Use the Extractor 460006151/10 to remove the bushes (11-230) from the lower torque link (11-240).
+
+P561: Housing (12-170)
+
+P562: Remove the split pins (12-10), the nuts (12-20), the washers (12-30) and the bolts (12-40).
+
+P563: Remove the housing (12-170) and its related parts.
+
+P564: Remove the split pins (12-50), the washers (12-60), the pin (12-70) and the cap screw (1).
+
+P565: Remove the valve stem (12-90).
+
+P566: Remove the O-ring seal (12-100) and the backing ring (12-110).
+
+P567: Remove the transfer dowels (12-120).
+
+P568: Remove the O-ring seals (12-130 and 12-150) and the backing rings (12-140 and 12-160).
+
+P569: Shock Absorber Subassembly (13-50) and Related Parts
+
+P570: Remove the split pins (14-20), the nuts (14-30), the washers (14-40) and the bolts (14-50).
+
+P571: Use the Torque Adapter 460007230 to remove the nuts (14-60).
+
+P572: Remove the stop rings (14-70).
+
+P573: WARNING: RELEASE ALL NITROGEN PRESSURE BEFORE YOU REMOVE THE CHARGING VALVES (13-60 AND 17-20).
+
+P574: Slowly open the charging valve (17-20) and release all of the second stage nitrogen pressure.
+
+P575: Slowly open the charging valve (13-60) and release all of the first stage nitrogen pressure.
+
+P576: Release the cup washers (13-20).
+
+P577: Remove the retaining pins (13-10) and the cup washers (13-20).
+
+P578: Remove the lubrication fittings (13-30) and the identification washers (13-40).
+
+P579: Use the Crowfoot Wrench T14500 to remove the charging valve (13-60). Remove the O-ring seal (13-67) from the charging valve (13-60).
+
+P580: Remove the bolts (13-70), the spacers (13-80) and the inflation valve subassembly (13-90).
+
+P581: Remove the plate (13-100) from the inflation valve (13-110).
+
+P582: Remove the O-ring seal (13-120) and the backing rings (13-130).
+
+P583: Remove the split pin (13-140), the nut (13-150), the washers (13-160), the bolt (13-170) and the stop ring (13-180).
+
+P584: Remove the pin (13-190), the washer subassembly (13-200) and the bush (13-230).
+
+P586: Remove the shock absorber subassembly (13-50) and its related parts from the main fitting subassembly (20-90).
+
+P587: Use the Lifting Tackle 460006211 and install the sliding tube subassembly (17-240) in the Build Trolley 460007240.
+
+P588: Remove the bearings (15-20 and 15-30).
+
+P589: Remove the upper bearing housing (15-40) and related parts as follows:
+
+P590: Release the tab washers (15-100).
+
+P591: CAUTION: DISCARD THE SCREWS (15-90) AND THE LOCKING PLATES (15-80) WHEN REMOVED.
+
+P592: Remove the screws (15-90) and the tab washers (15-100).
+
+P593: Remove the locking plate (15-80).
+
+P594: Use Pin Spanner 460007279 to remove the upper bearing housing (15-40).
+
+P595: Remove and discard the pins (15-120).
+
+P596: Remove the two piece stop with inserts (15-130).
+
+P597: Remove the locking pins (15-50), the retaining ring (15-60) and the recoil orifice plate (15-70).
+
+P598: Remove the upper diaphragm tube subassembly (15-360) and its related parts.
+
+P599: Release the tab washers (15-170). Remove the bolts (15-160), the tab washers (15-170) and the lock plate (15-180).
+
+P600: Use the Torque Adapter 460007283, the Torque Reactor 460007278, the Holding Blocks 460006406 and the Bench Clamp MT1025 to remove the diaphragm subassembly (15-190), the compression orifice plate (15-220), the clapper seat (15-230) and the baffle (15-240).
+
+P601: Remove the O-ring seal (15-250) and the backing rings (15-260).
+
+P602: Remove the bearing (15-270) and the seals (15-280 and 15-290).
+
+P603: Use the Assembly/Extraction Tool 460006410 to remove the level tube (15-300) and remove the O-ring seal (15-310).
+
+P604: Remove the split pin (15-320), the nut (15-330), the washer (15-340) and the bolt (15-350).
+
+P605: Use the Extractor 460006151/21 and the Drift 460004331/20 to remove the bush (15-370).
+
+P606: Use the Extractor 460006151/22 and the Drift 460004331/20 to remove the bush (15-380) from the upper diaphragm tube (15-390).
+
+P607: Lower Bearing Subassembly (16-110) Pre SB 201-32-58
+
+P608: Remove the lower bearing subassembly (16-110) and its related parts from the sliding tube subassembly (17-240).
+
+P609: Remove the O-ring seal (16-20), the backing rings (16-30), the O-ring seal (16-40) and the backing rings (16-50).
+
+P610: Remove the seals (16-60 and 16-70).
+
+P612: Remove the joint seal (16-80), the sealing ring (16-90) and the wiper ring (16-100).
+
+P613: Remove the lower bearing (16-150) from the lower bearing housing subassembly (16-120).
+
+P614: Remove the bushes (16-130) from the gland housing (16-140).
+
+P615: Lower Bearing Subassembly (16A-110D) Post SB 201-32-58
+
+P616: Remove the lower bearing subassembly (16A-110D) and its related parts from the sliding tube subassembly (17-240).
+
+P617: Remove the O-ring seal (16A-20), the backing rings (16A-30), the O-ring seal (16A-40) and the backing rings (16A-50).
+
+P618: Remove the seals (16A-60 and 16A-70).
+
+P619: Remove the joint seal (16A-80), the sealing ring (16A-90) and the wiper ring (16A-100).
+
+P620: Remove the inner liner (16A-117) from the lower bearing subassembly (16A-110D) and discard it.
+
+P621: Remove the lower bearing (16A-150A) from the lower bearing housing subassembly (16A-120B). Discard the machined lower bearing (16A-150A).
+
+P622: Remove the bushes (16A-130A) from the gland housing (16A-140B).
+
+P623: Lower Bearing Subassembly (16-110D or 16A-110E) Post Ref. Code: 2253
+
+P624: Remove the lower bearing subassembly (16-110D or 16A-110E) and its related parts from the sliding tube subassembly (17-240).
+
+P625: Remove the O-ring seal (16-20A or 16A-20A), the backing rings (16-30 or 16A-30), the O-ring seal (16-40A or 16A-40A) and the backing
+
+P626: rings (16-50 or 16A-50).
+
+P627: Remove the seals (16-60 or 16A-60) and (16-70 or 16A-70).
+
+P628: Remove the joint seal (16-80 or 16A-80), the sealing ring (16-90 or 16A-90) and the wiper ring (16-100 or 16A-100).
+
+P629: Remove the common lower bearing bushes (16-130A or 16A-130B) from the lower bearing housing (16-140B or 16A-140C).
+
+P630: Use the Crowfoot Wrench T14500 to remove the charging valve (17-20). Remove the O-ring seal (17-27) from the charging valve (17-20).
+
+P631: Remove the cap screws (17-30), the washers (17-40) and the valve support (17-50).
+
+P632: Remove the O-ring seal (17-60) and the backing ring (17-70).
+
+P633: Release the lock washer (17-90) and use the Torque Adapter 460006404 to remove the jacking dome (17-80). Remove the lock washer (17-90).
+
+P634: Remove the cylinder (17-230) and its related parts from the sliding tube subassembly (17-240).
+
+P635: Hold the cylinder (17-230) in the Bench Clamp MT1025 and Holding Blocks MT1026/63.
+
+P636: Release the tab washer (17-110) and remove the bolts (17-100). Remove the tab washers (17-110).
+
+P638: Remove the lock plate (17-120) and use the Pin Spanner 460007284 to remove the nut subassembly (17-130). Remove the rod (17-160) and the washer (17-170).
+
+P639: Remove the piston (17-200) and remove the bearing (17-180) and the seal (17-190).
+
+P640: Remove the O-ring seal (17-210) and the backing ring (17-220) from the cylinder (17-230).
+
+P641: Remove the cylinder (17-230) from the Bench Clamp MT1025 and Holding Blocks MT1026/63.
+
+P642: Remove the labels (17-250 and 17-290).
+
+P643: Remove the lubrication fittings (17-270) and the identification washers (17-280) from the sliding tube subassembly (17-240).
+
+P644: Remove the sliding tube subassembly (17-240) from the Build Trolley 460007240.
+
+P645: Sliding Tube Subassembly (17-240)
+
+P646: Remove the bushes (18-10).
+
+P647: Use the Extractor 460006151/20 and the Drift 460004331/8 to remove the bushes (18-20).
+
+P648: Use the Extractor 460006151/7 and the Drift 460004331/8 to remove the bushes (18-30).
+
+P649: Use the Extractor 460006151/10 and the Drift 460004331/21 to remove the bushes (18-40).
+
+P650: Use the Extractor 460007254 to remove the bush (18-50).
+
+P651: Remove the lubrication fittings (18-52) and identification washers (18-54).
+
+P652: Remove the label (18-70) from the sliding tube (18-80).
+
+P653: Spherical Bearing (19-50) and Bung (19-60)
+
+P654: Remove the split pin (19-10), the nut (19-20), the washers (19-30) and the bolt (19-40).
+
+P655: Release the lock indentations of the locking washer (19-54).
+
+P656: Use the Torque Adapter 460007232 to remove the locking nut (19-52). Remove the locking washer (19-54) and the outer race and the ball of the spherical bearing (19-50).
+
+P657: NOTE: The outer race and the ball are parts of the spherical bearing (19-550).
+
+P658: They are a set: keep them together.
+
+P659: Remove the bung (19-60).
+
+P660: Main Fitting Subassembly (20-90)
+
+P661: Remove the labels (20-10, 20-30, 20-40, 20-60 and 20-80).
+
+P662: Remove the lubrication fitting (20-110) and the identification washer (20-120). Remove the lubrication adapter (20-130).
+
+P663: Remove the lubrication fitting (20-140) and the identification washer (20-150). Remove the lubrication adapter (20-160).
+
+P664: Remove the lubrication fitting (20-170) and the identification washer (20-180). Remove the lubrication adapter (20-190).
+
+P666: Remove the lubrication fittings (20-200) and identification washers (20-210). Remove the lubrication adapters (20-220).
+
+P667: Use the Extractor 460001355 and remove the lubrication adapters (20-130), (20-160)
+
+P669: Use the Extractor 460006151/47 and the Drift 460004331/1 to remove the bearings (20-230 and 20-240).
+
+P670: Remove the bearing (20-250 only).
+
+P671: Use the Hydraulic-Pneumatic Pump Set 460006497, the Bolt 460006498/7, the Press Pad 460006499/25 and the Extraction Tube 460004680 and remove the forward pintle bush (20-250A).
+
+P672: Use the Extractor 460006151/88 and the Drift 460004331/9 to remove the bearing (20-260).
+
+P673: Use the Extractor 460006151/87 and the Drift 460004331/9 to remove the bearing (20-260 and 20-270).
+
+P674: Use the Extractor 460006253 to remove the bearing (20-280).
+
+P675: Use the Extractor 460006151/47/48 and the Drift 460004331/9 to remove the bearing (20-290).
+
+P676: Use the Extraction Pad 460006263/460006232 and the Extraction Bar 460006262 to remove the bearing (20-300).
+
+P677: Use the Extraction Pad 460006261 and the Extraction Bar 460006262 to remove the bearing (20-310).
+
+P678: Use the Extractor 460006151/86 to remove the bushes (20-320).
+
+P679: Use the Extractor 460006151/10 and the Drift 460004331/21 to remove the bushes (20-330).
+
+P680: Use the Extractor Plate 460007259/460006151/9 and the Drift 460004331/21 to remove the bushes (20-340 and 20-350).
+
+P681: Use the Extractor 460006151/25 and the Drift 460004331/7 to remove the bush (20-360).
+
+P682: Remove the bearing (20-370 only).
+
+P683: Use the Press Pad Assembly 460006267 and remove the drag arm sleeve (20-370A only).
+
+P684: Use the Extractor 460006151/24 and the Drift 460004331/7 to remove the bushes (20-380).
+
+P685: Use the Extractor 460006151/51 and the Drift 460004331/7 to remove the bushes (20-390).
+
+P686: Remove the bearings (20-400).
+
+P691: These materials are necessary:
+
+P692: NOTE: Alternative equivalents are permitted.
+
+P696: WARNING: DO NOT GET CLEANING AGENTS ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. CLEANING AGENTS ARE POISONOUS AND FLAMMABLE.
+
+P697: CAUTION: DO NOT USE CHLORINATED SOLVENTS. CHLORINATED SOLVENTS CAN MIX WITH VERY SMALL QUANTITIES OF WATER IN HYDRAULIC SYSTEMS TO MAKE HYDROCHLORIC ACID. HYDROCHLORIC ACID WILL CAUSE CORROSION ON METAL SURFACES.
+
+P698: Clean all the metal parts with white spirit, Material Ref. Item 11-524. Make sure that you fully remove all sealants, adhesives and jointing compounds.
+
+P699: Dry all the metal parts.
+
+P700: Use clean PVC or polythene gloves to prevent corrosion of metal parts.
+
+P701: Prevent corrosion of the metal parts that you do not immediately use for assembly procedures: refer to PCS-2800.
+
+P702: Paint Removal
+
+P703: WARNING: DO NOT GET PAINT STRIPPER ON YOUR SKIN, IN YOUR EYES OR NEAR A FLAME. DO NOT BREATHE THE FUMES. ONLY USE IN A LOCATION THAT HAS A CONTINUOUS FLOW OF CLEAN AIR. PAINT STRIPPER IS POISONOUS AND FLAMMABLE.
+
+P704: Remove the damaged paint: refer to PCS-2700.
+
+P705: Clean the part: refer to para 2.A.
+
+P706: Paint the part: refer to REPAIR.
+
+P729: INTENTIONALLY BLANK
+
+P733: The procedure to examine the parts is in two levels:
+
+P734: Detailed Inspection.
+
+P735: Special Detailed Inspection.
+
+P736: Detailed Inspection
+
+P737: Examine Parts Visually
+
+P738: Visually examine each part. Carefully examine changes of section and areas which contact sealing rings.
+
+P739: Examine each part for these types of damage:
+
+P740: Corrosion.
+
+P741: Deterioration of protective treatment.
+
+P742: Distortion and/or cracks.
+
+P743: Wear or fretting.
+
+P744: Scores, dents or burrs.
+
+P745: Unserviceable screw threads.
+
+P746: Parts of permanent assemblies that are not correctly attached.
+
+P747: Examine Dimensions
+
+P748: Measure all the parts that are in FITS AND CLEARANCES and compare with the dimensions in the table.
+
+P749: Spring Data
+
+P750: Not applicable.
+
+P751: Special Detailed Inspection
+
+P752: Special Dimension Check:
+
+P753: Examine the rod (17-160) for the diameter of radial damping holes. The diameter of each hole must be between 5,40 and 5,60 mm (0.213 and 0.220 in).
+
+P754: Examine the thread form of the diaphragm subassembly (15-190) and diaphragm (15-210A) with shadow graph projection.
+
+P755: NOTE:	The thread size is M142 x 1.5 pitch - 5h6h to BS3643.
+
+P756: Examine the 4 holes in the sliding tube (18-80) where the bracket (8-170) installs, for burrs. If you find burrs contact Safran Landing Systems who will supply an applicable repair.
+
+P757: NOTE: Use a good light source and 10x magnification to view the area, to look for burrs.
+
+P758: Unless instructions are different:
+
+P759: Examine all parts shown in Tables 501 and 502 to the applicable NDT and information given.
+
+P761: CAUTION: YOU MUST DISASSEMBLE ALL PARTS, THIS WILL INCLUDE THE BUSHES, THEY MUST BE REMOVED AND DISCARDED. YOU MUST APPLY THE NDT INSPECTION TO THE DETAIL LEVEL PART ONLY AS IDENTIFIED IN TABLES 501 AND 502. IF THE BUSHES ARE NOT REMOVED THE INSPECTION IS NOT COMPLETE FOR THE DETAIL PART AND DAMAGE CAN OCCUR.
+
+P762: Parts that are included in Tables 501 and 502 must be fully disassembled to the lowest detail level for NDT inspection. This includes the removal of all of the bushes.
+
+P763: Examination of Magnetic Steel Parts by Non-destructive Testing Table 501
+
+P773: Examination of Non-Magnetic Parts by Non-destructive Testing Table 502
+

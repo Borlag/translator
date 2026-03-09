@@ -3054,8 +3054,58 @@ PART6_EXACT_MAP_2: dict[str, str] = {
     "Shot peen the flange face(s) including the sulphamate nickel plated areas: refer to M-DLPS123, Almen A intensity of 0,010 to 0,014 mm (0.0004 to 0.0006 in).": "Дробеструйно упрочните поверхность(и) фланца(ев), включая участки с сульфаматно-никелевым покрытием: см. M-DLPS123, интенсивность Almen A 0,010-0,014 мм (0.0004-0.0006 in).",
 }
 
+PART7_SHARED_EXACT_MAP: dict[str, str] = {
+    "POINT C": "ТОЧКА C",
+    "POINT D": "ТОЧКА D",
+    "Y POINT C": "Y ТОЧКА C",
+    "DIMENSION B": "РАЗМЕР B",
+    "DIMENSION E": "РАЗМЕР E",
+    "MAXIMUM (REFERENCE)": "МАКСИМУМ (СПРАВ.)",
+    "WITHOUT BUSHES": "БЕЗ ВТУЛОК",
+    "WITH BUSHES": "С ВТУЛКАМИ",
+    "WITH REPAIR BUSHES": "С РЕМОНТНЫМИ ВТУЛКАМИ",
+    "WITH REPAIR BUSHES INSTALLED": "С УСТАНОВЛЕННЫМИ РЕМОНТНЫМИ ВТУЛКАМИ",
+    "WITHOUT REPAIR BUSHES": "БЕЗ РЕМОНТНЫХ ВТУЛОК",
+    "(WITHOUT BEARING)": "(БЕЗ ПОДШИПНИКА)",
+    "SMOOTH TO RADIUS. 2 PLACES": "СГЛАДИТЬ ДО РАДИУСА. 2 МЕСТА",
+    "SEALANT TO PCS-7200": "ГЕРМЕТИК ПО PCS-7200",
+    "APPLY SEALANT TO PCS-7200": "НАНЕСТИ ГЕРМЕТИК ПО PCS-7200",
+    "APPLY SEALANT TO PCS-7200 TYPICAL 6 PLACES": "НАНЕСТИ ГЕРМЕТИК ПО PCS-7200, ТИПОВО 6 МЕСТА",
+    "PART SECTION Z-Z": "ЧАСТИЧНОЕ СЕЧЕНИЕ Z-Z",
+    "DRAIN HOLE J": "ДРЕНАЖНОЕ ОТВЕРСТИЕ J",
+    "REFERENCE BOTTOM OF MAIN FITTING": "СПРАВ. НИЖНЯЯ ЧАСТЬ КОРПУСА СТОЙКИ",
+    "MACHINING": "МЕХАНИЧЕСКАЯ ОБРАБОТКА",
+    "THICKNESS": "ТОЛЩИНА",
+    "CHAMFER (2 PLACES)": "ФАСКА (2 МЕСТА)",
+    "Press Pad and Drawbolt": "Нажимная опора и стяжной болт",
+    "Cutter": "Резец",
+    "Finish machine the repair bush 450258806": "Окончательно обработать ремонтную втулку 450258806",
+    "Blank bush": "Заготовка втулки",
+    "Blank bushes": "Заготовки втулок",
+    "Blank bearing": "Заготовка подшипника",
+    "Electrically conducting Mastinox to M-DLPS709-14": "Электропроводящий Mastinox по M-DLPS709-14",
+    "Electrically conducting Mastinox D40": "Электропроводящий Mastinox D40",
+    "Electrically conducting Mastinox D40: refer to M-DLPS709-14": "Электропроводящий Mastinox D40: см. M-DLPS709-14",
+    "Electrically conducting zinc loaded Mastinox D40: refer to M-DLPS709-14": (
+        "Электропроводящий Mastinox D40 с цинковым наполнителем: см. M-DLPS709-14"
+    ),
+    "Electrically conducting zinc loaded Molykote 111: refer to PCS-7304": (
+        "Электропроводящий Molykote 111 с цинковым наполнителем: см. PCS-7304"
+    ),
+    "Jointing Compound, zinc loaded Mastinox D40: refer to M-DLPS709-14": (
+        "Монтажный состав Mastinox D40 с цинковым наполнителем: см. M-DLPS709-14"
+    ),
+    "Aluminium bronze AMS4590 or AMS4881 centrifugally cast": (
+        "Алюминиевая бронза AMS4590 или AMS4881, центробежного литья"
+    ),
+    "Oversize Bush(es) - Machining and Installation Figure 602": (
+        "Ремонтные втулки увеличенного размера - Механическая обработка и установка рисунок 602"
+    ),
+}
+
 EXACT_MAP.update(PART6_EXACT_MAP)
 EXACT_MAP.update(PART6_EXACT_MAP_2)
+EXACT_MAP.update(PART7_SHARED_EXACT_MAP)
 
 
 def _translate_fragment(text: str) -> str:
@@ -3144,6 +3194,29 @@ REGEX_RULES: list[tuple[re.Pattern[str], str | callable]] = [
     (re.compile(r"^TYPICAL\s+(\d+)\s+PLACES$", re.IGNORECASE), r"ТИПОВОЕ ИСПОЛНЕНИЕ, \1 МЕСТА"),
     (re.compile(r"^(.+?)\s+RAD\.$", re.IGNORECASE), r"\1 РАД."),
     (re.compile(r"^(.+?)\s+MAXIMUM$", re.IGNORECASE), r"\1 МАКСИМУМ"),
+    (re.compile(r"^(.+?)\s+MINIMUM$", re.IGNORECASE), r"\1 МИНИМУМ"),
+    (re.compile(r"^(.+?)\s+REFERENCE$", re.IGNORECASE), r"\1 СПРАВ."),
+    (re.compile(r"^(.+?)\s+\(REFERENCE\)$", re.IGNORECASE), r"\1 (СПРАВ.)"),
+    (re.compile(r"^POINT\s+(.+)$", re.IGNORECASE), r"ТОЧКА \1"),
+    (re.compile(r"^(.+?)\s+POINT\s+(.+)$", re.IGNORECASE), r"\1 ТОЧКА \2"),
+    (re.compile(r"^DIMENSION\s+(.+)$", re.IGNORECASE), r"РАЗМЕР \1"),
+    (re.compile(r"^FACE\s+(.+)$", re.IGNORECASE), r"ПОВЕРХНОСТЬ \1"),
+    (re.compile(r"^PLANE PASSES THROUGH$", re.IGNORECASE), "ПЛОСКОСТЬ ПРОХОДИТ ЧЕРЕЗ"),
+    (re.compile(r"^PLANE PASSES$", re.IGNORECASE), "ПЛОСКОСТЬ ПРОХОДИТ"),
+    (re.compile(r"^THROUGH POINT\s+(.+)$", re.IGNORECASE), r"ЧЕРЕЗ ТОЧКУ \1"),
+    (re.compile(r"^(.+?)\s+RADIUS TYPICAL$", re.IGNORECASE), r"\1 РАДИУС ТИПОВО"),
+    (re.compile(r"^(.+?)\s+RADIUS TYPICAL AROUND LUG$", re.IGNORECASE), r"\1 РАДИУС, ТИПОВО ВОКРУГ ПРОУШИНЫ"),
+    (re.compile(r"^(.+?)\s+TYPICAL BOTH BORES$", re.IGNORECASE), r"\1 ТИПОВО ДЛЯ ОБОИХ ОТВЕРСТИЙ"),
+    (re.compile(r"^(.+?)\s+CORNER RADIUS \((\d+)\s+PLACES\)$", re.IGNORECASE), r"\1 РАДИУС СКРУГЛЕНИЯ (\2 МЕСТА)"),
+    (re.compile(r"^(.+?)\s+CORNER RADIUS$", re.IGNORECASE), r"\1 РАДИУС СКРУГЛЕНИЯ"),
+    (re.compile(r"^(.+?)\s+BELOW THIS SURFACE$", re.IGNORECASE), r"\1 НИЖЕ ЭТОЙ ПОВЕРХНОСТИ"),
+    (re.compile(r"^(.+?)\s+OVER RADIUS\.$", re.IGNORECASE), r"\1 ПО РАДИУСУ."),
+    (re.compile(r"^SMOOTH BLEND TO LARGER RADIUS$", re.IGNORECASE), "ПЛАВНО СОПРЯЧЬ С БОЛЬШИМ РАДИУСОМ"),
+    (re.compile(r"^D1 BEFORE MACHINING$", re.IGNORECASE), "D1 ДО МЕХАНИЧЕСКОЙ ОБРАБОТКИ"),
+    (re.compile(r"^D2 AFTER MACHINING$", re.IGNORECASE), "D2 ПОСЛЕ МЕХАНИЧЕСКОЙ ОБРАБОТКИ"),
+    (re.compile(r"^x\s+(.+?)\s+DEGREE(?:S)?\s+CHAMFER$", re.IGNORECASE), r"x \1 ГРАДУСОВ ФАСКА"),
+    (re.compile(r"^X\s+(.+?)\s+DEGREE(?:S)?\s+CHAMFER$", re.IGNORECASE), r"X \1 ГРАДУСОВ ФАСКА"),
+    (re.compile(r"^(.+?)\s+X\s+(\d+(?:\.\d+)?)\s+DEGREE(?:S)?\s+CHAMFER$", re.IGNORECASE), r"\1 X \2 ГРАДУСОВ ФАСКА"),
     (re.compile(r"^Page\s+(\d+)\s+of\s+(\d+)$", re.IGNORECASE), r"Страница \1 из \2"),
     (re.compile(r"^Page\s+(\d+)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}/\d{4})$", re.IGNORECASE), r"Страница \1 \2 \3"),
     (re.compile(r"^Page\s+(\d+)$", re.IGNORECASE), r"Страница \1"),

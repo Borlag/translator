@@ -165,6 +165,13 @@ COMPONENT_NAMES = {
     "Gland housing subassembly": "Сборка корпуса сальника",
     "Spherical bearing": "Сферический подшипник",
     "spherical bearing": "сферический подшипник",
+    # ── Part 4 component name variants ──
+    "Lower bearing subassembly": "Сборка нижнего подшипника",
+    "Pivot pin": "Штифт вращения",
+    "Uplock pin": "Штифт замка убранного положения",
+    "Main Fitting Repairs": "Ремонты корпуса стойки",
+    "Torque Link Repairs": "Ремонты шлиц-шарнира",
+    "Sliding Tube Repairs": "Ремонты скользящей трубы",
 }
 
 # ── Fixed phrase translations ────────────────────────────────────────────────
@@ -407,6 +414,111 @@ FIXED = {
     "SERMETEL W ON INTERNAL": "SERMETEL W НА ВНУТРЕННЕМ",
     "SERMETEL W TO": "SERMETEL W ДО",
     "14 PLACES\tW": "14 МЕСТ\tW",
+    # ─── Part 4 drawing annotation paragraphs ───
+    "PRIMER PAINT FACE C": "ГРУНТОВОЧНАЯ КРАСКА ПОВЕРХНОСТЬ C",
+    "C AFTER THREAD": "C ПОСЛЕ РЕЗЬБЫ",
+    "CADMIUM PLATE AND PAINT TO OVERLAP ON CHROMIUM RADIUS": "КАДМИЕВОЕ ПОКРЫТИЕ И КРАСКА ПЕРЕКРЫВАЮТ ХРОМОВЫЙ РАДИУС",
+    "CADMIUM PLATE AND PAINT TO OVERLAP": "КАДМИЕВОЕ ПОКРЫТИЕ И КРАСКА ПЕРЕКРЫВАЮТ",
+    "AND PRIMER PAINT": "И ГРУНТОВОЧНАЯ КРАСКА",
+    "KNUCKLE BORES": "ОТВЕРСТИЯ КУЛАКА",
+    "KNUCKLE TOOLING LUG": "ТЕХНОЛОГИЧЕСКАЯ ПРОУШИНА КУЛАКА",
+    "GREASE HOLES": "СМАЗОЧНЫЕ ОТВЕРСТИЯ",
+    "EXTERNAL SERMETEL LIMIT": "НАРУЖНЫЙ ПРЕДЕЛ SERMETEL",
+    "AXLE NUT CROSS BOLT HOLES": "ОТВЕРСТИЯ ПОПЕРЕЧНОГО БОЛТА ГАЙКИ ОСИ",
+    "BRAKE FLANGE": "ТОРМОЗНОЙ ФЛАНЕЦ",
+    "RETRACTION BORES": "ОТВЕРСТИЯ УБОРКИ",
+    "PINTLE CROSS BORES": "ПОПЕРЕЧНЫЕ ОТВЕРСТИЯ ШТИФТА НАВЕСА",
+    "NO CADMIUM PLATE OR PAINT BEYOND THIS LINE": "КАДМИЕВОЕ ПОКРЫТИЕ ИЛИ КРАСКА ЗА ЭТОЙ ЛИНИЕЙ НЕ ДОПУСКАЮТСЯ",
+    "UPPER DIAPHRAGM TUBE CROSS BORE": "ПОПЕРЕЧНОЕ ОТВЕРСТИЕ ВЕРХНЕЙ ДИАФРАГМЕННОЙ ТРУБЫ",
+    "LOWER CARDAN BORE": "ОТВЕРСТИЕ НИЖНЕГО КАРДАНА",
+    "EXTENT OF FINE LIMIT DIA.": "ПРОТЯЖЁННОСТЬ ЧИСТОВОГО ПРЕДЕЛЬНОГО ДИАМ.",
+    "DIAMETERS THRU BORES INCLUDING CHAMFERS": "ДИАМЕТРЫ СКВОЗНЫХ ОТВЕРСТИЙ ВКЛЮЧАЯ ФАСКИ",
+    "DIAMETER THRU BORE INCLUDING CHAMFERS": "ДИАМЕТР СКВОЗНОГО ОТВЕРСТИЯ ВКЛЮЧАЯ ФАСКИ",
+    "PINTLE BORES": "ОТВЕРСТИЯ ШТИФТА НАВЕСА",
+    "BARREL": "КОРПУС ЦИЛИНДРА",
+    "(BORE AND CHAMFER INCLUDED)": "(ОТВЕРСТИЕ И ФАСКА ВКЛЮЧЕНЫ)",
+    "B INCLUDING CHAMFERS": "B ВКЛЮЧАЯ ФАСКИ",
+    "B AND E CHAMFERS ONLY TYPICAL 2 PLACES": "B И E ТОЛЬКО ФАСКИ ТИПИЧНО 2 МЕСТА",
+    "INCLUDING CHAMFER": "ВКЛЮЧАЯ ФАСКУ",
+    "INCLUDING RADIUS": "ВКЛЮЧАЯ РАДИУС",
+    "SPOTFACE (REARSIDE ONLY)": "ЗЕНКОВКА (ТОЛЬКО ОБРАТНАЯ СТОРОНА)",
+    # ─── Part 4 chrome plating termination annotations ───
+    "FULL CHROME\t\t PLATING THICKNESS": "ПОЛНАЯ ТОЛЩИНА\t\t ХРОМОВОГО ПОКРЫТИЯ",
+    "FULL CHROME PLATING THICKNESS": "ПОЛНАЯ ТОЛЩИНА ХРОМОВОГО ПОКРЫТИЯ",
+    "CHROME PLATING": "ХРОМОВОЕ ПОКРЫТИЕ",
+    "CHROME PLATING DEPOSIT": "ХРОМОВОЕ ПОКРЫТИЕ",
+    "PLATING THICKNESS": "ТОЛЩИНА ПОКРЫТИЯ",
+    "PLATING LIMIT": "ПРЕДЕЛ ПОКРЫТИЯ",
+    "PAINT DEPOSIT OVERLAP": "ПЕРЕКРЫТИЕ СЛОЯ КРАСКИ",
+    "ZINC-NICKEL DEPOSIT OVERLAP": "ПЕРЕКРЫТИЕ СЛОЯ ЦИНК-НИКЕЛЯ",
+    "DIA. AFTER GRINDING CHROME": "ДИАМ. ПОСЛЕ ШЛИФОВАНИЯ ХРОМА",
+    "DIA. AFTER CHROME PLATING": "ДИАМ. ПОСЛЕ ХРОМИРОВАНИЯ",
+    "A SMOOTH TRANSITION": "ПЛАВНЫЙ ПЕРЕХОД",
+    "WAVY OR IRREGULAR LINE PERMISSIBLE": "ВОЛНИСТАЯ ИЛИ НЕРОВНАЯ ЛИНИЯ ДОПУСТИМА",
+    "EDGE BLENDED WITH A SMOOTH TRANSITION": "КРОМКА СОПРЯЖЕНА С ПЛАВНЫМ ПЕРЕХОДОМ",
+    "NO ZINC-NICKEL OR PAINT DEPOSIT TO REMAIN ON OR PROUD OF WORKING DIA. AFTER GRINDING CHROME":
+        "ЦИНК-НИКЕЛЬ ИЛИ КРАСКА НЕ ДОЛЖНЫ ОСТАВАТЬСЯ НА РАБОЧЕМ ДИАМ. ИЛИ ВЫСТУПАТЬ НАД НИМ ПОСЛЕ ШЛИФОВАНИЯ ХРОМА",
+    "NO ZINC-NICKEL OR PAINT DEPOSIT TO REMAIN": "ЦИНК-НИКЕЛЬ ИЛИ КРАСКА НЕ ДОЛЖНЫ ОСТАВАТЬСЯ",
+    "ON OR PROUD OF WORKING DIA. AFTER GRINDING CHROME":
+        "НА РАБОЧЕМ ДИАМ. ИЛИ ВЫСТУПАТЬ НАД НИМ ПОСЛЕ ШЛИФОВАНИЯ ХРОМА",
+    "NO ZINC-NICKEL OR PAINT DEPOSIT": "ЦИНК-НИКЕЛЬ ИЛИ КРАСКА НЕ ДОПУСКАЮТСЯ",
+    "TO REMAIN ON WORKING DIA. AFTER CHROME PLATING":
+        "ОСТАВАТЬСЯ НА РАБОЧЕМ ДИАМ. ПОСЛЕ ХРОМИРОВАНИЯ",
+    "EXTERNAL THICK ZINC-NICKEL": "НАРУЖНЫЙ ТОЛСТЫЙ СЛОЙ ЦИНК-НИКЕЛЯ",
+    "INTERNAL THICK ZINC-NICKEL": "ВНУТРЕННИЙ ТОЛСТЫЙ СЛОЙ ЦИНК-НИКЕЛЯ",
+    "BARREL OUTER DIA. LOWER CHROME TERMINATION": "НАРУЖНЫЙ ДИАМ. КОРПУСА ЦИЛИНДРА НИЖНЕЕ ОКОНЧАНИЕ ХРОМА",
+    "BARREL OUTER DIA. UPPER CHROME TERMINATION": "НАРУЖНЫЙ ДИАМ. КОРПУСА ЦИЛИНДРА ВЕРХНЕЕ ОКОНЧАНИЕ ХРОМА",
+    "JOURNAL A OUTER CHROME TERMINATION (TYPICAL)": "ШЕЙКА A НАРУЖНОЕ ОКОНЧАНИЕ ХРОМА (ТИПИЧНО)",
+    "JOURNAL A,B,C CHROME TERMINATION (TYPICAL)": "ШЕЙКА A,B,C ОКОНЧАНИЕ ХРОМА (ТИПИЧНО)",
+    "JOURNAL C INNER CHROME TERMINATION (TYPICAL)": "ШЕЙКА C ВНУТРЕННЕЕ ОКОНЧАНИЕ ХРОМА (ТИПИЧНО)",
+    "BREAK FLANGE FACE CHROME TERMINATION (TYPICAL)": "ТОРЕЦ ТОРМОЗНОГО ФЛАНЦА ОКОНЧАНИЕ ХРОМА (ТИПИЧНО)",
+    "HPC SEAL ABUTMENT LOWER CHROME TERMINATION": "НИЖНЕЕ ОКОНЧАНИЕ ХРОМА УПОРА УПЛОТНЕНИЯ HPC",
+    "HPC SEAL ABUTMENT UPPER CHROME TERMINATION": "ВЕРХНЕЕ ОКОНЧАНИЕ ХРОМА УПОРА УПЛОТНЕНИЯ HPC",
+    "CHROME PLATING WILL TERMINATE ANYWHERE ON THE CHAMFER": "ХРОМОВОЕ ПОКРЫТИЕ ЗАКАНЧИВАЕТСЯ В ЛЮБОМ МЕСТЕ НА ФАСКЕ",
+    "CHROMIUM PLATED SURFACE": "ХРОМИРОВАННАЯ ПОВЕРХНОСТЬ",
+    # ─── Part 4 section/figure headings ───
+    "Approved Repairs Table 602": "Утверждённые ремонты Таблица 602",
+    "Approved Repairs Table 602 (Continued)": "Утверждённые ремонты Таблица 602 (Продолжение)",
+    "Landing Systems Repair No.": "Ремонт Safran Landing Systems №",
+    "Applicable Part": "Применяемая деталь",
+    "TRANSFER BLOCK REFER TO FIGURE 655": "ПЕРЕХОДНЫЙ БЛОК ОБРАТИТЕСЬ К РИСУНКУ 655",
+    "UPPER DIAPHRAGM TUBE REFER TO FIGURE 653": "ВЕРХНЯЯ ДИАФРАГМЕННАЯ ТРУБА ОБРАТИТЕСЬ К РИСУНКУ 653",
+    "UPPER PIVOT BRACKET REFER TO FIGURE 657": "ВЕРХНИЙ ПОВОРОТНЫЙ КРОНШТЕЙН ОБРАТИТЕСЬ К РИСУНКУ 657",
+    "UPPER TORQUE LINK REFER TO FIGURE 651": "ВЕРХНИЙ ШЛИЦ-ШАРНИР ОБРАТИТЕСЬ К РИСУНКУ 651",
+    "LOWER TORQUE LINK REFER TO FIGURE 651": "НИЖНИЙ ШЛИЦ-ШАРНИР ОБРАТИТЕСЬ К РИСУНКУ 651",
+    "CYLINDER REFER TO FIGURE 654": "ЦИЛИНДР ОБРАТИТЕСЬ К РИСУНКУ 654",
+    "HARNESS SUPPORT BRACKET REFER TO FIGURE 656": "КРОНШТЕЙН КРЕПЛЕНИЯ ЖГУТА ОБРАТИТЕСЬ К РИСУНКУ 656",
+    "BRAKE FLANGE TYPICAL 12 PLACES": "ТОРМОЗНОЙ ФЛАНЕЦ ТИПИЧНО 12 МЕСТ",
+    "12 PLACES INCLUDING": "12 МЕСТ ВКЛЮЧАЯ",
+    "TYPICAL 2 TRANSFER BLOCK LUGS": "ТИПИЧНО 2 ПРОУШИНЫ ПЕРЕХОДНОГО БЛОКА",
+    "TYPICAL 2 BRAKE MANIFOLD LUGS": "ТИПИЧНО 2 ПРОУШИНЫ ТОРМОЗНОГО КОЛЛЕКТОРА",
+    "SECTION L-L CHANGE OVER VALVE HOLES AND LUGS": "СЕЧЕНИЕ L-L ОТВЕРСТИЯ И ПРОУШИНЫ ПЕРЕПУСКНОГО КЛАПАНА",
+    "TORQUE LINK AND RETAINING PIN BORES": "ОТВЕРСТИЯ ШЛИЦ-ШАРНИРА И СТОПОРНОГО ШТИФТА",
+    "INCLUDING CHAMFER TYPICAL 2 LUGS": "ВКЛЮЧАЯ ФАСКУ ТИПИЧНО 2 ПРОУШИНЫ",
+    "DO NOT PAINT": "НЕ КРАСИТЬ",
+    "FACE": "ПОВЕРХНОСТЬ",
+    "ON FACE": "НА ПОВЕРХНОСТИ",
+    "SPOTFACE": "ЗЕНКОВКА",
+    "A\tSPOTFACE": "A\tЗЕНКОВКА",
+    "C\tSPOTFACE": "C\tЗЕНКОВКА",
+    "A\tCHROMIUM PLATED SURFACE": "A\tХРОМИРОВАННАЯ ПОВЕРХНОСТЬ",
+    # ─── Part 4 "FOR MAIN FITTING" drawing annotations ───
+    "FOR MAIN FITTING (20-410C, 20-420C) ONLY": "ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410C, 20-420C)",
+    "FOR MAIN FITTING (20-410C AND 20-420C) ONLY": "ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410C И 20-420C)",
+    "FOR MAIN FITTING (20-410B, 20-420B, 20-410D AND 20-420D) ONLY":
+        "ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410B, 20-420B, 20-410D И 20-420D)",
+    "FOR MAIN FITTING (20-410B, 20-420B,": "ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410B, 20-420B,",
+    "DRAG ARM HOLES": "ОТВЕРСТИЯ ТЯГИ",
+    "RUN OUT BAND": "ЗОНА ВЫХОДА",
+    "EDGE BLENDED WITH": "КРОМКА СОПРЯЖЕНА С",
+    "ZINC NICKEL PLATE": "ЦИНК-НИКЕЛЕВОЕ ПОКРЫТИЕ",
+    "WORKING DIA.": "РАБОЧИЙ ДИАМ.",
+    "MAIN FITTING": "КОРПУС СТОЙКИ",
+    "SURFACE": "ПОВЕРХНОСТЬ",
+    "SLIDING TUBE": "СКОЛЬЗЯЩАЯ ТРУБА",
+    "B HOLE": "B ОТВЕРСТИЕ",
+    "C\t20-410D AND 20-420D) ONLY": "C\t20-410D И 20-420D) ТОЛЬКО",
+    "C\t\t2 LUGS\tC": "C\t\t2 ПРОУШИНЫ\tC",
     # ─── Repair section procedure paragraphs ───
     "Approved repairs are in para 4. The repairs in this CMM have been approved under Airbus\u2019 EASA Design Organisation Approval No. EASA.21J.031.":
         "Утверждённые ремонты указаны в п. 4. Ремонты в данном CMM утверждены в рамках одобрения проектной организации Airbus EASA № EASA.21J.031.",
@@ -1961,6 +2073,9 @@ PROCEDURAL_VOCAB = [
     ("CHROMIUM PLATE", "ХРОМОВОЕ ПОКРЫТИЕ"),
     ("PAINT TO", "КРАСКА ДО"),
     ("VIEW ON ARROW", "ВИД ПО СТРЕЛКЕ"),
+    ("RADIUS INTERSECTION POINT", "ТОЧКИ ПЕРЕСЕЧЕНИЯ РАДИУСА"),
+    ("INTERSECTION POINT", "ТОЧКА ПЕРЕСЕЧЕНИЯ"),
+    ("INTERSECTION", "ПЕРЕСЕЧЕНИЕ"),
     ("SECTION", "СЕЧЕНИЕ"),
     ("DETAIL", "ДЕТАЛЬ"),
     ("IN THIS FACE ONLY", "ТОЛЬКО НА ДАННОЙ ПОВЕРХНОСТИ"),
@@ -1992,6 +2107,101 @@ PROCEDURAL_VOCAB = [
     ("Figure Deleted", "Рисунок удалён"),
     ("VIEW", "ВИД"),
     ("FROM CENTER", "ОТ ЦЕНТРА"),
+    # ─── Part 4 drawing annotation terms (chrome plating / dimensions) ───
+    ("FULL CHROME PLATING THICKNESS", "ПОЛНАЯ ТОЛЩИНА ХРОМОВОГО ПОКРЫТИЯ"),
+    ("CHROME PLATING DEPOSIT", "ХРОМОВОЕ ПОКРЫТИЕ"),
+    ("CHROME PLATING", "ХРОМОВОЕ ПОКРЫТИЕ"),
+    ("PLATING THICKNESS", "ТОЛЩИНА ПОКРЫТИЯ"),
+    ("PLATING LIMIT", "ПРЕДЕЛ ПОКРЫТИЯ"),
+    ("PAINT DEPOSIT OVERLAP", "ПЕРЕКРЫТИЕ СЛОЯ КРАСКИ"),
+    ("ZINC-NICKEL DEPOSIT OVERLAP", "ПЕРЕКРЫТИЕ СЛОЯ ЦИНК-НИКЕЛЯ"),
+    ("ZINC-NICKEL", "ЦИНК-НИКЕЛЬ"),
+    ("DEPOSIT OVERLAP", "ПЕРЕКРЫТИЕ СЛОЯ"),
+    ("DIA. AFTER GRINDING CHROME", "ДИАМ. ПОСЛЕ ШЛИФОВАНИЯ ХРОМА"),
+    ("DIA. AFTER CHROME PLATING", "ДИАМ. ПОСЛЕ ХРОМИРОВАНИЯ"),
+    ("AFTER GRINDING CHROME", "ПОСЛЕ ШЛИФОВАНИЯ ХРОМА"),
+    ("AFTER CHROME PLATING", "ПОСЛЕ ХРОМИРОВАНИЯ"),
+    ("AFTER GRINDING", "ПОСЛЕ ШЛИФОВАНИЯ"),
+    ("CHROME TERMINATION", "ОКОНЧАНИЕ ХРОМА"),
+    ("CHROME RUN OUT BAND", "ЗОНА ВЫХОДА ХРОМА"),
+    ("RUN OUT BAND", "ЗОНА ВЫХОДА"),
+    ("RUN OUT", "ВЫХОД"),
+    ("BAND", "ЗОНА"),
+    ("MAX.", "МАКС."),
+    ("SLIDING TUBE", "СКОЛЬЗЯЩАЯ ТРУБА"),
+    ("MAIN FITTING", "КОРПУС СТОЙКИ"),
+    ("CHROME", "ХРОМ"),
+    ("GRINDING", "ШЛИФОВАНИЕ"),
+    ("PLATING", "ПОКРЫТИЕ"),
+    ("DEPOSIT", "СЛОЙ"),
+    ("OVERLAP", "ПЕРЕКРЫТИЕ"),
+    ("TERMINATION", "ОКОНЧАНИЕ"),
+    ("SMOOTH TRANSITION", "ПЛАВНЫЙ ПЕРЕХОД"),
+    ("TRANSITION", "ПЕРЕХОД"),
+    ("EDGE BLENDED", "КРОМКА СОПРЯЖЕНА"),
+    ("WAVY OR IRREGULAR LINE PERMISSIBLE", "ВОЛНИСТАЯ ИЛИ НЕРОВНАЯ ЛИНИЯ ДОПУСТИМА"),
+    ("IRREGULAR", "НЕРОВНАЯ"),
+    ("WAVY", "ВОЛНИСТАЯ"),
+    ("PERMISSIBLE", "ДОПУСТИМА"),
+    ("WORKING DIA.", "РАБОЧИЙ ДИАМ."),
+    ("PROUD OF", "ВЫСТУПАТЬ НАД"),
+    ("REMAIN ON", "ОСТАВАТЬСЯ НА"),
+    ("REMAIN", "ОСТАВАТЬСЯ"),
+    ("THRU BORES", "СКВОЗНЫХ ОТВЕРСТИЙ"),
+    ("THRU BORE", "СКВОЗНОГО ОТВЕРСТИЯ"),
+    ("CROSS BORE", "ПОПЕРЕЧНОЕ ОТВЕРСТИЕ"),
+    ("CROSS BOLT", "ПОПЕРЕЧНЫЙ БОЛТ"),
+    ("CROSS BORES", "ПОПЕРЕЧНЫЕ ОТВЕРСТИЯ"),
+    ("BORE", "ОТВЕРСТИЕ"),
+    ("SPOTFACE RADIUS", "РАДИУС ЗЕНКОВКИ"),
+    ("SPOTFACE", "ЗЕНКОВКА"),
+    ("CHAMFERS", "ФАСОК"),
+    ("RADIUS", "РАДИУС"),
+    ("FLANGE FACE", "ТОРЕЦ ФЛАНЦА"),
+    ("FLANGE", "ФЛАНЕЦ"),
+    ("LUGS", "ПРОУШИН"),
+    ("LUG", "ПРОУШИНА"),
+    ("KNUCKLE", "КУЛАК"),
+    ("TOOLING", "ТЕХНОЛОГИЧЕСКАЯ"),
+    ("GREASE", "СМАЗОЧНЫЕ"),
+    ("BARREL OUTER", "НАРУЖНЫЙ КОРПУС ЦИЛИНДРА"),
+    ("BARREL", "КОРПУС ЦИЛИНДРА"),
+    ("RETRACTION", "УБОРКИ"),
+    ("JOURNAL", "ШЕЙКА"),
+    ("ABUTMENT", "УПОР"),
+    ("SEAL", "УПЛОТНЕНИЕ"),
+    ("MANIFOLD", "КОЛЛЕКТОР"),
+    ("BRAKE", "ТОРМОЗНОЙ"),
+    ("AXLE", "ОСЬ"),
+    ("OUTER", "НАРУЖНЫЙ"),
+    ("INNER", "ВНУТРЕННИЙ"),
+    ("UPPER", "ВЕРХНИЙ"),
+    ("LOWER", "НИЖНИЙ"),
+    ("EXTERNAL", "НАРУЖНЫЙ"),
+    ("INTERNAL", "ВНУТРЕННИЙ"),
+    ("LIMIT", "ПРЕДЕЛ"),
+    ("EXTENT", "ПРОТЯЖЁННОСТЬ"),
+    ("FINE", "ЧИСТОВОЙ"),
+    ("ANYWHERE", "В ЛЮБОМ МЕСТЕ"),
+    ("BEYOND", "ЗА"),
+    ("INCLUDING", "ВКЛЮЧАЯ"),
+    ("INCLUDED", "ВКЛЮЧИТЕЛЬНО"),
+    ("MIN.", "МИН."),
+    ("RAD.", "РАД."),
+    ("DIAMETERS", "ДИАМЕТРЫ"),
+    ("REFER TO FIGURE", "ОБРАТИТЕСЬ К РИСУНКУ"),
+    ("REFER TO", "ОБРАТИТЕСЬ К"),
+    ("TRANSFER BLOCK", "ПЕРЕХОДНЫЙ БЛОК"),
+    ("TORQUE LINK", "ШЛИЦ-ШАРНИР"),
+    ("RETAINING PIN", "СТОПОРНЫЙ ШТИФТ"),
+    ("DIAPHRAGM TUBE", "ДИАФРАГМЕННАЯ ТРУБА"),
+    ("CARDAN", "КАРДАН"),
+    ("PINTLE", "ШТИФТ НАВЕСА"),
+    ("CHANGE OVER VALVE", "ПЕРЕПУСКНОЙ КЛАПАН"),
+    ("AFTER THREAD", "ПОСЛЕ РЕЗЬБЫ"),
+    ("AFTER", "ПОСЛЕ"),
+    ("THREAD", "РЕЗЬБА"),
+    ("FACE", "ПОВЕРХНОСТЬ"),
 
     # ─── Protective treatment procedural phrases (for table cells and paragraphs) ───
     ("Apply cadmium plate all over but not to", "Нанесите кадмиевое покрытие повсюду, кроме"),
@@ -3076,6 +3286,30 @@ def translate_text(text: str) -> str:
         if result != core:
             return leading + result + trailing
 
+    # 7b. "Component Repairs — Key Diagram Figure NNN" headings
+    m_kd = re.match(r'^(.+?)\s+[—–-]\s+Key Diagram\s+Figure\s+(\d+)$', core)
+    if m_kd:
+        comp = m_kd.group(1).strip()
+        fig_num = m_kd.group(2)
+        comp_ru = translate_component_name(comp)
+        return leading + f"{comp_ru} — Ключевая схема Рисунок {fig_num}" + trailing
+
+    # 7c. "REFER TO FIGURE NNN REPAIR No. ..." pattern (MUST be before generic REPAIR check)
+    m_ref_repair = re.match(r'^REFER TO FIGURE\s+(\d+)\s+REPAIR\s+No\.\s+(.+)$', core)
+    if m_ref_repair:
+        return leading + f"ОБРАТИТЕСЬ К РИСУНКУ {m_ref_repair.group(1)} РЕМОНТ № {m_ref_repair.group(2)}" + trailing
+
+    # 7d. Standalone "REFER TO FIGURE NNN"
+    m_ref = re.match(r'^REFER TO FIGURE\s+(\d+)$', core)
+    if m_ref:
+        return leading + f"ОБРАТИТЕСЬ К РИСУНКУ {m_ref.group(1)}" + trailing
+
+    # 7e. "REPAIR No. X-Y, REPAIR X-Y — X-Y" headings
+    if "REPAIR No." in core or "REPAIR " in core:
+        result = core.replace("REPAIR No.", "РЕМОНТ №").replace("REPAIR ", "РЕМОНТ ")
+        if result != core:
+            return leading + result + trailing
+
     # 8. "Repair No." entries (outside TOC)
     if core.startswith("Repair No."):
         m = re.match(r'^(Repair No\.\s*\d+-\d+)\s+(.*?)$', core)
@@ -3085,6 +3319,12 @@ def translate_text(text: str) -> str:
             prefix = m.group(1).replace("Repair No.", "Ремонт №")
             return leading + f"{prefix} {translated_comp}" + trailing
         return leading + core.replace("Repair No.", "Ремонт №") + trailing
+
+    # 8d. "Key Diagram Figure NNN" (possibly after partial translation)
+    m_kd2 = re.search(r'Key Diagram\s+Figure\s+(\d+)', core)
+    if m_kd2:
+        result = core.replace(m_kd2.group(0), f"Ключевая схема Рисунок {m_kd2.group(1)}")
+        return leading + result + trailing
 
     # 9. "Page X" reference
     if re.match(r'^Page\s+\d+', core):
@@ -3105,25 +3345,33 @@ def translate_text(text: str) -> str:
     # can intercept PT/material text, replacing only the dash while leaving
     # English words like "Aluminium alloy" untranslated.
     _pt_kw_text = (
-        "Apply ", "apply ", "Paint", "paint", "Primer", "primer",
-        "Refer ", "refer ", "Chromic acid", "chromic acid",
-        "Passivate", "Anodise", "Anodize", "anodise", "anodize",
-        "Do not", "do not", "not paint", "not cadmium",
-        "Protective treatment", "cadmium plate", "Cadmium plate",
-        "chromium plate", "Chromium plate", "Alocrom",
-        "spotface", "Spotface", "areas ", "Areas ",
-        "the thread", "the bush", "the hole", "the face",
-        "the lubrication", "the identification", "the bearing",
-        "the screw", "split pin", "thick", "thickness",
+        "apply ", "paint", "primer", "refer ",
+        "chromic acid", "passivate", "anodise", "anodize",
+        "do not", "not paint", "not cadmium",
+        "protective treatment", "cadmium plate",
+        "chromium plate", "chromium plated", "alocrom",
+        "spotface", "areas ", "the thread", "the bush",
+        "the hole", "the face", "the lubrication",
+        "the identification", "the bearing", "the screw",
+        "split pin", "thick", "thickness",
         "externally", "internally", "all over", "but not",
         "including", "optional", "permitted",
         "plate all over", "plate to",
-        "Aluminium", "aluminium", "Stainless", "stainless",
-        "Zinc-nickel", "zinc-nickel", "coat ", "color ",
-        "extend onto", "chrome surfaces", "base material",
-        "where shown", "split line",
+        "aluminium", "stainless", "zinc-nickel",
+        "coat ", "color ", "extend onto",
+        "chrome", "base material", "where shown", "split line",
+        # Drawing annotation keywords
+        "bore", "bores", "flange", "knuckle", "lug", "lugs",
+        "radius", "plating", "deposit", "overlap", "grinding",
+        "termination", "journal", "barrel", "retraction",
+        "manifold", "brake", "grease", "chamfer",
+        "beyond", "remain", "transition", "permissible",
+        "face ", "thread", "limit", "internal", "external",
+        "typical", "places", "intersection", "point",
+        "drag arm", "for main fitting", "run out", "band",
     )
-    if any(kw in core for kw in _pt_kw_text):
+    _core_lower = core.lower()
+    if any(kw in _core_lower for kw in _pt_kw_text):
         if core in FIXED:
             return leading + FIXED[core] + trailing
         result = core
@@ -3257,6 +3505,10 @@ def translate_table_cell_text(text: str) -> str:
         return text.replace("Updated paras", "Обновлены пункты")
     if clean.startswith("Updated para"):
         return text.replace("Updated para", "Обновлён пункт")
+
+    # "NNN (Superseded)" pattern
+    if "(Superseded)" in clean:
+        return text.replace("(Superseded)", "(Заменён)")
 
     # Standalone continuation fragments
     if clean.startswith("para ") or clean.startswith("paras "):
@@ -3421,20 +3673,23 @@ def translate_table_cell_text(text: str) -> str:
     # Apply PROCEDURAL_VOCAB directly WITHOUT quality gate, because these cells
     # naturally have many spec codes (PCS-, M-DLPS, AMS, etc.) that stay English.
     _pt_keywords = (
-        "Apply ", "apply ", "Paint", "paint", "Primer", "primer",
-        "Refer ", "refer ", "Chromic acid", "chromic acid",
-        "Passivate", "Anodise", "Anodize", "anodise", "anodize",
-        "Do not", "do not", "not paint", "not cadmium",
-        "Protective treatment", "cadmium plate", "Cadmium plate",
-        "chromium plate", "Chromium plate", "Alocrom",
-        "spotface", "Spotface", "areas ", "Areas ",
-        "the thread", "the bush", "the hole", "the face",
-        "the lubrication", "the identification", "the bearing",
-        "the screw", "split pin", "thick", "thickness",
+        "apply ", "paint", "primer", "refer ",
+        "chromic acid", "passivate", "anodise", "anodize",
+        "do not", "not paint", "not cadmium",
+        "protective treatment", "cadmium plate",
+        "chromium plate", "chromium plated", "alocrom",
+        "spotface", "areas ", "the thread", "the bush",
+        "the hole", "the face", "the lubrication",
+        "the identification", "the bearing", "the screw",
+        "split pin", "thick", "thickness",
         "externally", "internally", "all over", "but not",
         "including", "optional", "permitted",
+        "bore", "bores", "flange", "radius", "chrome",
+        "plating", "deposit", "overlap", "grinding",
+        "chamfer",
     )
-    if any(kw in clean for kw in _pt_keywords):
+    _clean_lower = clean.lower()
+    if any(kw in _clean_lower for kw in _pt_keywords):
         # Try exact match first (already checked above, but just in case)
         if clean in FIXED:
             return text.replace(clean, FIXED[clean])

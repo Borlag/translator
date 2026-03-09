@@ -27,6 +27,7 @@ from docxru.layout_check import validate_layout
 from docxru.layout_fix import fix_expansion_issues
 from docxru.tagging import _apply_style, _clear_paragraph_runs, paragraph_to_tagged
 from scripts.cmm_part8_rules import PART8_SHARED_EXACT_MAP
+from scripts.cmm_part10_rules import PART10_CELL_EXACT_MAP, PART10_SHARED_EXACT_MAP
 from scripts.cmm_part9_rules import PART9_CELL_EXACT_MAP, PART9_SHARED_EXACT_MAP, PART9_SHARED_PHRASE_RULES
 
 
@@ -3111,7 +3112,12 @@ EXACT_MAP.update(PART6_EXACT_MAP_2)
 EXACT_MAP.update(PART7_SHARED_EXACT_MAP)
 EXACT_MAP.update(PART8_SHARED_EXACT_MAP)
 EXACT_MAP.update(PART9_SHARED_EXACT_MAP)
+EXACT_MAP.update(PART10_SHARED_EXACT_MAP)
 NORMALIZED_EXACT_MAP: dict[str, str] = {" ".join(key.split()): value for key, value in EXACT_MAP.items()}
+
+CELL_EXACT_MAP: dict[str, str] = {}
+CELL_EXACT_MAP.update(PART9_CELL_EXACT_MAP)
+CELL_EXACT_MAP.update(PART10_CELL_EXACT_MAP)
 
 
 def _translate_fragment(text: str) -> str:
@@ -3718,8 +3724,8 @@ def run_translation(source: Path, output: Path, report: Path) -> dict[str, objec
 
     shutil.copyfile(source, output)
     direct_counts = replace_segments_direct(output, mapping)
+    cell_exact_fix_count = fix_exact_cell_texts(output, CELL_EXACT_MAP)
     cleanup_counts = cleanup_remaining_paragraphs(output)
-    cell_exact_fix_count = fix_exact_cell_texts(output, PART9_CELL_EXACT_MAP)
     layout_stats = auto_fix_layout(source, output)
     table_font_floor_runs = enforce_table_readability(output)
     header_footer_patch_files = patch_header_footer_textboxes(output)

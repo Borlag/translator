@@ -227,3 +227,27 @@
   `WITH INNER LINER`,
   `CORRECT OVERSIZE ...`,
   `OVERSIZE O RING / BACKING RING / TRANSFER DOWEL`
+
+## Дополнительно зафиксированные паттерны part10
+
+- ремонты корпуса стойки `11-34`...`11-37`:
+  типовые формулировки для износа/повреждения/коррозии диаметров,
+  для временной защиты `PCS-2800`,
+  для изготовления repair bush из `blank bush`,
+  для установки втулок с `Zinc loaded Molykote 111`,
+  для записи номера ремонта в сопроводительную документацию
+- figure-callout'ы и примечания:
+  `COMMON ZONE`,
+  `OVERSIZE REAR SPHERICAL BEARING`,
+  `90 DEGREES ROTATED`,
+  `NO PRIMER PAINT TO BE VISIBLE AFTER SEALANT APPLICATION`,
+  `ORIENTATION OF BUSHES`,
+  `SPHERICAL RAD. 4 PLACES`,
+  `NO PAINT`
+- табличные материалы и repair parts:
+  `Repair blank bush`,
+  `Repair sleeve`,
+  `Loctite Grade 601`,
+  многострочные material-spec ячейки
+  `Aluminium Bronze ... AMS-4640 ...`,
+  `Stainless Steel 17-4PH ... AMS5643 H1025`

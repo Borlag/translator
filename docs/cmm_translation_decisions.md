@@ -168,3 +168,29 @@
   для проверки разрешены одиночные буквенные маркеры рисунков и product-name токены `Mastinox`, `Molykote`,
   кодоподобные обозначения вида `18-80A`/`09-510A` трактуем как допустимые reference/code сегменты, а не как непереведенный английский,
   uppercase English words длиной больше 4 символов больше не считаем code-like по умолчанию, чтобы review не пропускал callout-ы типа `CAUTION`
+
+## Дополнительно зафиксированные паттерны part8
+
+- процедуры ремонта корпуса стойки:
+  `Blank Bush`,
+  `Oversize Bushes For Diameter B`,
+  `With the measured dimension E, select the applicable oversize bush from Table 1.`,
+  `Check line ream the repair bushes ...`,
+  `Apply flash chromium plate ...`,
+  `Select the applicable oversize lubrication adaptor ...`,
+  `Install the selected lubrication adaptor(s) ...`
+- figure-callout'ы и размерные подписи:
+  `OVERSIZE BUSH 450237810`,
+  `BLEND SMOOTHLY TO ADJACENT SURFACES`,
+  `MINIMUM WALL THICKNESS`,
+  `SECTION Z-Z`,
+  `DETAIL Y`,
+  `LUG WIDTH D`,
+  `POINT`,
+  `4 HOLES`,
+  `REMOVE EDGES`,
+  `NO PAINT`
+- embedded figure cleanup:
+  если английские выноски находятся не в paragraph/textbox-слое, а внутри `word/media/*`,
+  допускается патчить сам media asset и сохранять отдельный manual-fix report,
+  после такого патча обязателен повторный render + review + OCR/визуальный контроль проблемной страницы

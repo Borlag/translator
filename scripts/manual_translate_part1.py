@@ -26,6 +26,7 @@ from docxru.docx_reader import collect_segments
 from docxru.layout_check import validate_layout
 from docxru.layout_fix import fix_expansion_issues
 from docxru.tagging import _apply_style, _clear_paragraph_runs, paragraph_to_tagged
+from scripts.cmm_part8_rules import PART8_SHARED_EXACT_MAP
 
 
 LATIN_RE = re.compile(r"[A-Za-z]")
@@ -3106,6 +3107,7 @@ PART7_SHARED_EXACT_MAP: dict[str, str] = {
 EXACT_MAP.update(PART6_EXACT_MAP)
 EXACT_MAP.update(PART6_EXACT_MAP_2)
 EXACT_MAP.update(PART7_SHARED_EXACT_MAP)
+EXACT_MAP.update(PART8_SHARED_EXACT_MAP)
 
 
 def _translate_fragment(text: str) -> str:
@@ -3161,6 +3163,8 @@ REGEX_RULES: list[tuple[re.Pattern[str], str | callable]] = [
         ),
         _regex_translate_identify_safran_repair_number_no_value,
     ),
+    (re.compile(r"^PART VIEW ON ARROW\s+(.+)$", re.IGNORECASE), r"ЧАСТИЧНЫЙ ВИД ПО СТРЕЛКЕ \1"),
+    (re.compile(r"^PART SECTION\s+(.+)$", re.IGNORECASE), r"ЧАСТИЧНОЕ СЕЧЕНИЕ \1"),
     (re.compile(r"^VIEW ON ARROW\s+(.+)$", re.IGNORECASE), r"ВИД ПО СТРЕЛКЕ \1"),
     (re.compile(r"^VIEW\s+(.+)$", re.IGNORECASE), r"ВИД \1"),
     (re.compile(r"^SECTION\s+(.+)$", re.IGNORECASE), r"СЕЧЕНИЕ \1"),
@@ -3178,6 +3182,7 @@ REGEX_RULES: list[tuple[re.Pattern[str], str | callable]] = [
     (re.compile(r"^(\d+)\s+HOLES$", re.IGNORECASE), r"\1 ОТВЕРСТИЯ"),
     (re.compile(r"^(.+?)\s+\((\d+)\s+DIAMETERS\)$", re.IGNORECASE), r"\1 (\2 ДИАМЕТРА)"),
     (re.compile(r"^\((\d+)\s+PLACES\)$", re.IGNORECASE), r"(\1 МЕСТА)"),
+    (re.compile(r"^(.+?)\s+\((\d+)\s+PLACES\)$", re.IGNORECASE), r"\1 (\2 МЕСТА)"),
     (re.compile(r"^(\d+)\s+PLACES$", re.IGNORECASE), r"\1 МЕСТА"),
     (re.compile(r"^(.+?)\s+(\d+)\s+PLACES$", re.IGNORECASE), r"\1 \2 МЕСТА"),
     (re.compile(r"^(\d+)\s+PLACES\s+(.+)$", re.IGNORECASE), r"\1 МЕСТА \2"),
@@ -3195,11 +3200,14 @@ REGEX_RULES: list[tuple[re.Pattern[str], str | callable]] = [
     (re.compile(r"^(.+?)\s+RAD\.$", re.IGNORECASE), r"\1 РАД."),
     (re.compile(r"^(.+?)\s+MAXIMUM$", re.IGNORECASE), r"\1 МАКСИМУМ"),
     (re.compile(r"^(.+?)\s+MINIMUM$", re.IGNORECASE), r"\1 МИНИМУМ"),
+    (re.compile(r"^(.+?)\s+MAX\.$", re.IGNORECASE), r"\1 МАКС."),
+    (re.compile(r"^(.+?)\s+MIN\.$", re.IGNORECASE), r"\1 МИН."),
     (re.compile(r"^(.+?)\s+REFERENCE$", re.IGNORECASE), r"\1 СПРАВ."),
     (re.compile(r"^(.+?)\s+\(REFERENCE\)$", re.IGNORECASE), r"\1 (СПРАВ.)"),
     (re.compile(r"^POINT\s+(.+)$", re.IGNORECASE), r"ТОЧКА \1"),
     (re.compile(r"^(.+?)\s+POINT\s+(.+)$", re.IGNORECASE), r"\1 ТОЧКА \2"),
     (re.compile(r"^DIMENSION\s+(.+)$", re.IGNORECASE), r"РАЗМЕР \1"),
+    (re.compile(r"^DIM\.\s+(.+)$", re.IGNORECASE), r"РАЗМ. \1"),
     (re.compile(r"^FACE\s+(.+)$", re.IGNORECASE), r"ПОВЕРХНОСТЬ \1"),
     (re.compile(r"^PLANE PASSES THROUGH$", re.IGNORECASE), "ПЛОСКОСТЬ ПРОХОДИТ ЧЕРЕЗ"),
     (re.compile(r"^PLANE PASSES$", re.IGNORECASE), "ПЛОСКОСТЬ ПРОХОДИТ"),
@@ -3301,7 +3309,7 @@ def _translate_month_date_fragments(text: str) -> str:
 
 
 def _normalize_numeric_ranges(text: str) -> str:
-    translated = re.sub(r"(?<=\d)\s+to\s+(?=\d)", "-", text, flags=re.IGNORECASE)
+    translated = re.sub(r"(?<=\d)\s+to\s*(?=[+-]?\d)", "-", text, flags=re.IGNORECASE)
     translated = re.sub(r"(?<=\d)\s+and\s+(?=\d)", ", ", translated, flags=re.IGNORECASE)
     translated = re.sub(r"(?<=\d)\s+to\s*$", "-", translated, flags=re.IGNORECASE)
     translated = re.sub(r"(?<=\d)\s+and\s*$", ",", translated, flags=re.IGNORECASE)
@@ -3530,6 +3538,10 @@ def patch_document_xml_fragments(docx_path: Path) -> int:
         "Steel to 300M": "Сталь, 300M",
         "Сталь to 300M": "Сталь, 300M",
         ">DIAMETER<": ">ДИАМЕТР<",
+        ">POINT<": ">ТОЧКА<",
+        "SECONDS СПРАВ.": "СЕКУНД СПРАВ.",
+        "LUG WIDTH D ": "ШИРИНА ПРОУШИНЫ D ",
+        "WIDTH D ": "ШИРИНА D ",
         "ДИАМЕТР ПОСЛЕ ХРОМИРОВАНИЯ PLATE 135,860-135,923mm": "ДИАМЕТР ПОСЛЕ ХРОМИРОВАНИЯ 135,860-135,923mm",
         "ДИАМЕТР ДО ХРОМИРОВАНИЯ PLATE": "ДИАМЕТР ДО ХРОМИРОВАНИЯ",
         "ДИАМЕТР AFTER GRINDING OF ХРОМОВОЕ ПОКРЫТИЕ": "ДИАМЕТР ПОСЛЕ ШЛИФОВАНИЯ ХРОМОВОГО ПОКРЫТИЯ",

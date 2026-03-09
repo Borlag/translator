@@ -560,6 +560,7 @@ PHRASES = [
     ("MAKE EDGES SMOOTH", "ЗАЧИСТИТЬ КРАЯ ДО ГЛАДКОСТИ"),
     ("SMOOTH BLEND TO ADJACENT SURFACES", "ПЛАВНОЕ СОПРЯЖЕНИЕ С ПРИЛЕГАЮЩИМИ ПОВЕРХНОСТЯМИ"),
     ("BLEND SMOOTHLY TO", "ПЛАВНО СОПРЯЧЬ С"),
+    ("BLEND SMOOTHLY", "ПЛАВНО СОПРЯЧЬ"),
     ("TO ADJACENT SURFACES", "С ПРИЛЕГАЮЩИМИ ПОВЕРХНОСТЯМИ"),
     ("ADJACENT SURFACES", "ПРИЛЕГАЮЩИЕ ПОВЕРХНОСТИ"),
     ("SMOOTH EDGE", "ГЛАДКИЙ КРАЙ"),
@@ -711,6 +712,7 @@ PHRASES = [
     ("OR BETTER UNLESS GIVEN DIFFERENTLY.", "ИЛИ ЛУЧШЕ, ЕСЛИ НЕ УКАЗАНО ИНОЕ."),
     ("OR BETTER UNLESS GIVEN DIFFERENTLY", "ИЛИ ЛУЧШЕ, ЕСЛИ НЕ УКАЗАНО ИНОЕ"),
     ("SURFACE FINISH", "ШЕРОХОВАТОСТЬ ПОВЕРХНОСТИ"),
+    ("SURFACES", "ПОВЕРХНОСТИ"),
     ("SURFACE", "ПОВЕРХНОСТЬ"),
     ("THIS FACE ONLY", "ТОЛЬКО ЭТА ПОВЕРХНОСТЬ"),
     ("IN THIS FACE ONLY", "ТОЛЬКО В ЭТОЙ ПОВЕРХНОСТИ"),
@@ -1162,6 +1164,7 @@ REGEX_PATTERNS = [
     (re.compile(r'(\d+)\s+DEGREES'), r'\1 ГРАДУСОВ'),
     (re.compile(r'(\d+)\s+DEGREE'), r'\1 ГРАДУС'),
     (re.compile(r'(\d+)\s+SECONDS'), r'\1 СЕКУНД'),
+    (re.compile(r'(\d+)\s+MINUTES'), r'\1 МИНУТ'),
     # Замена "and"/"AND" на "и"/"И"
     (re.compile(r'\bAND\b'), 'И'),
     (re.compile(r'\band\b'), 'и'),

@@ -370,11 +370,24 @@ FIXED = {
     # --- p177/180: standalone words ---
     "APPLICATION": "НАНЕСЕНИЕ",
     "ORIENTATION": "ОРИЕНТАЦИЯ",
+    "SEE FIG. 602": "СМ. РИС. 602",
     "VIEW ON W": "ВИД ПО СТРЕЛКЕ W",
     "VIEW ON V": "ВИД ПО СТРЕЛКЕ V",
     "VIEW ON": "ВИД ПО СТРЕЛКЕ",
     "LARGER VIEW AT": "УВЕЛИЧЕННЫЙ ВИД",
     "90 DEGREES ROTATED": "ПОВЁРНУТО НА 90 ГРАДУСОВ",
+    # --- Standalone short words (skipped by should_skip 1-3 chars) ---
+    "NUT": "ГАЙКА",
+    "PIN": "ШТИФТ",
+    # --- SERMETEL LIMIT (starts with SERMETEL so skipped by should_skip) ---
+    "SERMETEL LIMIT": "ГРАНИЦА SERMETEL",
+    # --- Split-line entries ---
+    "CHROMIUM PLATE MAY": "ХРОМИРОВАНИЕ МОЖЕТ",
+    "WAVY OR IRREGULAR LINE IS": "ВОЛНИСТАЯ ИЛИ НЕРОВНАЯ ЛИНИЯ",
+    "C (2 DIAMETERS)": "C (2 ДИАМЕТРА)",
+    # --- THE remaining in specific phrases ---
+    "THE CHROMIUM PLATE MUST": "ХРОМИРОВАНИЕ ДОЛЖНО",
+    "DIAMETER AFTER GRINDING THE CHROMIUM PLATE": "ДИАМЕТР ПОСЛЕ ШЛИФОВАНИЯ ХРОМОВОГО ПОКРЫТИЯ",
 }
 
 # 2) УПОРЯДОЧЕННЫЙ СПИСОК ЗАМЕН (длинные → короткие, применяются через str.replace)
@@ -698,6 +711,7 @@ PHRASES = [
     ("DIAMETER THRU BORE INCLUDING CHAMFERS", "ДИАМЕТР СКВОЗНОГО ОТВЕРСТИЯ С ФАСКАМИ"),
     ("DIAMETERS THRU BORES INCLUDING CHAMFERS", "ДИАМЕТРЫ СКВОЗНЫХ ОТВЕРСТИЙ С ФАСКАМИ"),
     ("DIAMETER THRU BORE", "ДИАМЕТР СКВОЗНОГО ОТВЕРСТИЯ"),
+    ("THRU BORES", "СКВОЗНЫЕ ОТВЕРСТИЯ"),
     ("THRU BORE", "СКВОЗНОЕ ОТВЕРСТИЕ"),
     ("DIAMETER REF.", "ДИАМЕТР СПРАВОЧНО"),
     ("INNER DIAMETER", "ВНУТРЕННИЙ ДИАМЕТР"),
@@ -791,6 +805,7 @@ PHRASES = [
     ("INCLUDING CHAMFER", "С ФАСКОЙ"),
     ("INCLUDING RADIUS", "С РАДИУСОМ"),
     ("CHAMFERS ONLY", "ТОЛЬКО ФАСКИ"),
+    ("CHAMFERS", "ФАСКИ"),
     ("CHAMFER", "ФАСКА"),
     ("RADIUS BEFORE CHROMIUM PLATE", "РАДИУС ДО ХРОМИРОВАНИЯ"),
     ("UNPLATED LENGTH", "ДЛИНА БЕЗ ПОКРЫТИЯ"),
@@ -807,6 +822,7 @@ PHRASES = [
     ("MAX.", "МАКС."),
     ("MINIMUM", "МИНИМУМ"),
     ("MAXIMUM", "МАКСИМУМ"),
+    ("DIAMETERS", "ДИАМЕТРЫ"),
     ("DIAMETER", "ДИАМЕТР"),
     ("EXTERNALLY", "СНАРУЖИ"),
     ("INTERNALLY", "ИЗНУТРИ"),
@@ -886,6 +902,7 @@ PHRASES = [
     ("(REFER TO TABLE 1)", "(СМ. ТАБЛИЦУ 1)"),
     ("COMMON ZONE", "ОБЩАЯ ЗОНА"),
     ("REPAIR BUSH", "РЕМОНТНАЯ ВТУЛКА"),
+    ("REPAIR SLEEVES", "РЕМОНТНЫЕ ВТУЛКИ"),
     ("REPAIR SLEEVE", "РЕМОНТНАЯ ВТУЛКА"),
     ("LINER DIMENSIONS", "РАЗМЕРЫ ВКЛАДЫША"),
     ("OVERSIZE BEARING", "РЕМОНТНЫЙ ПОДШИПНИК"),
@@ -896,15 +913,18 @@ PHRASES = [
     ("DIM. B", "РАЗМЕР B"),
     ("DIM.", "РАЗМЕР"),
     ("SURFACE", "ПОВЕРХНОСТЬ"),
+    ("HOLES", "ОТВЕРСТИЯ"),
     ("HOLE", "ОТВЕРСТИЕ"),
 
     # --- КЛЮЧЕВЫЕ СХЕМЫ ---
     ("REFER TO FIGURE", "СМ. РИСУНОК"),
+    ("FOR MAIN FITTING", "ДЛЯ КОРПУСА СТОЙКИ"),
     ("MAIN FITTING", "КОРПУС СТОЙКИ"),
     ("SLIDING TUBE", "СКОЛЬЗЯЩАЯ ТРУБА"),
     ("LOWER TORQUE LINK", "НИЖНИЙ ШЛИЦ-ШАРНИР"),
     ("UPPER DIAPHRAGM TUBE", "ВЕРХНЯЯ ДИАФРАГМЕННАЯ ТРУБА"),
     ("UPPER TORQUE LINK", "ВЕРХНИЙ ШЛИЦ-ШАРНИР"),
+    ("TORQUE LINK", "ШЛИЦ-ШАРНИР"),
     ("TRANSFER BLOCK", "БЛОК ПЕРЕДАЧИ НАГРУЗКИ"),
     ("HARNESS SUPPORT BRACKET", "КРОНШТЕЙН КРЕПЛЕНИЯ ЖГУТА"),
     ("UPPER PIVOT BRACKET", "ВЕРХНИЙ ПОВОРОТНЫЙ КРОНШТЕЙН"),
@@ -1097,6 +1117,8 @@ PHRASES = [
     ("INSTALLATION", "УСТАНОВКА"),
     ("MINUTES", "МИНУТ"),
     ("MINUTE", "МИНУТА"),
+    ("RUBBERISED", "ПРОРЕЗИНЕННЫЙ"),
+    ("RETAINING", "ФИКСИРУЮЩИЙ"),
     ("MACHINED", "ОБРАБОТАН"),
     ("MACHINE", "МЕХОБРАБОТКА"),
     ("GRINDING", "ШЛИФОВАНИЕ"),
@@ -1119,8 +1141,11 @@ PHRASES = [
     ("LUGS", "УШКИ"),
     ("RING", "КОЛЬЦО"),
     ("SUBASSEMBLY", "ПОДСБОРКА"),
+    ("SLEEVES", "ВТУЛКИ"),
+    ("SLEEVE", "ВТУЛКА"),
     ("PIN", "ШТИФТ"),
     ("LIMIT", "ГРАНИЦА"),
+    ("MAY", "МОЖЕТ"),
     ("WITHOUT", "БЕЗ"),
     ("ONTO", "НА"),
     ("INTO", "В"),
@@ -1165,6 +1190,17 @@ REGEX_PATTERNS = [
     (re.compile(r'(\d+)\s+DEGREE'), r'\1 ГРАДУС'),
     (re.compile(r'(\d+)\s+SECONDS'), r'\1 СЕКУНД'),
     (re.compile(r'(\d+)\s+MINUTES'), r'\1 МИНУТ'),
+    # FOR MAIN FITTING (...) ONLY — must be in PRE-PHRASES since it's a full pattern
+    (re.compile(r'FOR MAIN FITTING\s+\(([^)]+)\)\s+ONLY'),
+        lambda m: f'ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ ({m.group(1)})'),
+    # (Qty N) -> (Кол-во N)
+    (re.compile(r'\(Qty\.?\s*(\d+)\)'), r'(Кол-во \1)'),
+    # Qty N -> Кол-во N
+    (re.compile(r'\bQty\.?\s*(\d+)'), r'Кол-во \1'),
+]
+
+# Regex-паттерны, применяемые ПОСЛЕ PHRASES (чтобы не портить составные фразы)
+REGEX_PATTERNS_POST = [
     # Замена "and"/"AND" на "и"/"И"
     (re.compile(r'\bAND\b'), 'И'),
     (re.compile(r'\band\b'), 'и'),
@@ -1174,15 +1210,6 @@ REGEX_PATTERNS = [
     # "Only" -> "только", "for" -> "для"
     (re.compile(r'\bfor\b'), 'для'),
     (re.compile(r'\bOnly\b'), 'только'),
-    # FOR MAIN FITTING (...) ONLY
-    (re.compile(r'FOR MAIN FITTING\s+\(([^)]+)\)\s+ONLY'),
-        lambda m: f'ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ ({m.group(1)})'),
-    # FOR MAIN FITTING (...\n...) ONLY — обрабатывается отдельно
-    # UNPLATED LENGTH -> handled above
-    # (Qty N) -> (Кол-во N)
-    (re.compile(r'\(Qty\.?\s*(\d+)\)'), r'(Кол-во \1)'),
-    # Qty N -> Кол-во N
-    (re.compile(r'\bQty\.?\s*(\d+)'), r'Кол-во \1'),
 ]
 
 
@@ -1248,7 +1275,11 @@ def translate_line(text: str) -> str:
     for en, ru in PHRASES:
         result = result.replace(en, ru)
 
-    # 5) Если совсем ничего не изменилось и только латиница — вернуть оригинал
+    # 5) Применить POST-regex (AND/OR/for/Only — после PHRASES, чтобы не ломать составные фразы)
+    for pat, repl in REGEX_PATTERNS_POST:
+        result = pat.sub(repl, result)
+
+    # 6) Если совсем ничего не изменилось и только латиница — вернуть оригинал
     # (не переводить неизвестные строки — лучше оставить на английском)
     if result == s:
         return text
@@ -1353,7 +1384,10 @@ def translate_pdf(input_path: str, output_path: str) -> None:
 
 
 if __name__ == "__main__":
+    import sys
     if not os.path.exists(FONT_FILE):
         raise FileNotFoundError(f"Шрифт не найден: {FONT_FILE}")
-    translate_pdf(INPUT_PDF, OUTPUT_PDF)
+    inp = sys.argv[1] if len(sys.argv) > 1 else INPUT_PDF
+    out = sys.argv[2] if len(sys.argv) > 2 else OUTPUT_PDF
+    translate_pdf(inp, out)
     print("Готово!")

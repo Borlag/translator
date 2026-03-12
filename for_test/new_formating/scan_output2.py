@@ -9,10 +9,15 @@ SKIP_WORDS = {
     'SERMETEL','SERMETAL','SAFRAN','MESSIER','DOWTY','MOLYKOTE','AVIOX','ALOCROM','ARDROX',
     'PCS','IFC','DEF','DLPS','MIL','AMS','NCT','FED','STAN','HPC','IVD','MEK',
     'LOCTITE','GRADE','CAGE','SRM','AECMA','AMM','CMM','IPC','DPL','NDT','ATA',
-    'SB','LH','RH','GUIDE','RAD','MAX','MIN','REF','DIA','TYP','INCL','Ltd',
+    'SB','LH','RH','GUIDE','RAD','MAX','MIN','REF','DIA','TYP','INCL',
     'LANDING','SYSTEMS','LIMITED','MASTINOX','TYPE','CLASS',
     'PR','AN','MS','NAS','NITRALLOY','UK',
+    # False positives: company name, dates, units, chemical elements, codes
+    'LTD','MAR','DEC','AUG','AU','CRS','MA','DLP','SER',
+    # Lowercase false positives handled separately below
 }
+# Lowercase words that are OK (units, ranges, spec codes)
+SKIP_LOWER = {'in', 'to', 'and', 'or', 'mm', 'for', 'of', 'the', 'on', 'at', 'is', 'it', 'an', 'as', 'by'}
 # Labels that are OK in Latin: single/double letters, part numbers
 LABEL_RE = re.compile(r'^[A-Z]{1,2}$')
 
@@ -25,16 +30,9 @@ def find_issues(text):
         w = m.group()
         if w.upper() in SKIP_WORDS:
             continue
+        if w.lower() in SKIP_LOWER:
+            continue
         if LABEL_RE.match(w):
-            continue
-        # Skip "to" inside dimension ranges like "0.256 to 0.263in"
-        if w.lower() == 'to' and re.search(r'\d\s+to\s+\d', text):
-            continue
-        # Skip "in" as unit (inches) after numbers
-        if w.lower() == 'in' and re.search(r'[\d.)]\s*in[)\s.]', text):
-            continue
-        # Skip "mm"
-        if w.lower() == 'mm':
             continue
         issues.append(('ENG', w))
 

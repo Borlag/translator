@@ -1210,6 +1210,9 @@ REGEX_PATTERNS_POST = [
     # "Only" -> "только", "for" -> "для"
     (re.compile(r'\bfor\b'), 'для'),
     (re.compile(r'\bOnly\b'), 'только'),
+    # "to"/"TO" → "до"/"ДО" (размерные значения: 0.05 to 0.13mm)
+    (re.compile(r'\bTO\b'), 'ДО'),
+    (re.compile(r'\bto\b'), 'до'),
 ]
 
 
@@ -1302,6 +1305,7 @@ def translate_pdf(input_path: str, output_path: str) -> None:
 
         # Собираем данные о строках, которые нужно заменить
         replacements = []  # list of (bbox, translated_text, font_size, is_bold)
+        protected = []     # (text, bbox, font_size) of untranslated elements
 
         d = page.get_text("dict")
         for block in d["blocks"]:
@@ -1318,42 +1322,36 @@ def translate_pdf(input_path: str, output_path: str) -> None:
                     continue
 
                 translated = translate_line(line_text)
-                if translated == line_text:
-                    continue  # ничего не изменилось
-
-                # Берём параметры шрифта из первого span
                 sp0 = spans[0]
                 font_size = sp0["size"]
                 is_bold = bool(sp0["flags"] & 2**4)  # bold flag
                 line_bbox = fitz.Rect(line["bbox"])
+
+                if translated == line_text:
+                    # Текст не изменился — запоминаем для возможного восстановления
+                    protected.append((line_text.strip(), line_bbox, font_size, is_bold))
+                    continue
 
                 replacements.append((line_bbox, translated, font_size, is_bold))
 
         if not replacements:
             continue
 
-        # Применяем замены: сначала маскируем оригинал, потом вставляем перевод
-        for bbox, trans_text, font_size, is_bold in replacements:
-            # 1) Добавляем аннотацию редактирования (белый прямоугольник)
-            # Немного расширяем bbox чтобы полностью перекрыть оригинал
-            expanded = bbox + (-1.5, -1.5, 1.5, 1.5)
-            page.add_redact_annot(expanded, fill=(1, 1, 1))
+        # Применяем замены: маскируем оригинал белым прямоугольником, вставляем перевод
+        # НЕ используем apply_redactions — он повреждает соседние глифы
 
-        # Применяем редактирование — удаляем текст, НЕ трогаем изображения
-        page.apply_redactions(
-            images=fitz.PDF_REDACT_IMAGE_NONE,
-            graphics=fitz.PDF_REDACT_LINE_ART_NONE
-        )
-
-        # 2) Вставляем переведённый текст
+        # Рисуем белые прямоугольники и вставляем переведённый текст
         for bbox, trans_text, font_size, is_bold in replacements:
-            # Пробуем вписать в bbox, уменьшаем размер если не влезает
-            # Для автоматического выравнивания используем insert_textbox
+            # 1) Белый фон поверх оригинала (минимальное расширение чтобы не перекрывать соседние блоки)
+            expanded = bbox + (-0.3, -0.3, 0.3, 0.3)
+            page.draw_rect(expanded, color=None, fill=(1, 1, 1))
+
+            # 2) Вставляем переведённый текст с уменьшенным межстрочным интервалом
             fitted = False
             for size_factor in [1.0, 0.9, 0.82, 0.75, 0.68, 0.60, 0.55, 0.50, 0.45]:
                 cur_size = font_size * size_factor
-                if cur_size < 5.5:
-                    cur_size = 5.5
+                if cur_size < 5.0:
+                    cur_size = 5.0
                 overflow = page.insert_textbox(
                     bbox,
                     trans_text,
@@ -1362,13 +1360,13 @@ def translate_pdf(input_path: str, output_path: str) -> None:
                     fontsize=cur_size,
                     color=(0, 0, 0),
                     align=fitz.TEXT_ALIGN_LEFT,
+                    lineheight=1.05,
                 )
                 if overflow >= 0:
                     fitted = True
                     break
             if not fitted:
-                # Как минимум вставляем с минимальным размером (5.5pt абсолютный мин.)
-                fallback_size = max(font_size * 0.40, 5.5)
+                fallback_size = max(font_size * 0.40, 5.0)
                 page.insert_textbox(
                     bbox,
                     trans_text,
@@ -1377,6 +1375,7 @@ def translate_pdf(input_path: str, output_path: str) -> None:
                     fontsize=fallback_size,
                     color=(0, 0, 0),
                     align=fitz.TEXT_ALIGN_LEFT,
+                    lineheight=1.05,
                 )
 
     doc.save(output_path, garbage=4, deflate=True)

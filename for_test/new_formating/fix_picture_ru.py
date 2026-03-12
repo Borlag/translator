@@ -202,8 +202,8 @@ def fix_stream_data(stream_data, cid_to_unicode, unicode_to_cid):
 
 
 def main():
-    input_path = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru2.pdf'
-    output_path = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed.pdf'
+    input_path = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru.pdf'
+    output_path = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v2.pdf'
 
     print(f"Reading {input_path}...")
     reader = PdfReader(input_path)

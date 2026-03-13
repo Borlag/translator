@@ -530,8 +530,15 @@ def _supports_temperature(model: str, reasoning_effort: str | None) -> bool:
     if not _is_gpt5_family(m):
         return True
     if m.startswith("gpt-5.1") or m.startswith("gpt-5.2"):
-        return (reasoning_effort or "").strip().lower() in {"", "none"}
+        return (reasoning_effort or "").strip().lower() in {"", "none", "default"}
     return False
+
+
+def _api_reasoning_effort(reasoning_effort: str | None) -> str | None:
+    value = (reasoning_effort or "").strip().lower()
+    if value in {"", "default"}:
+        return None
+    return reasoning_effort
 
 
 def _normalize_prompt_examples_mode(mode: str | None) -> str:
@@ -1217,6 +1224,7 @@ class OpenAIChatCompletionsClient:
         url = f"{base}/v1/chat/completions"
 
         model_reasoning_effort = self.reasoning_effort
+        api_reasoning_effort = _api_reasoning_effort(model_reasoning_effort)
         temperature: float | None = None
         if task in {"repair", "batch_translate"}:
             temperature = 0.0 if _supports_temperature(self.model, model_reasoning_effort) else None
@@ -1242,8 +1250,8 @@ class OpenAIChatCompletionsClient:
                 payload["max_tokens"] = self.max_output_tokens
             if temperature is not None:
                 payload["temperature"] = temperature
-            if model_reasoning_effort:
-                payload["reasoning_effort"] = model_reasoning_effort
+            if api_reasoning_effort:
+                payload["reasoning_effort"] = api_reasoning_effort
             if include_response_format:
                 payload["response_format"] = {"type": "json_object"}
             if include_cache_key and self.prompt_cache_key:
@@ -1370,6 +1378,7 @@ class OpenAIChatCompletionsClient:
 
         base = (self.base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")).rstrip("/")
         model_reasoning_effort = self.reasoning_effort
+        api_reasoning_effort = _api_reasoning_effort(model_reasoning_effort)
         structured_mode = _normalize_structured_output_mode(self.structured_output_mode)
         system_prompt = self.translation_system_prompt
         if structured_mode != "off":
@@ -1443,8 +1452,8 @@ class OpenAIChatCompletionsClient:
                     payload["max_tokens"] = self.max_output_tokens
                 if temperature is not None:
                     payload["temperature"] = temperature
-                if model_reasoning_effort:
-                    payload["reasoning_effort"] = model_reasoning_effort
+                if api_reasoning_effort:
+                    payload["reasoning_effort"] = api_reasoning_effort
                 if with_cache_key and self.prompt_cache_key:
                     payload["prompt_cache_key"] = self.prompt_cache_key
                 if with_cache_retention and self.prompt_cache_retention:

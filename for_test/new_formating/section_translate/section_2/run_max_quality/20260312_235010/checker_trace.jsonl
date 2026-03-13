@@ -1,0 +1,4 @@
+{"timestamp": "2026-03-12T23:55:04.948381+00:00", "event": "start", "chunks_total": 1, "translatable_segments": 63, "retry_attempts": 2, "max_segments": 0}
+{"timestamp": "2026-03-12T23:55:04.951612+00:00", "event": "request", "chunk_id": "segments_1_63", "attempt": 1, "retry_attempts": 2, "split_depth": 0, "segments_sent": 9, "glossary_terms_count": 4}
+{"timestamp": "2026-03-12T23:56:14.575724+00:00", "event": "response", "chunk_id": "segments_1_63", "attempt": 1, "split_depth": 0, "segments_sent": 9, "edits_count": 6}
+{"timestamp": "2026-03-12T23:56:14.577294+00:00", "event": "summary", "chunks_total": 1, "segments_checked": 9, "skipped_chunks": 0, "skipped_segments": 0, "requests_total": 1, "requests_succeeded": 1, "requests_failed": 0, "chunks_failed": 0, "split_events": 0, "suggestions_total": 6, "stopped_due_to_limit": false}

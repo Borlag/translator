@@ -16,6 +16,13 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _safe_bool(value: Any, default: bool = False) -> bool:
+    try:
+        return bool(value)
+    except Exception:
+        return default
+
+
 def _iter_com_items(collection: Any) -> Iterator[Any]:
     if collection is None:
         return
@@ -68,7 +75,7 @@ def _autofit_textbox_shape(
     if text_frame is None:
         return stats
 
-    has_text = bool(getattr(text_frame, "HasText", 0))
+    has_text = _safe_bool(getattr(text_frame, "HasText", 0), False)
     if not has_text:
         return stats
     stats["textboxes_seen"] = 1
@@ -90,7 +97,7 @@ def _autofit_textbox_shape(
     if did_autofit:
         stats["textboxes_autofit"] = 1
 
-    overflowing = bool(getattr(text_frame, "Overflowing", False))
+    overflowing = _safe_bool(getattr(text_frame, "Overflowing", False), False)
     if not overflowing:
         return stats
 
@@ -113,7 +120,7 @@ def _autofit_textbox_shape(
         except Exception:
             break
         try:
-            if not bool(getattr(text_frame, "Overflowing", False)):
+            if not _safe_bool(getattr(text_frame, "Overflowing", False), False):
                 break
         except Exception:
             break
@@ -121,7 +128,7 @@ def _autofit_textbox_shape(
     if shrunk:
         stats["textboxes_shrunk"] = 1
 
-    still_overflowing = bool(getattr(text_frame, "Overflowing", False))
+    still_overflowing = _safe_bool(getattr(text_frame, "Overflowing", False), False)
     if still_overflowing and expand_overflowing:
         expanded = False
         try:
@@ -145,7 +152,7 @@ def _autofit_textbox_shape(
                 current_height = float(getattr(shape, "Height", next_height) or next_height)
                 expanded = True
                 try:
-                    if not bool(getattr(text_frame, "Overflowing", False)):
+                    if not _safe_bool(getattr(text_frame, "Overflowing", False), False):
                         break
                 except Exception:
                     break
@@ -164,13 +171,16 @@ def _autofit_document_textboxes(
 ) -> dict[str, int]:
     stats = {"textboxes_seen": 0, "textboxes_autofit": 0, "textboxes_shrunk": 0, "textboxes_expanded": 0}
     for shape in _iter_document_shapes(doc):
-        part = _autofit_textbox_shape(
-            shape,
-            min_font_size_pt=min_font_size_pt,
-            max_shrink_steps=max_shrink_steps,
-            expand_overflowing=expand_overflowing,
-            max_height_growth=max_height_growth,
-        )
+        try:
+            part = _autofit_textbox_shape(
+                shape,
+                min_font_size_pt=min_font_size_pt,
+                max_shrink_steps=max_shrink_steps,
+                expand_overflowing=expand_overflowing,
+                max_height_growth=max_height_growth,
+            )
+        except Exception:
+            continue
         for key, value in part.items():
             stats[key] += int(value)
     return stats

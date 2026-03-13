@@ -1,0 +1,77 @@
+{
+  "count": 6,
+  "edits": [
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "6ff4abe69a7a7f08",
+      "location": "body/p2",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "(63 micro-inches) or better: refer to PCS-4100 and Figure 601.",
+      "current_target": "⟦S_1⟧(63 micro-inches) или лучше: см. PCS-4100 и⟦/S_1⟧⟦S_2|HREF_1⟧Figure 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧",
+      "suggested_target": "⟦S_1⟧(63 микродюйма) или лучше: см. PCS-4100 и⟦/S_1⟧⟦S_2|HREF_1⟧рис. 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧",
+      "instruction": "Replace the target text of segment_id 6ff4abe69a7a7f08 with: \"⟦S_1⟧(63 микродюйма) или лучше: см. PCS-4100 и⟦/S_1⟧⟦S_2|HREF_1⟧рис. 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧\"",
+      "confidence": 0.9
+    },
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "cb0af6198f9e3f03",
+      "location": "body/p10",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "Machine the chamfers as shown: refer to Figure 602.",
+      "current_target": "⟦S_1⟧⟦OBJ_1⟧⟦/S_1⟧⟦S_2⟧Обработайте фаски, как показано: см.⟦/S_2⟧⟦S_3|HREF_1⟧Figure 602⟦/S_3⟧⟦S_4⟧.⟦/S_4⟧",
+      "suggested_target": "⟦S_1⟧⟦OBJ_1⟧⟦/S_1⟧⟦S_2⟧Обработайте фаски, как показано: см.⟦/S_2⟧⟦S_3|HREF_1⟧рис. 602⟦/S_3⟧⟦S_4⟧.⟦/S_4⟧",
+      "instruction": "Replace the target text of segment_id cb0af6198f9e3f03 with: \"⟦S_1⟧⟦OBJ_1⟧⟦/S_1⟧⟦S_2⟧Обработайте фаски, как показано: см.⟦/S_2⟧⟦S_3|HREF_1⟧рис. 602⟦/S_3⟧⟦S_4⟧.⟦/S_4⟧\"",
+      "confidence": 0.9
+    },
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "4c48a59b97036f2a",
+      "location": "body/p14",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "Install the sleeve(s) 62-4505252-00 using loctite grade 601, Material Ref. Item TBA, in place of Molykote 111, Material Ref. Item TBA: refer to PCS-5105-1, PCS-5303 and Figure 601.",
+      "current_target": "⟦S_1⟧Установите втулку(и) 62-4505252-00 с использованием Loctite grade 601, Material Ref. Item TBA, вместо Molykote 111, Material Ref. Item TBA: см. PCS-5105-1, PCS-5303 и⟦/S_1⟧⟦S_2|HREF_1⟧Figure 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧",
+      "suggested_target": "⟦S_1⟧Установите втулку(и) 62-4505252-00 с использованием Loctite grade 601, Material Ref. Item TBA, вместо Molykote 111, Material Ref. Item TBA: см. PCS-5105-1, PCS-5303 и⟦/S_1⟧⟦S_2|HREF_1⟧рис. 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧",
+      "instruction": "Replace the target text of segment_id 4c48a59b97036f2a with: \"⟦S_1⟧Установите втулку(и) 62-4505252-00 с использованием Loctite grade 601, Material Ref. Item TBA, вместо Molykote 111, Material Ref. Item TBA: см. PCS-5105-1, PCS-5303 и⟦/S_1⟧⟦S_2|HREF_1⟧рис. 601⟦/S_2⟧⟦S_3⟧.⟦/S_3⟧\"",
+      "confidence": 0.85
+    },
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "dcba66be79d8c732",
+      "location": "body/p36",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "Repair to Main Fitting Figure 601 - Sheet 1",
+      "current_target": "⟦S_1⟧Ремонт корпуса стойки Figure 601 - Лист 1⟦/S_1⟧",
+      "suggested_target": "⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 1⟦/S_1⟧",
+      "instruction": "Replace the target text of segment_id dcba66be79d8c732 with: \"⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 1⟦/S_1⟧\"",
+      "confidence": 0.9
+    },
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "95dbbf8ef7100b28",
+      "location": "body/p104",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "Repair to Main Fitting Figure 601 - Sheet 2",
+      "current_target": "⟦S_1⟧Ремонт корпуса стойки Figure 601 - Лист 2⟦/S_1⟧",
+      "suggested_target": "⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 2⟦/S_1⟧",
+      "instruction": "Replace the target text of segment_id 95dbbf8ef7100b28 with: \"⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 2⟦/S_1⟧\"",
+      "confidence": 0.9
+    },
+    {
+      "chunk_id": "segments_1_63",
+      "segment_id": "26a8f6960082d2ed",
+      "location": "body/p212",
+      "severity": "error",
+      "issue_type": "untranslated",
+      "source_excerpt": "Repair to Main Fitting Figure 601 - Sheet 3",
+      "current_target": "⟦S_1⟧Ремонт корпуса стойки Figure 601 - Лист 3⟦/S_1⟧",
+      "suggested_target": "⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 3⟦/S_1⟧",
+      "instruction": "Replace the target text of segment_id 26a8f6960082d2ed with: \"⟦S_1⟧Ремонт корпуса стойки рис. 601 - Лист 3⟦/S_1⟧\"",
+      "confidence": 0.9
+    }
+  ]
+}

@@ -240,6 +240,7 @@ EXACT = {
     "These repair parts are necessary:": "Необходимые запасные части для ремонта:",
     "Repair Parts": "Запасные части для ремонта",
     "NOTE: Alternative equivalents are permitted.": "ПРИМЕЧАНИЕ: Допускается применение эквивалентных аналогов.",
+    "NOTE:\tAlternative equivalents are permitted.": "ПРИМЕЧАНИЕ: Допускается применение эквивалентных аналогов.",
     # ── Common figure text annotations ──
     "(WITHOUT SLEEVES)": "(БЕЗ ВСТАВОК)",
     "(WITH SLEEVES)": "(С ВСТАВКАМИ)",
@@ -906,6 +907,52 @@ EXACT = {
     "Install the two piece stop subassembly (15-110) over the upper diaphragm tube subassembly (15-360A).": "Установите сборку двухкомпонентного упора (15-110) на сборку верхней диафрагменной трубы (15-360A).",
     "Use the Assembly and Extraction Tool 460006410 to install the level tube (15-300) to the upper diaphragm tube (15-390A).": "Используйте монтажно-демонтажный инструмент 460006410 для установки трубки уровня (15-300) в верхнюю диафрагменную трубу (15-390A).",
     "Install the O-ring seal (15-310) on the level tube (15-300): use the Assembly and Extraction Tool 460006410 to install the level tube (15-300) in the upper diaphragm tube subassembly (15-360).": "Установите уплотнительное кольцо (15-310) на трубку уровня (15-300): используйте монтажно-демонтажный инструмент 460006410 для установки трубки уровня (15-300) в сборку верхней диафрагменной трубы (15-360).",
+    # ── Recurring sentence fragments ──
+    "Make the surface finish 1,6 micrometers (63 micro-inches).": "Чистота поверхности должна составлять 1,6 мкм (63 микродюйма).",
+    "Make the surface finish 3,2 micrometers (125 micro-inches).": "Чистота поверхности должна составлять 3,2 мкм (125 микродюймов).",
+    "The cadmium plate thickness must be between 0,010 and 0,015 mm (0.0004 and 0.0006 in).": "Толщина кадмиевого покрытия должна быть от 0,010 до 0,015 мм (0,0004–0,0006 дюйма).",
+    "The cadmium plate thickness must be between 0,010 and 0,020 mm (0.0004 and 0.0008 in).": "Толщина кадмиевого покрытия должна быть от 0,010 до 0,020 мм (0,0004–0,0008 дюйма).",
+    "The cadmium plate thickness must be between 0,010 and 0,020 mm (0.0004 and 0.0008 in): refer to PCS-2100 or PCS-2141.": "Толщина кадмиевого покрытия должна быть от 0,010 до 0,020 мм (0,0004–0,0008 дюйма): см. PCS-2100 или PCS-2141.",
+    "No bare metal is permitted.": "Обнажение основного металла не допускается.",
+    "The surface finish must be 1,6 micrometers (63 micro-inches).": "Чистота поверхности должна составлять 1,6 мкм (63 микродюйма).",
+    "Do not reduce the lug width E below": "Не уменьшайте ширину проушины E ниже",
+    "Stress relieve the reworked areas for 4 hours at 185 to 195 oC (366 to 384 oF): refer to PCS-2101.":
+        "Снимите напряжения в переработанных областях в течение 4 ч при 185–195 °C (366–384 °F): см. PCS-2101.",
+    # ── Recurring trailing sentences (high-frequency) ──
+    "The surface finish must be 2,5 micrometers (100 micro-inches).": "Чистота поверхности должна составлять 2,5 мкм (100 микродюймов).",
+    "The surface finish must be 1,6 micrometers (63 micro-inches) or better: refer to M-DLPS900, M-DLPS1000 and Figure 601.":
+        "Чистота поверхности должна составлять 1,6 мкм (63 микродюйма) или лучше: см. M-DLPS900, M-DLPS1000 и Рисунок 601.",
+    "The surface finish must be 1,6 micrometers (63 micro-inches) or better.": "Чистота поверхности должна составлять 1,6 мкм (63 микродюйма) или лучше.",
+    "The surface finish must be 3,2 micrometers (125 micro-inches).": "Чистота поверхности должна составлять 3,2 мкм (125 микродюймов).",
+    "THE SURFACE FINISH MUST BE\tOR BETTER UNLESS GIVEN DIFFERENTLY.": "ЧИСТОТА ПОВЕРХНОСТИ ДОЛЖНА БЫТЬ НЕ ХУЖЕ УКАЗАННОГО ЗНАЧЕНИЯ, ЕСЛИ НЕ УКАЗАНО ИНАЧЕ.",
+    "DEBURR THE SHARP EDGES WITH 45 DEGREES CHAMFER OR": "СНИМИТЕ ЗАУСЕНЦЫ НА ОСТРЫХ КРОМКАХ С ФАСКОЙ 45 ГРАДУСОВ ИЛИ",
+    "UNLESS GIVEN DIFFERENTLY.": "ЕСЛИ НЕ УКАЗАНО ИНАЧЕ.",
+    "Record the repair number onto the documentation which is attached to the part.":
+        "Запишите номер ремонта в документацию, прикреплённую к детали.",
+    "The plating thickness must not be more": "Толщина покрытия не должна превышать",
+    "Examine the edges of sulphamate nickel plate and make sure that they are correctly bonded.":
+        "Осмотрите кромки сульфаматного никелевого покрытия и убедитесь в их надлежащем сцеплении.",
+    "Examine the edges of sulphamate nickel plate to make sure they are properly bonded: use 5 or 10X magnification.":
+        "Осмотрите кромки сульфаматного никелевого покрытия для проверки надлежащего сцепления: используйте увеличение 5× или 10×.",
+    "The bush flange thickness must be equal within 0,1 mm (0.0039 in) after machining.":
+        "Толщина фланца втулки после механической обработки должна быть одинаковой с допуском 0,1 мм (0,0039 дюйма).",
+    "IF NOT, IT CAN CAUSE DAMAGE TO THE COMPONENT.": "В ПРОТИВНОМ СЛУЧАЕ КОМПОНЕНТ МОЖЕТ БЫТЬ ПОВРЕЖДЁН.",
+    "The breakout load must be between 0,339 and 0,904 N m (3 and 8 lbf in).":
+        "Момент страгивания должен быть от 0,339 до 0,904 Н·м (3–8 фунт-дюйм).",
+    "The shot peen can extend to area outside limits to between 0,25 and 0,50 mm (0.010 and 0.020 in).":
+        "Зона дробеструйной обработки может выходить за пределы на 0,25–0,50 мм (0,010–0,020 дюйма).",
+    "Apply protective varnish to the wiring diagram plate (1-110).":
+        "Нанесите защитный лак на пластину со схемой электрических соединений (1-110).",
+    "-3 DEGREES TO +3 DEGREES SLOT ORIENTATION IMPORTANT": "ОТ -3 ДО +3 ГРАДУСОВ ОРИЕНТАЦИЯ ПАЗА ВАЖНА",
+    "APPLY PRIMER PAINT TO BUSH DIA AND FLANGE UNDERSIDE ONLY": "НАНЕСТИ ГРУНТОВОЧНУЮ КРАСКУ ТОЛЬКО НА ДИАМЕТР ВТУЛКИ И НИЖНЮЮ СТОРОНУ ФЛАНЦА",
+    "CAUTION: MAKE SURE THAT YOU DO THE SPECIAL DIMENSION CHECK OF THE ROD (17-160): REFER TO CHECK.":
+        "ВНИМАНИЕ: УБЕДИТЕСЬ В ВЫПОЛНЕНИИ СПЕЦИАЛЬНОЙ ПРОВЕРКИ РАЗМЕРОВ ШТОКА (17-160): СМ. CHECK.",
+    "Make sure that you do not exceed a torque value of 160 N m (118 lbf ft).":
+        "Убедитесь, что момент затяжки не превышает 160 Н·м (118 фунт-фут).",
+    "Use electrically conducting Mastinox (made from Mastinox D40, Material Ref.":
+        "Используйте электропроводящий Mastinox (из Mastinox D40, Материал Поз.",
+    "Examine the upper diaphram tube for flaws: refer to PCS-3100, inclusion class 3.":
+        "Осмотрите верхнюю диафрагменную трубу на наличие дефектов: см. PCS-3100, класс включений 3.",
     "Refer to PCS-2500: apply primer to the mating surfaces of the bush (15-370) and the upper diaphragm tube (15-390).": "См. PCS-2500: нанесите грунтовку на сопрягаемые поверхности втулки (15-370) и верхней диафрагменной трубы (15-390).",
     "Refer to PCS-2500: apply primer to the mating surfaces of the bush (15-380) and the upper diaphragm tube (15-390).": "См. PCS-2500: нанесите грунтовку на сопрягаемые поверхности втулки (15-380) и верхней диафрагменной трубы (15-390).",
     "Apply a fillet of Sealant around the joints between the bush (15-370) and the upper diaphragm tube (15-390A): refer to PCS-7200 and Figure 717. Make sure that the primer paint is not visible at the joints after you apply the sealant.": "Нанесите галтель из герметика вокруг соединений между втулкой (15-370) и верхней диафрагменной трубой (15-390A): см. PCS-7200 и Рисунок 717. Убедитесь, что грунтовочная краска не видна на соединениях после нанесения герметика.",
@@ -940,6 +987,22 @@ EXACT = {
         "Код применяемости (EFF. CODE) соответствует коду сборки следующего более высокого уровня. Код применяемости также указывает, применимы ли сборочные единицы и детали к их сборке или сборочной единице следующего более высокого уровня. Если позиция применима ко всем изделиям, колонка кода применяемости будет пустой. Использование кода применяемости характерно для соответствующего рисунка ИПЧ.",
     "NOTE: Below you will find a list of vendor codes associated to this component maintenance manual. For the latest vendor name and address details associated to these codes, please refer to the Safran Landing Systems Technical Publications on-line service - document titled - \ufffdList of Contacts\ufffd.":
         "ПРИМЕЧАНИЕ: Ниже приведён список кодов поставщиков, связанных с данным руководством CMM. Актуальные наименования и адреса поставщиков по этим кодам см. в онлайн-сервисе технических публикаций Safran Landing Systems – документ «Список контактов».",
+    # ── Common procedural paragraphs that break in _body() ──
+    "Specified Damage and Material Specification": "Указанное повреждение и спецификация материала",
+    "(REFER TO SHEET 2)": "(СМ. ЛИСТ 2)",
+    "(REFER TO SHEET 3)": "(СМ. ЛИСТ 3)",
+    "(REFER TO FIGURE 801)": "(СМ. РИСУНОК 801)",
+    "REFER TO TABLE 601": "СМ. ТАБЛИЦУ 601",
+    "REFER TO FIGURE 805": "СМ. РИСУНОК 805",
+    "Materials": "Материалы",
+    "INCLUSIVE CHAMFER": "ВКЛЮЧИТЕЛЬНАЯ ФАСКА",
+    "CHROMIUM PLATE DEPOSIT": "СЛОЙ ХРОМОВОГО ПОКРЫТИЯ",
+    "x 60 DEGREES INCLUSIVE CHAMFER": "x 60 ГРАДУСОВ ВКЛЮЧИТЕЛЬНАЯ ФАСКА",
+    "x 60 DEGREE CHAMFER BOTH BUSHES": "x 60 ГРАДУСОВ ФАСКА ОБЕ ВТУЛКИ",
+    "or better.": "или лучше.",
+    "or better": "или лучше",
+    "Do the above step two more times.": "Повторите вышеуказанный шаг ещё два раза.",
+    "Do the above step two more times": "Повторите вышеуказанный шаг ещё два раза",
 }
 
 # ──────────────────────────────────────────────────────────────
@@ -967,6 +1030,57 @@ def _inc(s):
 def _body(s):
     """Generic body translate — replaces known EN words with Russian."""
     s = s.strip()
+    # ── Component name phrases (MUST be before individual words) ──
+    s = re.sub(r'\bmain fitting subassembly\b', 'сборка корпуса стойки', s, flags=re.I)
+    s = re.sub(r'\bmain fitting\b', 'корпус стойки', s, flags=re.I)
+    s = re.sub(r'\bsliding tube subassembly\b', 'сборка скользящей трубы', s, flags=re.I)
+    s = re.sub(r'\bsliding tube\b', 'скользящая труба', s, flags=re.I)
+    s = re.sub(r'\bupper torque link\b', 'верхний шлиц-шарнир', s, flags=re.I)
+    s = re.sub(r'\blower torque link\b', 'нижний шлиц-шарнир', s, flags=re.I)
+    s = re.sub(r'\btorque link\b', 'шлиц-шарнир', s, flags=re.I)
+    s = re.sub(r'\bupper slave link\b', 'верхнее ведомое звено', s, flags=re.I)
+    s = re.sub(r'\blower slave link\b', 'нижнее ведомое звено', s, flags=re.I)
+    s = re.sub(r'\bslave link\b', 'ведомое звено', s, flags=re.I)
+    s = re.sub(r'\bupper stay\b', 'верхнее звено', s, flags=re.I)
+    s = re.sub(r'\blower stay\b', 'нижнее звено', s, flags=re.I)
+    s = re.sub(r'\block stay cardan\b', 'кардан фиксирующего звена', s, flags=re.I)
+    s = re.sub(r'\blocking stay\b', 'фиксирующее звено', s, flags=re.I)
+    s = re.sub(r'\block stay\b', 'фиксирующее звено', s, flags=re.I)
+    s = re.sub(r'\bupper diaphragm tube\b', 'верхняя диафрагменная труба', s, flags=re.I)
+    s = re.sub(r'\blower diaphragm tube\b', 'нижняя диафрагменная труба', s, flags=re.I)
+    s = re.sub(r'\bdiaphragm tube\b', 'диафрагменная труба', s, flags=re.I)
+    s = re.sub(r'\bupper bearing housing\b', 'верхний корпус подшипника', s, flags=re.I)
+    s = re.sub(r'\blower bearing housing\b', 'нижний корпус подшипника', s, flags=re.I)
+    s = re.sub(r'\bbearing housing\b', 'корпус подшипника', s, flags=re.I)
+    s = re.sub(r'\bupper pivot bracket\b', 'верхний кронштейн оси', s, flags=re.I)
+    s = re.sub(r'\blower pivot bracket\b', 'нижний кронштейн оси', s, flags=re.I)
+    s = re.sub(r'\bpivot bracket\b', 'кронштейн оси', s, flags=re.I)
+    s = re.sub(r'\bgland housing\b', 'корпус сальника', s, flags=re.I)
+    s = re.sub(r'\bgland nut\b', 'сальниковая гайка', s, flags=re.I)
+    s = re.sub(r'\bshock absorber subassembly\b', 'сборка амортизатора', s, flags=re.I)
+    s = re.sub(r'\bshock absorber\b', 'амортизатор', s, flags=re.I)
+    s = re.sub(r'\bretaining pins?\b', 'фиксирующий штифт', s, flags=re.I)
+    s = re.sub(r'\bcharging valves?\b', 'зарядный клапан', s, flags=re.I)
+    s = re.sub(r'\bwiper rings?\b', 'грязесъёмное кольцо', s, flags=re.I)
+    s = re.sub(r'\bwiper seals?\b', 'грязесъёмное уплотнение', s, flags=re.I)
+    s = re.sub(r'\bground studs?\b', 'шпилька заземления', s, flags=re.I)
+    s = re.sub(r'\bstatic discharge connectors?\b', 'разъём снятия статического заряда', s, flags=re.I)
+    s = re.sub(r'\buplock hooks?\b', 'крюк верхнего замка', s, flags=re.I)
+    s = re.sub(r'\buplock\b', 'верхний замок', s, flags=re.I)
+    s = re.sub(r'\banti-corrosion compounds?\b', 'антикоррозионный состав', s, flags=re.I)
+    s = re.sub(r'\banti-corrosion\b', 'антикоррозионный', s, flags=re.I)
+    s = re.sub(r'\bgrooved spherical bearings?\b', 'подшипник сферический с канавкой', s, flags=re.I)
+    s = re.sub(r'\bself lubricating bearings?\b', 'самосмазывающийся подшипник', s, flags=re.I)
+    s = re.sub(r'\bspherical bearings?\b', 'сферический подшипник', s, flags=re.I)
+    s = re.sub(r'\bstaked bearing assemblyi?e?s?\b', 'узел подшипника с развальцовкой', s, flags=re.I)
+    s = re.sub(r'\bbearing assembly\b', 'узел подшипника', s, flags=re.I)
+    s = re.sub(r'\bnut assembly\b', 'узел гайки', s, flags=re.I)
+    s = re.sub(r'\blaminated shims?\b', 'пакетная прокладка', s, flags=re.I)
+    s = re.sub(r'\bbacking plates?\b', 'подкладная пластина', s, flags=re.I)
+    s = re.sub(r'\btab washer(?:s)?\b', 'стопорная шайба', s, flags=re.I)
+    s = re.sub(r'\bpin spanner\b', 'штифтовой ключ', s, flags=re.I)
+    s = re.sub(r'\bwire locking\b', 'контровка проволокой', s, flags=re.I)
+    s = re.sub(r'\bwire rope\b', 'трос', s, flags=re.I)
     # Coatings first (longer phrases)
     s = re.sub(r'\bzinc nickel plat(?:e|ing|ed)\b', 'цинко-никелевое покрытие', s, flags=re.I)
     s = re.sub(r'\bcadmium plat(?:e|ing|ed)\b', 'кадмиевое покрытие', s, flags=re.I)
@@ -1141,6 +1255,298 @@ def _body(s):
     s = re.sub(r'\bPRE SB\b', 'ДО SB', s)
     s = re.sub(r'\bPOST SB\b', 'ПОСЛЕ SB', s)
     s = re.sub(r'\bInclusion [Cc]lass\b', 'класс включений', s, flags=re.I)
+    # ── Common phrases that appear as trailing sentences ──
+    s = re.sub(r'Make the surface finish\s+([\d,\.]+)\s+micrometers?\s*\((\d+)\s*micro[- ]inches?\)', r'Чистота поверхности должна составлять \1 мкм (\2 микродюймов)', s)
+    s = re.sub(r'The cadmium plate thickness must be between\s+', 'Толщина кадмиевого покрытия должна быть от ', s)
+    s = re.sub(r'The (?:zinc nickel|zinc-nickel) plate thickness must be between\s+', 'Толщина цинко-никелевого покрытия должна быть от ', s)
+    s = re.sub(r'The plating thickness must be between\s+', 'Толщина покрытия должна быть от ', s)
+    s = re.sub(r'The sulphamate nickel plate thickness must be sufficient to get the correct dimensions after machining',
+               'Толщина сульфаматного никелевого покрытия должна быть достаточной для получения правильных размеров после механической обработки', s)
+    s = re.sub(r'\bNo bare metal is permitted\b', 'Обнажение основного металла не допускается', s, flags=re.I)
+    s = re.sub(r'\bStress relieve\b', 'Снимите напряжения', s)
+    s = re.sub(r'\bbare metal\b', 'основной металл', s, flags=re.I)
+    s = re.sub(r'\bmicrometers?\b', 'мкм', s, flags=re.I)
+    s = re.sub(r'\bmicro[- ]inches?\b', 'микродюймов', s, flags=re.I)
+    # ── Assembly procedure words ──
+    s = re.sub(r'\bspotfaces?\b', 'подрезки торцов', s, flags=re.I)
+    s = re.sub(r'\bpiston\b', 'поршень', s, flags=re.I)
+    s = re.sub(r'\bjacking dome\b', 'домкратный купол', s, flags=re.I)
+    s = re.sub(r'\bbaffle\b', 'перегородка', s, flags=re.I)
+    s = re.sub(r'\bdiaphragm\b', 'диафрагма', s, flags=re.I)
+    s = re.sub(r'\borifice\b', 'дроссель', s, flags=re.I)
+    s = re.sub(r'\bcompression\b', 'сжатия', s, flags=re.I)
+    s = re.sub(r'\brecoil\b', 'отдачи', s, flags=re.I)
+    s = re.sub(r'\bcap screws?\b', 'болт', s, flags=re.I)
+    s = re.sub(r'\block plates?\b', 'стопорная пластина', s, flags=re.I)
+    s = re.sub(r'\bsplit pins?\b', 'шплинт', s, flags=re.I)
+    s = re.sub(r'\btab washers?\b', 'стопорная шайба', s, flags=re.I)
+    s = re.sub(r'\blocking washers?\b', 'стопорная шайба', s, flags=re.I)
+    s = re.sub(r'\blocking nuts?\b', 'самоконтрящаяся гайка', s, flags=re.I)
+    s = re.sub(r'\bidentification washers?\b', 'идентификационная шайба', s, flags=re.I)
+    s = re.sub(r'\blubrication fittings?\b', 'смазочный ниппель', s, flags=re.I)
+    s = re.sub(r'\blubrication adapters?\b', 'переходник смазки', s, flags=re.I)
+    s = re.sub(r'\bpress pad\b', 'прессовая подушка', s, flags=re.I)
+    s = re.sub(r'\bthe drift\b', 'оправка', s, flags=re.I)
+    s = re.sub(r'\bcentres?\b', 'центр', s, flags=re.I)
+    s = re.sub(r'\bcenter\b', 'центр', s, flags=re.I)
+    s = re.sub(r'\brod\b', 'шток', s, flags=re.I)
+    s = re.sub(r'\blevel tube\b', 'трубка уровня', s, flags=re.I)
+    s = re.sub(r'\bbacking rings?\b', 'опорное кольцо', s, flags=re.I)
+    s = re.sub(r'\bsealing rings?\b', 'уплотнительное кольцо', s, flags=re.I)
+    s = re.sub(r'\btransfer blocks?\b', 'блок передачи', s, flags=re.I)
+    s = re.sub(r'\bthreaded inserts?\b', 'резьбовая вставка', s, flags=re.I)
+    s = re.sub(r'\blocating pins?\b', 'фиксирующий штифт', s, flags=re.I)
+    s = re.sub(r'\bjig\b', 'приспособление', s, flags=re.I)
+    s = re.sub(r'\bfixture\b', 'приспособление', s, flags=re.I)
+    # ── Verbs commonly found in procedures ──
+    s = re.sub(r'\bcarefully\b', 'аккуратно', s, flags=re.I)
+    s = re.sub(r'\binsert\b', 'вставьте', s, flags=re.I)
+    s = re.sub(r'\bpush\b', 'вдавите', s, flags=re.I)
+    s = re.sub(r'\bpull\b', 'извлеките', s, flags=re.I)
+    s = re.sub(r'\bturn\b', 'поверните', s, flags=re.I)
+    s = re.sub(r'\brotate\b', 'поверните', s, flags=re.I)
+    s = re.sub(r'\bhold\b', 'удерживайте', s, flags=re.I)
+    s = re.sub(r'\bkeep\b', 'удерживайте', s, flags=re.I)
+    s = re.sub(r'\bposition\b', 'положение', s, flags=re.I)
+    s = re.sub(r'\bidentify\b', 'идентифицируйте', s, flags=re.I)
+    s = re.sub(r'\bstriking?\b', 'зачеркните', s, flags=re.I)
+    s = re.sub(r'\bStrike through\b', 'Зачеркните', s)
+    s = re.sub(r'\bslide\b', 'сдвиньте', s, flags=re.I)
+    s = re.sub(r'\bprotect\b', 'защитите', s, flags=re.I)
+    s = re.sub(r'\bprotective\b', 'защитный', s, flags=re.I)
+    s = re.sub(r'\bapply\b', 'нанесите', s, flags=re.I)
+    s = re.sub(r'\brepeat\b', 'повторите', s, flags=re.I)
+    s = re.sub(r'\bstop\b', 'остановитесь', s, flags=re.I)
+    s = re.sub(r'\bremove\b', 'снимите', s, flags=re.I)
+    s = re.sub(r'\bexamine\b', 'осмотрите', s, flags=re.I)
+    s = re.sub(r'\binstall\b', 'установите', s, flags=re.I)
+    s = re.sub(r'\bsafety\b', 'законтрите', s, flags=re.I)
+    s = re.sub(r'\bmeasure\b', 'измерьте', s, flags=re.I)
+    s = re.sub(r'\brecord\b', 'запишите', s, flags=re.I)
+    s = re.sub(r'\bcalculate\b', 'рассчитайте', s, flags=re.I)
+    s = re.sub(r'\bselect\b', 'выберите', s, flags=re.I)
+    s = re.sub(r'\bverify\b', 'проверьте', s, flags=re.I)
+    s = re.sub(r'\bcheck\b', 'проверьте', s, flags=re.I)
+    s = re.sub(r'\bclean\b', 'очистите', s, flags=re.I)
+    s = re.sub(r'\bdrain\b', 'дренажный', s, flags=re.I)
+    s = re.sub(r'\balign\b', 'совместите', s, flags=re.I)
+    s = re.sub(r'\baligned\b', 'совмещённый', s, flags=re.I)
+    s = re.sub(r'\bset\b', 'установите', s, flags=re.I)
+    s = re.sub(r'\btest(?:s)?\b', 'испытание', s, flags=re.I)
+    s = re.sub(r'\btorque\b', 'момент затяжки', s, flags=re.I)
+    s = re.sub(r'\bhand lap\b', 'притрите вручную', s, flags=re.I)
+    # ── More component words ──
+    s = re.sub(r'\bupper\b', 'верхний', s, flags=re.I)
+    s = re.sub(r'\blower\b', 'нижний', s, flags=re.I)
+    s = re.sub(r'\bmain\b', 'главный', s, flags=re.I)
+    s = re.sub(r'\bfittings?\b', 'фитинг', s, flags=re.I)
+    s = re.sub(r'\bbrackets?\b', 'кронштейн', s, flags=re.I)
+    s = re.sub(r'\btube\b', 'труба', s, flags=re.I)
+    s = re.sub(r'\btubes\b', 'трубы', s, flags=re.I)
+    s = re.sub(r'\bcylinder\b', 'цилиндр', s, flags=re.I)
+    s = re.sub(r'\blinks?\b', 'звено', s, flags=re.I)
+    s = re.sub(r'\bpivot\b', 'ось', s, flags=re.I)
+    s = re.sub(r'\bpintle\b', 'шкворень', s, flags=re.I)
+    s = re.sub(r'\barms?\b', 'рычаг', s, flags=re.I)
+    s = re.sub(r'\bsupport\b', 'опора', s, flags=re.I)
+    s = re.sub(r'\bsliding\b', 'скользящий', s, flags=re.I)
+    s = re.sub(r'\bslave\b', 'ведомый', s, flags=re.I)
+    s = re.sub(r'\bcharging\b', 'зарядный', s, flags=re.I)
+    s = re.sub(r'\bstay\b', 'звено', s, flags=re.I)
+    s = re.sub(r'\bgland\b', 'сальник', s, flags=re.I)
+    s = re.sub(r'\bconnectors?\b', 'разъём', s, flags=re.I)
+    s = re.sub(r'\bwire\b', 'проволока', s, flags=re.I)
+    s = re.sub(r'\bstuds?\b', 'шпилька', s, flags=re.I)
+    s = re.sub(r'\bcaps?\b', 'крышка', s, flags=re.I)
+    s = re.sub(r'\bcovers?\b', 'крышка', s, flags=re.I)
+    s = re.sub(r'\bplates?\b', 'пластина', s, flags=re.I)
+    s = re.sub(r'\btabs?\b', 'лепесток', s, flags=re.I)
+    s = re.sub(r'\blaminated\b', 'пакетный', s, flags=re.I)
+    s = re.sub(r'\bbacking\b', 'подкладной', s, flags=re.I)
+    s = re.sub(r'\bsplit\b', 'разрезной', s, flags=re.I)
+    s = re.sub(r'\bretaining\b', 'фиксирующий', s, flags=re.I)
+    s = re.sub(r'\blocking\b', 'стопорный', s, flags=re.I)
+    s = re.sub(r'\bmating\b', 'сопрягаемый', s, flags=re.I)
+    s = re.sub(r'\bends?\b', 'торец', s, flags=re.I)
+    s = re.sub(r'\bunderside\b', 'нижняя сторона', s, flags=re.I)
+    s = re.sub(r'\boutside\b', 'наружная сторона', s, flags=re.I)
+    s = re.sub(r'\binside\b', 'внутри', s, flags=re.I)
+    # ── More adjectives/adverbs ──
+    s = re.sub(r'\bdamaged\b', 'повреждённый', s, flags=re.I)
+    s = re.sub(r'\bworn\b', 'изношенный', s, flags=re.I)
+    s = re.sub(r'\bsmallest\b', 'наименьший', s, flags=re.I)
+    s = re.sub(r'\blargest\b', 'наибольший', s, flags=re.I)
+    s = re.sub(r'\bclosest\b', 'ближайший', s, flags=re.I)
+    s = re.sub(r'\boriginal\b', 'оригинальный', s, flags=re.I)
+    s = re.sub(r'\bexternally\b', 'снаружи', s, flags=re.I)
+    s = re.sub(r'\binternally\b', 'изнутри', s, flags=re.I)
+    s = re.sub(r'\bcooling\b', 'охлаждение', s, flags=re.I)
+    s = re.sub(r'\bheating\b', 'нагрев', s, flags=re.I)
+    s = re.sub(r'\bapproximately\b', 'приблизительно', s, flags=re.I)
+    s = re.sub(r'\bmeasured\b', 'измеренный', s, flags=re.I)
+    # ── More verbs ──
+    s = re.sub(r'\bmake\b', 'обеспечьте', s, flags=re.I)
+    s = re.sub(r'\bmust\b', 'должен', s, flags=re.I)
+    s = re.sub(r'\bcontinue\b', 'продолжите', s, flags=re.I)
+    s = re.sub(r'\bleave\b', 'оставьте', s, flags=re.I)
+    s = re.sub(r'\bensure\b', 'обеспечьте', s, flags=re.I)
+    s = re.sub(r'\bplace\b', 'поместите', s, flags=re.I)
+    s = re.sub(r'\bopen\b', 'откройте', s, flags=re.I)
+    s = re.sub(r'\bclose\b', 'закройте', s, flags=re.I)
+    s = re.sub(r'\bfill\b', 'заполните', s, flags=re.I)
+    s = re.sub(r'\bcut\b', 'отрежьте', s, flags=re.I)
+    s = re.sub(r'\bfit\b', 'подогнать', s, flags=re.I)
+    s = re.sub(r'\btighten\b', 'затяните', s, flags=re.I)
+    s = re.sub(r'\bloosen\b', 'ослабьте', s, flags=re.I)
+    s = re.sub(r'\bpress\b', 'запрессуйте', s, flags=re.I)
+    s = re.sub(r'\bmarke?d?\b', 'отметьте', s, flags=re.I)
+    s = re.sub(r'\bcoat(?:ed)?\b', 'покройте', s, flags=re.I)
+    # ── More nouns ──
+    s = re.sub(r'\brunout\b', 'биение', s, flags=re.I)
+    s = re.sub(r'\bclearances?\b', 'зазор', s, flags=re.I)
+    s = re.sub(r'\blabels?\b', 'бирка', s, flags=re.I)
+    s = re.sub(r'\baxis\b', 'ось', s, flags=re.I)
+    s = re.sub(r'\bweight\b', 'масса', s, flags=re.I)
+    s = re.sub(r'\bload\b', 'нагрузка', s, flags=re.I)
+    s = re.sub(r'\bforce\b', 'сила', s, flags=re.I)
+    s = re.sub(r'\bpressure\b', 'давление', s, flags=re.I)
+    s = re.sub(r'\btemperature\b', 'температура', s, flags=re.I)
+    s = re.sub(r'\bvendor\b', 'поставщик', s, flags=re.I)
+    s = re.sub(r'\bcodes?\b', 'код', s, flags=re.I)
+    s = re.sub(r'\bmanual\b', 'руководство', s, flags=re.I)
+    s = re.sub(r'\bcomponents?\b', 'компонент', s, flags=re.I)
+    s = re.sub(r'\bmaintenance\b', 'техническое обслуживание', s, flags=re.I)
+    s = re.sub(r'\blist\b', 'перечень', s, flags=re.I)
+    s = re.sub(r'\blatest\b', 'последний', s, flags=re.I)
+    s = re.sub(r'\bassociated\b', 'связанный', s, flags=re.I)
+    # ── More prepositions/connectors ──
+    s = re.sub(r'\bbut\b', 'но', s, flags=re.I)
+    s = re.sub(r'\bacross\b', 'через', s, flags=re.I)
+    s = re.sub(r'\balong\b', 'вдоль', s, flags=re.I)
+    s = re.sub(r'\baround\b', 'вокруг', s, flags=re.I)
+    s = re.sub(r'\babove\b', 'выше', s, flags=re.I)
+    s = re.sub(r'\bbelow\b', 'ниже', s, flags=re.I)
+    s = re.sub(r'\bover\b', 'по', s, flags=re.I)
+    s = re.sub(r'\bunder\b', 'под', s, flags=re.I)
+    s = re.sub(r'\bbetter\b', 'лучше', s, flags=re.I)
+    s = re.sub(r'\bgiven\b', 'указанным', s, flags=re.I)
+    s = re.sub(r'\breference\b', 'ссылка', s, flags=re.I)
+    s = re.sub(r'\bletter\b', 'буква', s, flags=re.I)
+    s = re.sub(r'\bthen\b', 'затем', s, flags=re.I)
+    s = re.sub(r'\balso\b', 'также', s, flags=re.I)
+    s = re.sub(r'\bonly\b', 'только', s, flags=re.I)
+    s = re.sub(r'\byou\b', '', s, flags=re.I)
+    s = re.sub(r'\bcan\b', 'можно', s, flags=re.I)
+    s = re.sub(r'\bwill\b', '', s, flags=re.I)
+    s = re.sub(r'\bshould\b', 'следует', s, flags=re.I)
+    s = re.sub(r'\bshall\b', 'следует', s, flags=re.I)
+    s = re.sub(r'\binches\b', 'дюймов', s, flags=re.I)
+    s = re.sub(r'\btwo\b', 'два', s, flags=re.I)
+    s = re.sub(r'\bthree\b', 'три', s, flags=re.I)
+    s = re.sub(r'\bfour\b', 'четыре', s, flags=re.I)
+    s = re.sub(r'\bfive\b', 'пять', s, flags=re.I)
+    s = re.sub(r'\bone\b', 'один', s, flags=re.I)
+    s = re.sub(r'\bsee\b', 'см.', s, flags=re.I)
+    s = re.sub(r'\buse\b', 'используйте', s, flags=re.I)
+    s = re.sub(r'\brelated\b', 'связанный', s, flags=re.I)
+    s = re.sub(r'\bapprox\b', 'приблиз.', s, flags=re.I)
+    s = re.sub(r'\bFITS AND CLEARANCES\b', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    s = re.sub(r'\bFits and Clearances\b', 'Посадки и зазоры', s)
+    # ── Common connectors & articles (ALL with re.I) ──
+    s = re.sub(r'\bthe\s+', '', s, flags=re.I)
+    s = re.sub(r'\band/or\b', 'и/или', s, flags=re.I)
+    s = re.sub(r'\band\b', 'и', s, flags=re.I)
+    s = re.sub(r'\bor\b', 'или', s, flags=re.I)
+    s = re.sub(r'\bof\b', '', s, flags=re.I)
+    s = re.sub(r'\bto\b', 'до', s, flags=re.I)
+    s = re.sub(r'\bfor\b', 'для', s, flags=re.I)
+    s = re.sub(r'\bfrom\b', 'с', s, flags=re.I)
+    s = re.sub(r'\binto\b', 'в', s, flags=re.I)
+    s = re.sub(r'\bin\b', 'в', s, flags=re.I)
+    s = re.sub(r'\bon\b', 'на', s, flags=re.I)
+    s = re.sub(r'\bat\b', 'при', s, flags=re.I)
+    s = re.sub(r'\bwith\b', 'с', s, flags=re.I)
+    s = re.sub(r'\bwithout\b', 'без', s, flags=re.I)
+    s = re.sub(r'\buntil\b', 'до тех пор пока', s, flags=re.I)
+    s = re.sub(r'\bwhile\b', 'пока', s, flags=re.I)
+    s = re.sub(r'\bwhen\b', 'когда', s, flags=re.I)
+    s = re.sub(r'\bwhere\b', 'где', s, flags=re.I)
+    s = re.sub(r'\bhave\b', '', s, flags=re.I)
+    s = re.sub(r'\bhas\b', '', s, flags=re.I)
+    s = re.sub(r'\bare\b', '', s, flags=re.I)
+    s = re.sub(r'\bis\b', '', s, flags=re.I)
+    s = re.sub(r'\bnot\b', 'не', s, flags=re.I)
+    s = re.sub(r'\bnew\b', 'новый', s, flags=re.I)
+    s = re.sub(r'\bold\b', 'старый', s, flags=re.I)
+    s = re.sub(r'\bduring\b', 'при', s, flags=re.I)
+    s = re.sub(r'\bafter\b', 'после', s, flags=re.I)
+    s = re.sub(r'\bbefore\b', 'до', s, flags=re.I)
+    s = re.sub(r'\bthis\b', 'данный', s, flags=re.I)
+    s = re.sub(r'\bthat\b', '', s, flags=re.I)
+    s = re.sub(r'\bthese\b', 'данные', s, flags=re.I)
+    s = re.sub(r'\bthose\b', '', s, flags=re.I)
+    s = re.sub(r'\beach\b', 'каждый', s, flags=re.I)
+    s = re.sub(r'\bevery\b', 'каждый', s, flags=re.I)
+    s = re.sub(r'\ball\b', 'все', s, flags=re.I)
+    s = re.sub(r'\bany\b', 'любой', s, flags=re.I)
+    s = re.sub(r'\bother\b', 'другой', s, flags=re.I)
+    s = re.sub(r'\bboth\b', 'оба', s, flags=re.I)
+    s = re.sub(r'\bits\b', 'его', s, flags=re.I)
+    s = re.sub(r'\bit\b', 'его', s, flags=re.I)
+    s = re.sub(r'\bif\b', 'если', s, flags=re.I)
+    s = re.sub(r'\bdo\b', '', s, flags=re.I)
+    s = re.sub(r'\bstill\b', 'ещё', s, flags=re.I)
+    s = re.sub(r'\bthere\b', '', s, flags=re.I)
+    s = re.sub(r'\btheir\b', 'их', s, flags=re.I)
+    s = re.sub(r'\bwidth\b', 'ширина', s, flags=re.I)
+    s = re.sub(r'\blength\b', 'длина', s, flags=re.I)
+    s = re.sub(r'\bdepth\b', 'глубина', s, flags=re.I)
+    s = re.sub(r'\bheight\b', 'высота', s, flags=re.I)
+    s = re.sub(r'\bgap\b', 'зазор', s, flags=re.I)
+    s = re.sub(r'\bhours?\b', 'ч', s, flags=re.I)
+    s = re.sub(r'\bpart\b', 'деталь', s, flags=re.I)
+    s = re.sub(r'\bparts\b', 'детали', s, flags=re.I)
+    s = re.sub(r'\bunit\b', 'узел', s, flags=re.I)
+    s = re.sub(r'\bunits\b', 'узлы', s, flags=re.I)
+    s = re.sub(r'\bside\b', 'сторона', s, flags=re.I)
+    s = re.sub(r'\barea\b', 'зона', s, flags=re.I)
+    s = re.sub(r'\bareas\b', 'зоны', s, flags=re.I)
+    s = re.sub(r'\bedge(?:s)?\b', 'кромка', s, flags=re.I)
+    s = re.sub(r'\bsurface\b', 'поверхность', s, flags=re.I)
+    s = re.sub(r'\bfinish\b', 'чистота', s, flags=re.I)
+    s = re.sub(r'\bvalue(?:s)?\b', 'значение', s, flags=re.I)
+    s = re.sub(r'\blimit(?:s)?\b', 'предел', s, flags=re.I)
+    s = re.sub(r'\bsame\b', 'тот же', s, flags=re.I)
+    s = re.sub(r'\bconfiguration\b', 'конфигурация', s, flags=re.I)
+    s = re.sub(r'\bprocedure\b', 'процедура', s, flags=re.I)
+    s = re.sub(r'\bstep\b', 'шаг', s, flags=re.I)
+    s = re.sub(r'\bparagraph\b', 'пункт', s, flags=re.I)
+    s = re.sub(r'\bpara\b', 'пункт', s, flags=re.I)
+    s = re.sub(r'\brepair\b', 'ремонт', s, flags=re.I)
+    s = re.sub(r'\bnumber\b', 'номер', s, flags=re.I)
+    s = re.sub(r'\bexisting\b', 'существующий', s, flags=re.I)
+    s = re.sub(r'\bsubassembly\b', 'сборка', s, flags=re.I)
+    s = re.sub(r'\bassembly\b', 'сборка', s, flags=re.I)
+    s = re.sub(r'\binstallation\b', 'установка', s, flags=re.I)
+    s = re.sub(r'\bmachining\b', 'механическая обработка', s, flags=re.I)
+    s = re.sub(r'\bjointing compound\b', 'монтажный состав', s, flags=re.I)
+    s = re.sub(r'\bcompound\b', 'состав', s, flags=re.I)
+    s = re.sub(r'\bhydraulic fluid\b', 'гидравлическая жидкость', s, flags=re.I)
+    s = re.sub(r'\bhydraulic\b', 'гидравлический', s, flags=re.I)
+    s = re.sub(r'\belectrical bonding\b', 'электрическое соединение', s, flags=re.I)
+    s = re.sub(r'\bresistance\b', 'сопротивление', s, flags=re.I)
+    s = re.sub(r'\bmilliohm\b', 'миллиом', s, flags=re.I)
+    s = re.sub(r'\bpaint\b', 'краска', s, flags=re.I)
+    s = re.sub(r'\badapter\b', 'переходник', s, flags=re.I)
+    s = re.sub(r'\bzero\b', 'ноль', s, flags=re.I)
+    s = re.sub(r'\bas\b', 'как', s, flags=re.I)
+    s = re.sub(r'\bso\b', 'так', s, flags=re.I)
+    s = re.sub(r'\bbe\b', '', s, flags=re.I)
+    s = re.sub(r'\bby\b', '', s, flags=re.I)
+    s = re.sub(r'\bno\b', 'нет', s, flags=re.I)
+    s = re.sub(r'\bsure\b', '', s, flags=re.I)
+    # Clean up multiple spaces
+    s = re.sub(r'  +', ' ', s).strip()
     return s
 
 
@@ -1200,6 +1606,24 @@ _T(
 _T(
     r'^Around the joints? between (the\s+)?(.+?),? (?:the\s+)?(.+?) and (?:the\s+)?(.+?)$',
     lambda m: f"Вокруг соединений между {_body((m.group(1) or '') + m.group(2))}, {_body(m.group(3))} и {_body(m.group(4))}"
+)
+
+# ─── De-embrittle the reworked areas for N hours at X ───
+_T(
+    r'^De-embrittle\s+(the\s+)?(.+?)\s+for\s+(\d+)\s+hours?\s+at\s+(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Выполните устранение водородной хрупкости {_body((m.group(1) or '') + m.group(2))} в течение {m.group(3)} ч при {m.group(4)}{(': см. ' + m.group(5)) if m.group(5) else ''}."
+)
+
+# ─── Examine the ground chromium plate for flaws ───
+_T(
+    r'^Examine\s+the\s+ground\s+chromium\s+plate\s+for\s+flaws?\s*(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Осмотрите шлифованное хромовое покрытие на наличие дефектов{(': ' + _ref_tail('refer to '+m.group(1))) if m.group(1) else ''}."
+)
+
+# ─── If necessary, hone or hand ream the bore diameter ───
+_T(
+    r'^If necessary,?\s+hone or hand ream\s+(the\s+)?(.+?)\s+to\s+(?:the\s+)?(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"При необходимости хонингуйте или вручную разверните {_body((m.group(1) or '') + m.group(2))} до {_body(m.group(3))}{(': ' + _ref_tail('refer to '+m.group(4))) if m.group(4) else ''}."
 )
 
 # ─── Grit blast ───
@@ -1309,7 +1733,7 @@ _T(
 # ─── Apply [coating] [to/over] [all over] [location] [but not to ...] ───
 _T(
     r'^Apply\s+(cadmium plate|zinc nickel plate|chromium plate|primer paint|paint|sealant|sulphamate nickel plate)\s+((?:all over|externally|locally),?\s*)?(?:but not (?:to\s+)?(?:the\s+)?(.+?),?\s+)?(?:to\s+)?(?:the\s+)?(.+?)(?::\s*refer to\s+(.+?))?\.?$',
-    lambda m: f"Нанесите {_coat_nom(m.group(1))} {m.group(2) or ''}{('на всю поверхность, кроме ' + _body(m.group(3)) + ', ') if m.group(3) else ''}на {_body(m.group(4))}{(': ' + _ref_tail('refer to '+m.group(5))) if m.group(5) else ''}."
+    lambda m: f"Нанесите {_coat_nom(m.group(1))} {({'externally': 'снаружи ', 'externally,': 'снаружи, ', 'locally': 'локально ', 'locally,': 'локально, ', 'all over': 'по всей поверхности ', 'all over,': 'по всей поверхности, '}.get((m.group(2) or '').strip(), m.group(2) or ''))}{('кроме ' + _body(m.group(3)) + ', ') if m.group(3) else ''}на {_body(m.group(4))}{(': ' + _ref_tail('refer to '+m.group(5))) if m.group(5) else ''}."
 )
 
 # ─── Apply [coating] [to/over] [all over], except where indicated ───
@@ -1783,10 +2207,56 @@ _T(
     lambda m: f"РАЗРЕЗ {m.group(1)} ({m.group(2).replace('WITH BUSHES', 'С ВТУЛКАМИ').replace('WITHOUT BUSHES', 'БЕЗ ВТУЛОК').replace('WITH SLEEVES', 'С ВСТАВКАМИ').replace('WITHOUT SLEEVES', 'БЕЗ ВСТАВОК')}) СМ. РИСУНОК {m.group(3)}"
 )
 
-# ─── Make the surface finish N micrometers ───
+# ─── Make/The surface finish must be N micrometers ───
 _T(
-    r'^Make the surface finish\s+([\d,\.]+)\s+micrometers?\s*\((.+?)\)\.$',
+    r'^Make the surface finish\s+([\d,\.]+)\s+micrometers?\s*\((.+?)\)\.?$',
     lambda m: f"Чистота поверхности должна составлять {m.group(1)} мкм ({m.group(2)})."
+)
+_T(
+    r'^The surface finish must be\s+([\d,\.]+)\s+micrometers?\s*\((.+?)\)(?:\s+or better)?(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Чистота поверхности должна составлять {m.group(1)} мкм ({m.group(2)}){' или лучше' if 'better' in m.group(0) else ''}{(': ' + _ref_tail('refer to '+m.group(3))) if m.group(3) else ''}."
+)
+
+# ─── The [coating] thickness must be between X and Y ───
+_T(
+    r'^The (?:cadmium plate|zinc nickel plate|chromium plate|plating|sulphamate nickel plate) thickness must (?:be between|not be (?:more|less) than)\s+(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Толщина покрытия {'должна быть от' if 'between' in m.group(0) else ('не должна превышать' if 'more' in m.group(0) else 'не должна быть менее')} {m.group(1)}{(': ' + _ref_tail('refer to '+m.group(2))) if m.group(2) else ''}."
+)
+
+# ─── Apply zinc loaded jointing compound ───
+_T(
+    r'^Apply [Zz]inc loaded [Jj]ointing compound,?\s*Molykote\s+(\d+)\s+to\s+(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Нанесите монтажный состав с добавкой цинка, Molykote {m.group(1)}, на {_body(m.group(2))}{(': ' + _ref_tail('refer to '+m.group(3))) if m.group(3) else ''}."
+)
+
+# ─── NOTE: Install the bush by heating the housing to N °C ───
+_T(
+    r'^NOTE:\s*Install the bush(?:es)? by heating the housing(?: to (.+?))? and cooling the bush(?:es)? only\.$',
+    lambda m: f"ПРИМЕЧАНИЕ: Установите втулк{'и' if 'bushes' in m.group(0) else 'у'}, нагрев корпус{(' до '+m.group(1)) if m.group(1) else ''} и охладив только втулк{'и' if 'bushes' in m.group(0) else 'у'}."
+)
+
+# ─── NOTE: You can lubricate the seals with grease ───
+_T(
+    r'^NOTE:\s*You can lubricate the seals? with grease,?\s*(.+?)$',
+    lambda m: f"ПРИМЕЧАНИЕ: Допускается смазка уплотнений консистентной смазкой, {_body(m.group(1))}"
+)
+
+# ─── Torque the bolts/nuts to the value N ───
+_T(
+    r'^Torque\s+(?:the\s+)?(.+?)\s+to the value\s+(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Затяните {_body(m.group(1))} моментом {m.group(2)}{(': ' + _ref_tail('refer to '+m.group(3))) if m.group(3) else ''}."
+)
+
+# ─── Use the Pin Spanner NN and torque the nut assembly to N ───
+_T(
+    r'^Use the (.+?) and torque\s+(.+?)\s+to\s+(.+?)(?:\s+then\s+(.+?))?\.?$',
+    lambda m: f"Используйте {_body(m.group(1))} и затяните {_body(m.group(2))} моментом {m.group(3)}{(', затем ' + _body(m.group(4))) if m.group(4) else ''}."
+)
+
+# ─── Apply [compound] to [part] where shown ───
+_T(
+    r'^Apply\s+(.+?)\s+to\s+(.+?)\s+(?:bores?\s+)?(?:where shown\s*)?(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Нанесите {_body(m.group(1))} на {_body(m.group(2))}{(': ' + _ref_tail('refer to '+m.group(3))) if m.group(3) else ''}."
 )
 
 # ─── Use Press Pad XXXXX and install ───
@@ -1807,6 +2277,81 @@ _T(
 _T(
     r'^Calculate (?:the\s+)?(?:dimensions? of\s+)?(?:the\s+)?(.+?):\s*refer to\s+(.+?)\.\s*[Uu]se (?:the\s+)?formula:?\s*$',
     lambda m: f"Рассчитайте размеры {_body(m.group(1))}: {_ref_tail('refer to '+m.group(2))}. Используйте формулу:"
+)
+
+
+# ─── Standalone Figure/Table references ───
+_T(
+    r'^Figure\s+(\d+)\s*[-–]?\s*(Sheet\s+(\d+).*)?\s*$',
+    lambda m: f"Рисунок {m.group(1)}{(' – Лист ' + m.group(3) + m.group(2)[len('Sheet '+m.group(3)):]) if m.group(2) else ''}"
+)
+_T(
+    r'^Figure\s+(\d+)\s*$',
+    lambda m: f"Рисунок {m.group(1)}"
+)
+_T(
+    r'^Table\s+(\d+)\s*$',
+    lambda m: f"Таблица {m.group(1)}"
+)
+
+# ─── Do not remove/make/machine more than ... ───
+_T(
+    r'^Do not (?:remove|machine)\s+(?:the\s+)?(?:faces?\s+)?more than\s+(.+?)(?:\s+of\s+material(?:\s+from\s+(?:each\s+of\s+)?(?:the\s+)?(.+?))?)?\.?$',
+    lambda m: f"Не снимайте более {m.group(1)} материала{(' с каждого ' + _body(m.group(2))) if m.group(2) else ''}."
+)
+_T(
+    r'^Do not make\s+(?:the\s+)?(.+?)\s+more than\s+(.+?)\.?$',
+    lambda m: f"Не увеличивайте {_body(m.group(1))} более {m.group(2)}."
+)
+_T(
+    r'^Do not machine the faces? more than\s+(.+?)\.?$',
+    lambda m: f"Не обрабатывайте торец более {m.group(1)}."
+)
+
+# ─── Diameter X must be between Y ───
+_T(
+    r'^(?:The\s+)?[Dd]iameter\s+([A-Z])\s+must be between\s+(.+?)\.?$',
+    lambda m: f"Диаметр {m.group(1)} должен быть от {m.group(2)}."
+)
+_T(
+    r'^(?:The\s+)?[Dd]iameter\s+must be between\s+(.+?)\.?$',
+    lambda m: f"Диаметр должен быть от {m.group(1)}."
+)
+
+# ─── The minimum wall thickness must be X ───
+_T(
+    r'^(?:The\s+)?(?:and\s+)?(?:the\s+)?minimum wall thickness must be\s+(.+?)\.?$',
+    lambda m: f"Минимальная толщина стенки должна быть {m.group(1)}."
+)
+
+# ─── Lubricate the threads/part with grease/oil ───
+_T(
+    r'^Lubricate the (?:threads?|bearings?|seals?)\s+of\s+(?:the\s+)?(.+?)\s+with\s+(.+?)(?::\s*refer to\s+(.+?))?\.?$',
+    lambda m: f"Смажьте резьбу {_body(m.group(1))} {_body(m.group(2))}{(': ' + _ref_tail('refer to '+m.group(3))) if m.group(3) else ''}."
+)
+
+# ─── Apply one/two coat(s) of X to Y ───
+_T(
+    r'^Apply\s+(?:one|two|three)\s+coats?\s+(?:of\s+)?(.+?),?\s+(?:Material\s+)?(?:Ref\.?\s*)?(?:Item\s+)?([\w\-]+),?\s+(?:to|on)\s+(?:the\s+)?(.+?)\.?$',
+    lambda m: f"Нанесите слой {_body(m.group(1))}, Поз. {m.group(2)}, на {_body(m.group(3))}."
+)
+
+# ─── Leave approximately X between/around Y ───
+_T(
+    r'^Leave approximately\s+(.+?)\s+(?:between|around|of)\s+(.+?)\.?$',
+    lambda m: f"Оставьте приблизительно {m.group(1)} между {_body(m.group(2))}."
+)
+
+# ─── For the shock absorber configuration (X or Y or ...): verb ... ───
+_T(
+    r'^For (?:the\s+)?shock absorber configuration\s+\((.+?)\):\s*(.+?)$',
+    lambda m: f"Для конфигурации амортизатора ({m.group(1)}): {_body(m.group(2))}"
+)
+
+# ─── [Verb] [part] related components ───
+_T(
+    r'^(.+?) related components\.?\s*(.*)$',
+    lambda m: f"{_body(m.group(1))} связанные компоненты. {_body(m.group(2))}" if m.group(2) else f"{_body(m.group(1))} связанные компоненты."
 )
 
 
@@ -1860,19 +2405,18 @@ def _comp_gen(s):
 # 3.  MAIN translate_text()
 # ──────────────────────────────────────────────────────────────
 
-def translate_text(text):
-    """Translate an English CMM text string to Russian."""
-    if not text or not text.strip():
-        return text
-    t = text.strip()
+def _translate_single(t):
+    """Translate a single sentence/fragment."""
+    if not t or not t.strip():
+        return t
+    t = t.strip()
 
     # 1. Exact match
     if t in EXACT:
-        return EXACT[t]
-    # 1b. Trailing-period variant
+        return _postprocess(EXACT[t])
     tnp = t.rstrip('.')
     if tnp in EXACT:
-        return EXACT[tnp] + ('.' if t.endswith('.') else '')
+        return _postprocess(EXACT[tnp] + ('.' if t.endswith('.') else ''))
 
     # 2. Sentence templates
     for pat, fn in _TEMPLATES:
@@ -1881,13 +2425,476 @@ def translate_text(text):
             try:
                 result = fn(m)
                 if result and result != t:
-                    return result
+                    return _postprocess(result)
             except Exception:
                 pass
 
-    # 3. Generic body substitution (best-effort)
-    result = _body(t)
-    return result
+    # 3. Generic body substitution
+    return _postprocess(_body(t))
+
+
+def _postprocess(s):
+    """Final pass: clean up any remaining common English words in translated text."""
+    # ── Fix Figure/Table glued to text ──
+    s = re.sub(r'([A-Za-zа-яёА-ЯЁ])(?=Figure\s*\d)', r'\1. ', s)
+    s = re.sub(r'([A-Za-zа-яёА-ЯЁ])(?=Table\s*\d)', r'\1. ', s)
+    # ── Fix (s) → (ы), (es) → (ы) in Russian context ──
+    s = re.sub(r'(?<=\w)\(s\)', '(ы)', s)
+    s = re.sub(r'(?<=\w)\(es\)', '(ы)', s)
+    # ── Fix duplicate Figure/Table refs: "Рисунок 601.Figure 601" → "Рисунок 601." ──
+    s = re.sub(r'(Рисунок\s*\d+)\s*\.?\s*Figure\s*\d+', r'\1', s)
+    s = re.sub(r'(Рисунки\s*\d+[–\-]\d+)\s*\.?\s*Figure\s*\d+', r'\1', s)
+    s = re.sub(r'(Таблица\s*\d+)\s*\.?\s*Table\s*\d+', r'\1', s)
+    s = re.sub(r'\.?(Figure\s+\d+)\s*$', '', s)  # trailing "Figure 601" after period
+    s = re.sub(r'\.?(Table\s+\d+)\s*$', '', s)    # trailing "Table 601"
+    # ── Domain-specific missing words ──
+    s = re.sub(r'\bDe-embrittle\b', 'Выполните устранение водородной хрупкости', s)
+    s = re.sub(r'\bde-embrittle\b', 'выполните устранение водородной хрупкости', s)
+    s = re.sub(r'\bexternally\b', 'снаружи', s, flags=re.I)
+    s = re.sub(r'\bplating thickness\b', 'толщина покрытия', s, flags=re.I)
+    s = re.sub(r'\bplating\b', 'покрытия', s, flags=re.I)
+    s = re.sub(r'\bprepare\b', 'подготовьте', s, flags=re.I)
+    s = re.sub(r'\bfollow\b', 'совпадать с', s, flags=re.I)
+    s = re.sub(r'\bmeasured\b', 'измеренный', s, flags=re.I)
+    s = re.sub(r'\bspecified\b', 'указанный', s, flags=re.I)
+    s = re.sub(r'\bsufficiently\b', 'достаточно', s, flags=re.I)
+    s = re.sub(r'\bsuffciently\b', 'достаточно', s, flags=re.I)
+    s = re.sub(r'\bwithin\b', 'в пределах', s, flags=re.I)
+    s = re.sub(r'\bintensity\b', 'интенсивность', s, flags=re.I)
+    s = re.sub(r'\bhand ream\b', 'вручную развернуть', s, flags=re.I)
+    s = re.sub(r'\bhand\b', 'вручную', s, flags=re.I)
+    s = re.sub(r'\bpainted\b', 'окрашенные', s, flags=re.I)
+    s = re.sub(r'\breduce\b', 'уменьшите', s, flags=re.I)
+    s = re.sub(r'\btogether\b', 'вместе', s, flags=re.I)
+    s = re.sub(r'\bforward\b', 'передний', s, flags=re.I)
+    s = re.sub(r'\bcommon\b', 'общий', s, flags=re.I)
+    s = re.sub(r'\bblock\b', 'блок', s, flags=re.I)
+    s = re.sub(r'\bsealing\b', 'уплотнительный', s, flags=re.I)
+    s = re.sub(r'\binflation\b', 'наполнение', s, flags=re.I)
+    s = re.sub(r'\bretainers?\b', 'фиксатор', s, flags=re.I)
+    s = re.sub(r'\blabels?\b', 'ярлык', s, flags=re.I)
+    s = re.sub(r'\bdrag\b', 'тяга', s, flags=re.I)
+    s = re.sub(r'\bidentification\b', 'идентификация', s, flags=re.I)
+    s = re.sub(r'\blubrication\b', 'смазка', s, flags=re.I)
+    s = re.sub(r'\bservice\b', 'обслуживание', s, flags=re.I)
+    s = re.sub(r'\bairline\b', 'авиакомпания', s, flags=re.I)
+    s = re.sub(r'\bdetails?\b', 'подробности', s, flags=re.I)
+    s = re.sub(r'\btype\b', 'тип', s, flags=re.I)
+    s = re.sub(r'\binsert(?:s)?\b', 'вставка', s, flags=re.I)
+    s = re.sub(r'\bremove\b', 'удалите', s, flags=re.I)
+    s = re.sub(r'\bdepth\b', 'глубина', s, flags=re.I)
+    s = re.sub(r'\bground\b', 'шлифованный', s, flags=re.I)
+    s = re.sub(r'\bmachine\b', 'обработайте', s, flags=re.I)
+    s = re.sub(r'\bflush\b', 'заподлицо', s, flags=re.I)
+    s = re.sub(r'\binstalled\b', 'установленный', s, flags=re.I)
+    s = re.sub(r'\bnecessary\b', 'необходимо', s, flags=re.I)
+    s = re.sub(r'\bshown\b', 'показанный', s, flags=re.I)
+    s = re.sub(r'\bexisting\b', 'существующий', s, flags=re.I)
+    s = re.sub(r'\baxis\b', 'ось', s, flags=re.I)
+    s = re.sub(r'\brepair number\b', 'номер ремонта', s, flags=re.I)
+    s = re.sub(r'\bdeposit\b', 'слой покрытия', s, flags=re.I)
+    s = re.sub(r'\btermination\b', 'граница', s, flags=re.I)
+    s = re.sub(r'\binclusive\b', 'включительно', s, flags=re.I)
+    s = re.sub(r'\bdegree\b', 'градус', s, flags=re.I)
+    s = re.sub(r'\bflaws?\b', 'дефект', s, flags=re.I)
+    s = re.sub(r'\btighten\b', 'затяните', s, flags=re.I)
+    s = re.sub(r'\btorque\b', 'момент затяжки', s, flags=re.I)
+    s = re.sub(r'\balign\b', 'совместите', s, flags=re.I)
+    s = re.sub(r'\bnotch\b', 'паз', s, flags=re.I)
+    s = re.sub(r'\bbase material\b', 'основной материал', s, flags=re.I)
+    s = re.sub(r'\bbase metal\b', 'основной металл', s, flags=re.I)
+    s = re.sub(r'\bbase\b', 'основной', s, flags=re.I)
+    s = re.sub(r'\bcorroded\b', 'корродированный', s, flags=re.I)
+    s = re.sub(r'\bcorrosion\b', 'коррозия', s, flags=re.I)
+    s = re.sub(r'\bPassivate\b', 'Пассивируйте', s)
+    s = re.sub(r'\bpassivate\b', 'пассивируйте', s)
+    s = re.sub(r'\bANODISE\b', 'АНОДИРОВАТЬ', s)
+    s = re.sub(r'\banodise\b', 'анодировать', s)
+    s = re.sub(r'\bAPPLIED\b', 'НАНЕСЁННОЕ', s)
+    s = re.sub(r'\bDRILLED\b', 'СВЕРЛЁНОЕ', s)
+    s = re.sub(r'\bMAJOR\b', 'НАРУЖНЫЙ', s)
+    s = re.sub(r'\bFULL\b', 'ПОЛНЫЙ', s)
+    s = re.sub(r'\bFINE\b', 'ЧИСТОВОЙ', s)
+    s = re.sub(r'\bGRINDING\b', 'ШЛИФОВАНИЯ', s)
+    s = re.sub(r'\bgrinding\b', 'шлифования', s)
+    s = re.sub(r'\bTERMINATE\b', 'ЗАКАНЧИВАТЬСЯ', s)
+    s = re.sub(r'\bterminate\b', 'заканчиваться', s)
+    s = re.sub(r'\bsolution\b', 'раствор', s, flags=re.I)
+    s = re.sub(r'\bremaining\b', 'оставшийся', s, flags=re.I)
+    s = re.sub(r'\boverlaps?\b', 'перекрывает', s, flags=re.I)
+    s = re.sub(r'\bgive\b', 'обеспечить', s, flags=re.I)
+    s = re.sub(r'\bsecond stage\b', 'второй ступени', s, flags=re.I)
+    s = re.sub(r'\brestore\b', 'восстановить', s, flags=re.I)
+    s = re.sub(r'\bscheme\b', 'схема', s, flags=re.I)
+    s = re.sub(r'\blight coat\b', 'тонкий слой', s, flags=re.I)
+    s = re.sub(r'\blight\b', 'лёгкий', s, flags=re.I)
+    s = re.sub(r'\bcoat\b', 'слой', s, flags=re.I)
+    s = re.sub(r'\balternative\b', 'альтернативный', s, flags=re.I)
+    s = re.sub(r'\bequivalents?\b', 'эквивалент', s, flags=re.I)
+    s = re.sub(r'\bpermitted\b', 'допускается', s, flags=re.I)
+    s = re.sub(r'\btransfer\b', 'перенесите', s, flags=re.I)
+    s = re.sub(r'\bvalue\b', 'значение', s, flags=re.I)
+    s = re.sub(r'\bfinal\b', 'окончательный', s, flags=re.I)
+    s = re.sub(r'\bapplication\b', 'нанесение', s, flags=re.I)
+    s = re.sub(r'\bwrench\b', 'ключ', s, flags=re.I)
+    s = re.sub(r'\bspanner\b', 'ключ', s, flags=re.I)
+    s = re.sub(r'\bcrowfoot\b', 'накидной', s, flags=re.I)
+    s = re.sub(r'\bstem\b', 'шток', s, flags=re.I)
+    s = re.sub(r'\bshape\b', 'форма', s, flags=re.I)
+    s = re.sub(r'\bline\b', 'линия', s, flags=re.I)
+    s = re.sub(r'\bdrift\b', 'оправка', s, flags=re.I)
+    s = re.sub(r'\bbar\b', 'штанга', s, flags=re.I)
+    s = re.sub(r'\bshaft\b', 'вал', s, flags=re.I)
+    s = re.sub(r'\blift\b', 'подъём', s, flags=re.I)
+    s = re.sub(r'\bcross\b', 'поперечный', s, flags=re.I)
+    s = re.sub(r'\bbung\b', 'пробка', s, flags=re.I)
+    s = re.sub(r'\bdowels?\b', 'штифт', s, flags=re.I)
+    s = re.sub(r'\battaching\b', 'крепёжный', s, flags=re.I)
+    s = re.sub(r'\bdatum\b', 'база', s, flags=re.I)
+    s = re.sub(r'\bwedge\b', 'клин', s, flags=re.I)
+    s = re.sub(r'\breaction\b', 'реактивный', s, flags=re.I)
+    s = re.sub(r'\badjust\b', 'отрегулируйте', s, flags=re.I)
+    s = re.sub(r'\bsubassembl(?:y|ies)\b', 'подсборка', s, flags=re.I)
+    s = re.sub(r'\bclass\b', 'класс', s, flags=re.I)
+    s = re.sub(r'\battach\b', 'прикрепите', s, flags=re.I)
+    s = re.sub(r'\bsheet\b', 'лист', s, flags=re.I)
+    s = re.sub(r'\babsorber\b', 'амортизатор', s, flags=re.I)
+    s = re.sub(r'\bgrind\b', 'шлифуйте', s, flags=re.I)
+    s = re.sub(r'\brequired\b', 'требуется', s, flags=re.I)
+    s = re.sub(r'\bwhere\b', 'где', s, flags=re.I)
+    s = re.sub(r'\binto\b', 'в', s, flags=re.I)
+    s = re.sub(r'\busing\b', 'используя', s, flags=re.I)
+    s = re.sub(r'\bnew\b', 'новый', s, flags=re.I)
+    s = re.sub(r'\bcomplete\b', 'полный', s, flags=re.I)
+    s = re.sub(r'\bapplicable\b', 'соответствующий', s, flags=re.I)
+    s = re.sub(r'\bsufficient\b', 'достаточный', s, flags=re.I)
+    s = re.sub(r'\bminimum\b', 'минимальный', s, flags=re.I)
+    s = re.sub(r'\bmaximum\b', 'максимальный', s, flags=re.I)
+    s = re.sub(r'\bwidth\b', 'ширина', s, flags=re.I)
+    s = re.sub(r'\blength\b', 'длина', s, flags=re.I)
+    s = re.sub(r'\barea\b', 'область', s, flags=re.I)
+    s = re.sub(r'\bwear\b', 'износ', s, flags=re.I)
+    s = re.sub(r'\bdamage\b', 'повреждение', s, flags=re.I)
+    s = re.sub(r'\bexcess\b', 'избыток', s, flags=re.I)
+    s = re.sub(r'\bconcentric\b', 'концентрический', s, flags=re.I)
+    s = re.sub(r'\bcoaxial\b', 'соосный', s, flags=re.I)
+    s = re.sub(r'\bclean\b', 'очистите', s, flags=re.I)
+    s = re.sub(r'\bthat\b', 'что', s, flags=re.I)
+    s = re.sub(r'\bthis\b', 'данный', s, flags=re.I)
+    s = re.sub(r'\bit\b', '', s, flags=re.I)
+    s = re.sub(r'\bis\b', '', s, flags=re.I)
+    s = re.sub(r'\bare\b', '', s, flags=re.I)
+    s = re.sub(r'\bwas\b', 'был', s, flags=re.I)
+    s = re.sub(r'\bbeen\b', '', s, flags=re.I)
+    s = re.sub(r'\bhave\b', '', s, flags=re.I)
+    s = re.sub(r'\bhas\b', '', s, flags=re.I)
+    s = re.sub(r'\bcan\b', 'может', s, flags=re.I)
+    s = re.sub(r'\bnot\b', 'не', s, flags=re.I)
+    s = re.sub(r'\bwill\b', 'будет', s, flags=re.I)
+    # Common words that slip through templates
+    s = re.sub(r'\bor\b', 'или', s)
+    s = re.sub(r'\bOR\b', 'ИЛИ', s)
+    s = re.sub(r'\band\b', 'и', s)
+    s = re.sub(r'\bAND\b', 'И', s)
+    s = re.sub(r'\bthe\b', '', s, flags=re.I)
+    s = re.sub(r'\bof\b', '', s, flags=re.I)
+    s = re.sub(r'\bto\b', 'до', s)
+    s = re.sub(r'\bTO\b', 'ДО', s)
+    s = re.sub(r'\bOF\b', '', s)
+    s = re.sub(r'\bTHE\b', '', s)
+    s = re.sub(r'\bfor\b', 'для', s, flags=re.I)
+    s = re.sub(r'\bin\b', 'в', s, flags=re.I)
+    s = re.sub(r'\bon\b', 'на', s, flags=re.I)
+    s = re.sub(r'\bwith\b', 'с', s, flags=re.I)
+    s = re.sub(r'\bas\b', 'как', s, flags=re.I)
+    s = re.sub(r'\brefer\b', 'см.', s, flags=re.I)
+    s = re.sub(r'\bonly\b', 'только', s, flags=re.I)
+    s = re.sub(r'\bbut\b', 'но', s, flags=re.I)
+    s = re.sub(r'\bnot\b', 'не', s, flags=re.I)
+    s = re.sub(r'\bmust\b', 'должен', s, flags=re.I)
+    s = re.sub(r'\bbe\b', '', s, flags=re.I)
+    s = re.sub(r'\bbetween\b', 'от', s, flags=re.I)
+    s = re.sub(r'\bafter\b', 'после', s, flags=re.I)
+    s = re.sub(r'\bbefore\b', 'до', s, flags=re.I)
+    s = re.sub(r'\bbelow\b', 'ниже', s, flags=re.I)
+    s = re.sub(r'\babove\b', 'выше', s, flags=re.I)
+    s = re.sub(r'\bDo\b', '', s)
+    s = re.sub(r'\bdo\b', '', s)
+    # Component names
+    s = re.sub(r'\bmain fitting\b', 'корпус стойки', s, flags=re.I)
+    s = re.sub(r'\bsliding tube\b', 'скользящая труба', s, flags=re.I)
+    s = re.sub(r'\bshock absorber\b', 'амортизатор', s, flags=re.I)
+    s = re.sub(r'\bupper\b', 'верхний', s, flags=re.I)
+    s = re.sub(r'\blower\b', 'нижний', s, flags=re.I)
+    s = re.sub(r'\bbush(?:es)?\b', 'втулка', s, flags=re.I)
+    s = re.sub(r'\bbearing\b', 'подшипник', s, flags=re.I)
+    s = re.sub(r'\bbracket\b', 'кронштейн', s, flags=re.I)
+    s = re.sub(r'\btube\b', 'труба', s, flags=re.I)
+    s = re.sub(r'\bcylinder\b', 'цилиндр', s, flags=re.I)
+    s = re.sub(r'\blink\b', 'звено', s, flags=re.I)
+    s = re.sub(r'\bslave\b', 'ведомый', s, flags=re.I)
+    s = re.sub(r'\bpivot\b', 'ось', s, flags=re.I)
+    s = re.sub(r'\bfitting\b', 'фитинг', s, flags=re.I)
+    s = re.sub(r'\bsurface\b', 'поверхность', s, flags=re.I)
+    s = re.sub(r'\bfinish\b', 'чистота', s, flags=re.I)
+    s = re.sub(r'\bmicrometers?\b', 'мкм', s, flags=re.I)
+    s = re.sub(r'\bmicro[- ]inches?\b', 'микродюймов', s, flags=re.I)
+    s = re.sub(r'\binches\b', 'дюймов', s, flags=re.I)
+    s = re.sub(r'\bthickness\b', 'толщина', s, flags=re.I)
+    s = re.sub(r'\bcadmium plate\b', 'кадмиевое покрытие', s, flags=re.I)
+    s = re.sub(r'\bplate\b', 'пластина', s, flags=re.I)
+    s = re.sub(r'\bdiameter\b', 'диаметр', s, flags=re.I)
+    s = re.sub(r'\bdamaged\b', 'повреждённый', s, flags=re.I)
+    s = re.sub(r'\bworn\b', 'изношенный', s, flags=re.I)
+    s = re.sub(r'\breference\b', 'ссылка', s, flags=re.I)
+    s = re.sub(r'\bletter\b', 'буква', s, flags=re.I)
+    s = re.sub(r'\bgiven\b', 'указанным', s, flags=re.I)
+    s = re.sub(r'\bbetter\b', 'лучше', s, flags=re.I)
+    s = re.sub(r'\bover\b', 'по', s, flags=re.I)
+    s = re.sub(r'\ball\b', 'все', s, flags=re.I)
+    s = re.sub(r'\bthen\b', 'затем', s, flags=re.I)
+    s = re.sub(r'\bcontinue\b', 'продолжите', s, flags=re.I)
+    s = re.sub(r'\bMake\b', 'Обеспечьте', s)
+    s = re.sub(r'\bmake\b', 'обеспечьте', s)
+    s = re.sub(r'\bsure\b', '', s, flags=re.I)
+    s = re.sub(r'\bmore\b', 'более', s, flags=re.I)
+    s = re.sub(r'\bthan\b', 'чем', s, flags=re.I)
+    s = re.sub(r'\bfrom\b', 'с', s, flags=re.I)
+    s = re.sub(r'\beach\b', 'каждый', s, flags=re.I)
+    s = re.sub(r'\bby\b', '', s, flags=re.I)
+    s = re.sub(r'\bFigure\b', 'Рисунок', s)
+    s = re.sub(r'\bTable\b', 'Таблица', s)
+    s = re.sub(r'\bSheet\b', 'Лист', s)
+    # "FITS AND CLEARANCES" uppercase
+    s = re.sub(r'\bFITS AND CLEARANCES\b', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    # Hydraulic
+    s = re.sub(r'\bhydraulic\b', 'гидравлический', s, flags=re.I)
+    s = re.sub(r'\badapter\b', 'переходник', s, flags=re.I)
+    s = re.sub(r'\bzero\b', 'ноль', s, flags=re.I)
+    s = re.sub(r'\bprocedure\b', 'процедура', s, flags=re.I)
+    s = re.sub(r'\btheir\b', 'их', s, flags=re.I)
+    s = re.sub(r'\bLubricate\b', 'Смажьте', s)
+    s = re.sub(r'\blubricate\b', 'смажьте', s)
+    s = re.sub(r'\bRefer\b', 'См.', s)
+    # Fix words glued to numbers (no word boundary between digit and letter)
+    s = re.sub(r'(?<=\d)only(?=[^a-zA-Z]|$)', ' только', s, flags=re.I)
+    s = re.sub(r'only(?=[A-Z])', 'только ', s)  # "onlyFITS" → "только FITS"
+    # More missing words
+    s = re.sub(r'\bfillet\b', 'галтель', s, flags=re.I)
+    s = re.sub(r'\bvisible\b', 'видимый', s, flags=re.I)
+    s = re.sub(r'\bpitch\b', 'шаг', s, flags=re.I)
+    s = re.sub(r'\bdrill\b', 'сверло', s, flags=re.I)
+    s = re.sub(r'\bpoint\b', 'точка', s, flags=re.I)
+    s = re.sub(r'\bsharp\b', 'острый', s, flags=re.I)
+    s = re.sub(r'\bcorners?\b', 'угол', s, flags=re.I)
+    s = re.sub(r'\bhousings?\b', 'корпус', s, flags=re.I)
+    s = re.sub(r'\blocally\b', 'локально', s, flags=re.I)
+    s = re.sub(r'\bblended\b', 'сглаженный', s, flags=re.I)
+    s = re.sub(r'\binclusion class\b', 'класс включений', s, flags=re.I)
+    s = re.sub(r'\bretraction actuator\b', 'привод уборки', s, flags=re.I)
+    s = re.sub(r'\bPneumatic Pump\b', 'пневматический насос', s)
+    s = re.sub(r'\bReactor Pad\b', 'реакторная подушка', s)
+    s = re.sub(r'\bwiring diagram\b', 'схема электропроводки', s, flags=re.I)
+    s = re.sub(r'\bstaked\b', 'развальцованный', s, flags=re.I)
+    s = re.sub(r'\bstaking\b', 'развальцовка', s, flags=re.I)
+    s = re.sub(r'\bbreak out\b', 'момент страгивания', s, flags=re.I)
+    s = re.sub(r'\bSpray\b', 'Распылите', s)
+    s = re.sub(r'\bspray\b', 'распылите', s)
+    s = re.sub(r'\b[Aa]dhesive\b', 'клей', s)
+    s = re.sub(r'\bgrade\b', 'марка', s, flags=re.I)
+    s = re.sub(r'\binstead\b', 'вместо', s, flags=re.I)
+    s = re.sub(r'\blockstay\b', 'фиксирующее звено', s, flags=re.I)
+    s = re.sub(r'\bcardan\b', 'кардан', s, flags=re.I)
+    s = re.sub(r'\bDrift\b', 'оправка', s)
+    s = re.sub(r'\bamount\b', 'количество', s, flags=re.I)
+    s = re.sub(r'\bincrease\b', 'увеличивайте', s, flags=re.I)
+    s = re.sub(r'\bcenters?\b', 'центр', s, flags=re.I)
+    s = re.sub(r'\bcentres?\b', 'центр', s, flags=re.I)
+    s = re.sub(r'\bstraight\b', 'прямой', s, flags=re.I)
+    s = re.sub(r'\bequal\b', 'равный', s, flags=re.I)
+    s = re.sub(r'\bletters?\b', 'буква', s, flags=re.I)
+    s = re.sub(r'\bblocked\b', 'заблокированный', s, flags=re.I)
+    s = re.sub(r'\bLine up Tool\b', 'инструмент выравнивания', s, flags=re.I)
+    s = re.sub(r'\bAssemble\b', 'Соберите', s)
+    s = re.sub(r'\bassemble\b', 'соберите', s)
+    s = re.sub(r'\bPOST\b', 'ПОСЛЕ', s)
+    s = re.sub(r'\bEFFECTIVE\b', 'ДЕЙСТВИТЕЛЬНАЯ', s)
+    s = re.sub(r'\bTAPPED\b', 'НАРЕЗАННАЯ', s)
+    s = re.sub(r'\bPITCH\b', 'ШАГ', s)
+    s = re.sub(r'\bproperly\b', 'правильно', s, flags=re.I)
+    s = re.sub(r'\bbonded\b', 'склеенный', s, flags=re.I)
+    s = re.sub(r'\bthey\b', 'они', s, flags=re.I)
+    s = re.sub(r'\bunless\b', 'если не', s, flags=re.I)
+    s = re.sub(r'\bdifferent\b', 'другой', s, flags=re.I)
+    s = re.sub(r'\binstructions?\b', 'указание', s, flags=re.I)
+    s = re.sub(r'\bprocedures?\b', 'процедура', s, flags=re.I)
+    s = re.sub(r'\bup\b', 'вверх', s, flags=re.I)
+    s = re.sub(r'\bdown\b', 'вниз', s, flags=re.I)
+    s = re.sub(r'\bback\b', 'назад', s, flags=re.I)
+    s = re.sub(r'\bgo\b', '', s, flags=re.I)
+    s = re.sub(r'\binitial\b', 'начальный', s, flags=re.I)
+    s = re.sub(r'\bcondition\b', 'состояние', s, flags=re.I)
+    s = re.sub(r'\bthrough\b', 'через', s, flags=re.I)
+    s = re.sub(r'\bproximity\b', 'датчик приближения', s, flags=re.I)
+    s = re.sub(r'\bswitch\b', 'выключатель', s, flags=re.I)
+    s = re.sub(r'\bpiece\b', 'деталь', s, flags=re.I)
+    s = re.sub(r'\bthreads?\b', 'резьба', s, flags=re.I)
+    s = re.sub(r'\bsurfaces?\b', 'поверхность', s, flags=re.I)
+    s = re.sub(r'\blocating\b', 'фиксирующий', s, flags=re.I)
+    s = re.sub(r'\beight\b', 'восемь', s, flags=re.I)
+    s = re.sub(r'\b[Ff]igures?\b', 'Рисунок', s)
+    # FITS AND CLEARANCES in all forms
+    s = re.sub(r'FITSAND CLEARANCES', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    s = re.sub(r'FITS AND CLEARANCES', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    s = re.sub(r'FITS И ЗАЗОРЫ', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    s = re.sub(r'ПОСАДКИ И ЗАЗОРЫ И ЗАЗОРЫ', 'ПОСАДКИ И ЗАЗОРЫ', s)
+    s = re.sub(r'Fits and Clearances', 'Посадки и зазоры', s)
+    # Titanine JC is a brand name — keep as-is
+    # More domain words
+    s = re.sub(r'\block\b', 'стопорный', s, flags=re.I)
+    s = re.sub(r'\bliner\b', 'вкладыш', s, flags=re.I)
+    s = re.sub(r'\bsection\b', 'секция', s, flags=re.I)
+    s = re.sub(r'\boutward\b', 'наружу', s, flags=re.I)
+    s = re.sub(r'\ballow\b', 'дайте', s, flags=re.I)
+    s = re.sub(r'\bscrew\b', 'винт', s, flags=re.I)
+    s = re.sub(r'\bfluid\b', 'жидкость', s, flags=re.I)
+    s = re.sub(r'\bMaterial\b', 'Материал', s)
+    s = re.sub(r'\bElectrical\b', 'Электрический', s)
+    s = re.sub(r'\bAxle\b', 'осевой', s)
+    s = re.sub(r'\bHarness\b', 'жгут', s)
+    s = re.sub(r'\bcable\b', 'кабель', s, flags=re.I)
+    s = re.sub(r'\bsymmetrical\b', 'симметричный', s, flags=re.I)
+    s = re.sub(r'\bsolder\b', 'припой', s, flags=re.I)
+    s = re.sub(r'\btin\b', 'олово', s, flags=re.I)
+    s = re.sub(r'\bBowden\b', 'Боуден', s)
+    s = re.sub(r'\bAlloy\b', 'сплав', s, flags=re.I)
+    s = re.sub(r'\bshims?\b', 'прокладка', s, flags=re.I)
+    s = re.sub(r'\bTemporarily\b', 'Временно', s)
+    s = re.sub(r'\btemporarily\b', 'временно', s)
+    s = re.sub(r'\bsides?\b', 'сторона', s, flags=re.I)
+    s = re.sub(r'\bcup\b', 'чашка', s, flags=re.I)
+    s = re.sub(r'\bput\b', 'наносите', s, flags=re.I)
+    s = re.sub(r'\bobtained\b', 'полученный', s, flags=re.I)
+    s = re.sub(r'\bminus\b', 'минус', s, flags=re.I)
+    s = re.sub(r'\bmedian\b', 'медиана', s, flags=re.I)
+    s = re.sub(r'\btarget\b', 'мишень', s, flags=re.I)
+    s = re.sub(r'\bwashers?\b', 'шайба', s, flags=re.I)
+    s = re.sub(r'\bpoints?\b', 'точка', s, flags=re.I)
+    s = re.sub(r'\bflats?\b', 'лыска', s, flags=re.I)
+    s = re.sub(r'\bbend\b', 'загните', s, flags=re.I)
+    s = re.sub(r'\bagainst\b', 'на', s, flags=re.I)
+    s = re.sub(r'\bsmall\b', 'небольшое', s, flags=re.I)
+    s = re.sub(r'\bquantity\b', 'количество', s, flags=re.I)
+    s = re.sub(r'\blayer\b', 'слой', s, flags=re.I)
+    s = re.sub(r'\bsuitable\b', 'подходящий', s, flags=re.I)
+    s = re.sub(r'\bsmooth\b', 'гладкий', s, flags=re.I)
+    s = re.sub(r'\bedged\b', 'кромкой', s, flags=re.I)
+    s = re.sub(r'\btenons?\b', 'шип', s, flags=re.I)
+    s = re.sub(r'\bengaged\b', 'зацепление', s, flags=re.I)
+    s = re.sub(r'\bdry\b', 'высохнуть', s, flags=re.I)
+    s = re.sub(r'\bmade\b', 'сделанный', s, flags=re.I)
+    s = re.sub(r'\bpowder\b', 'порошок', s, flags=re.I)
+    s = re.sub(r'\bfind\b', 'найти', s, flags=re.I)
+    s = re.sub(r'\bsubassemblies\b', 'подсборки', s, flags=re.I)
+    s = re.sub(r'\bLifting\b', 'подъёмный', s)
+    s = re.sub(r'\bTackle\b', 'приспособление', s)
+    s = re.sub(r'\bbonding\b', 'соединительный', s, flags=re.I)
+    s = re.sub(r'\bcotter\b', 'шплинт', s, flags=re.I)
+    s = re.sub(r'\bFREE BAND\b', 'СВОБОДНАЯ ПОЛОСА', s)
+    s = re.sub(r'\bdimensions?\b', 'размер', s, flags=re.I)
+    # Table/IPL specific words
+    s = re.sub(r'\bMAIN LANDING GEAR LEG\b', 'СТОЙКА ОСНОВНОГО ШАССИ', s)
+    s = re.sub(r'\bMain Landing Gear Leg\b', 'Стойка основного шасси', s)
+    s = re.sub(r'\bmain landing gear leg\b', 'стойка основного шасси', s)
+    s = re.sub(r'\bLANDING GEAR LEG\b', 'ШАССИ СТОЙКА', s)
+    s = re.sub(r'\bPER ASSY\b', 'НА СБОРКУ', s)
+    s = re.sub(r'\bPer Assy\b', 'На сборку', s)
+    s = re.sub(r'\bGEAR\b', 'ШАССИ', s)
+    s = re.sub(r'\bLEG\b', 'СТОЙКА', s)
+    s = re.sub(r'\bPER\b', 'НА', s)
+    s = re.sub(r'\bASSY\b', 'СБОРКА', s)
+    s = re.sub(r'\bALTERNATIVE\b', 'АЛЬТЕРНАТИВА', s)
+    s = re.sub(r'\bAllowable\b', 'Допустимый', s)
+    s = re.sub(r'\ballowable\b', 'допустимый', s)
+    s = re.sub(r'\bITEMS?\b', 'ПОЗИЦИЯ', s)
+    s = re.sub(r'\bFigures?\b', 'Рисунок', s)
+    s = re.sub(r'\babsorber\b', 'амортизатор', s, flags=re.I)
+    s = re.sub(r'\bshock\b', 'ударный', s, flags=re.I)
+    s = re.sub(r'\bgear\b', 'шасси', s, flags=re.I)
+    s = re.sub(r'\bleg\b', 'стойка', s, flags=re.I)
+    s = re.sub(r'\bSteel\b', 'Сталь', s)
+    s = re.sub(r'\bAluminium\b', 'Алюминий', s)
+    s = re.sub(r'\bBronze\b', 'Бронза', s)
+    s = re.sub(r'\bStrength\b', 'Прочность', s)
+    s = re.sub(r'\bSPHERICAL\b', 'СФЕРИЧЕСКИЙ', s)
+    s = re.sub(r'\bUSED\b', 'ИСПОЛЬЗУЕТСЯ', s)
+    # Final catch-all for common words
+    s = re.sub(r'\band\b', 'и', s, flags=re.I)
+    s = re.sub(r'\bor\b', 'или', s, flags=re.I)
+    s = re.sub(r'\bthe\b', '', s, flags=re.I)
+    s = re.sub(r'\bof\b', '', s, flags=re.I)
+    s = re.sub(r'\bto\b', 'до', s, flags=re.I)
+    s = re.sub(r'\bfor\b', 'для', s, flags=re.I)
+    s = re.sub(r'\bwith\b', 'с', s, flags=re.I)
+    s = re.sub(r'\bin\b', 'в', s, flags=re.I)
+    s = re.sub(r'\bon\b', 'на', s, flags=re.I)
+    # Clean up multiple spaces
+    s = re.sub(r'  +', ' ', s).strip()
+    return s
+
+
+def translate_text(text):
+    """Translate an English CMM text string to Russian.
+    Handles multi-sentence paragraphs by splitting and translating each part.
+    """
+    if not text or not text.strip():
+        return text
+    t = text.strip()
+
+    # 1. Try full text as-is first (exact match is best)
+    if t in EXACT:
+        return _postprocess(EXACT[t])
+    tnp = t.rstrip('.')
+    if tnp in EXACT:
+        return _postprocess(EXACT[tnp] + ('.' if t.endswith('.') else ''))
+
+    # 2. Pre-process: insert space before Figure/Table glued to text
+    t = re.sub(r'F\.igure', 'Figure', t)  # Fix broken "F.igure" cross-refs
+    t = re.sub(r'(\))\.?(Figure\s+\d+)', r'\1. \2', t)
+    t = re.sub(r'(\.)(?=Figure\s+\d+)', r'\1 ', t)
+    t = re.sub(r'(\))\.?(Table\s+\d+)', r'\1. \2', t)
+    t = re.sub(r'([a-z)])(?=Figure\s+\d)', r'\1. ', t)
+    t = re.sub(r'([A-Za-z])(?=Figure\s+\d)', r'\1. ', t)  # "CLEARANCESFigure" / "AFigure" → "... . Figure"
+    t = re.sub(r'([A-Za-z])(?=Table\s+\d)', r'\1. ', t)
+    # Temperature units
+    t = re.sub(r'(\d)\s*oC\b', r'\1 °C', t)
+    t = re.sub(r'(\d)\s*oF\b', r'\1 °F', t)
+
+    # 3. Split into sentences FIRST, then translate each
+    sentences = re.split(r'(?<=\.)\s+(?=[A-ZА-ЯЁ])', t)
+    if len(sentences) > 1:
+        translated_parts = []
+        for s in sentences:
+            # Skip standalone Figure/Table refs — they're already translated inline
+            if re.match(r'^(?:Figure|Table)\s+\d+\.?$', s.strip()):
+                continue
+            translated_parts.append(_translate_single(s))
+        result = ' '.join(translated_parts)
+        return _postprocess(result)
+
+    # 4. Single sentence: try templates, then _body
+    for pat, fn in _TEMPLATES:
+        m = pat.match(t)
+        if m:
+            try:
+                result = fn(m)
+                if result and result != t:
+                    return _postprocess(result)
+            except Exception:
+                pass
+
+    # 5. Single sentence fallback
+    return _postprocess(_body(t))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1910,13 +2917,55 @@ def _needs_translation(txt):
 
 
 def _set_para_text(para, new_text):
-    """Replace paragraph text while keeping formatting of first run."""
+    """Replace paragraph text while keeping formatting of first run.
+    Also removes cross-reference field elements that cause duplicate Figure/Table refs.
+    """
+    from lxml import etree
+    W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+
+    # Remove hyperlink and fldSimple elements (direct children only)
+    for child in list(para._element):
+        if child.tag in (W + 'hyperlink', W + 'fldSimple'):
+            para._element.remove(child)
+
+    # Remove runs that are part of field character sequences
+    # Field sequences: fldChar(begin) ... instrText ... fldChar(separate) ... result ... fldChar(end)
+    in_field = False
+    runs_to_remove = []
+    for child in list(para._element):
+        if child.tag == W + 'r':
+            has_fld_char = child.find(W + 'fldChar')
+            has_instr = child.find(W + 'instrText')
+            if has_fld_char is not None:
+                fld_type = has_fld_char.get(W + 'fldCharType', '')
+                if fld_type == 'begin':
+                    in_field = True
+                    runs_to_remove.append(child)
+                elif fld_type == 'end':
+                    runs_to_remove.append(child)
+                    in_field = False
+                elif fld_type == 'separate':
+                    runs_to_remove.append(child)
+            elif has_instr is not None:
+                runs_to_remove.append(child)
+            elif in_field:
+                runs_to_remove.append(child)
+    for r in runs_to_remove:
+        try:
+            para._element.remove(r)
+        except ValueError:
+            pass
+
     runs = para.runs
     if not runs:
-        # Fall back to direct XML
-        for r in para._element.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
-            r.text = new_text
-            new_text = ''
+        # Fall back to direct XML — set all <w:t> elements
+        first = True
+        for r in para._element.iter(W + 't'):
+            if first:
+                r.text = new_text
+                first = False
+            else:
+                r.text = ''
         return
     # Put everything into first run, clear the rest
     runs[0].text = new_text

@@ -1291,6 +1291,16 @@ def translate_line(text: str) -> str:
 
 
 # =============================================================================
+# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+# =============================================================================
+
+def _rects_collide(r1, r2, margin=3):
+    """Проверка пересечения двух прямоугольников с учётом запаса."""
+    return (r1.x0 - margin < r2.x1 and r2.x0 - margin < r1.x1 and
+            r1.y0 - margin < r2.y1 and r2.y0 - margin < r1.y1)
+
+
+# =============================================================================
 # ОСНОВНАЯ ФУНКЦИЯ ОБРАБОТКИ PDF
 # =============================================================================
 
@@ -1337,83 +1347,172 @@ def translate_pdf(input_path: str, output_path: str) -> None:
         if not replacements:
             continue
 
-        # Применяем замены: маскируем оригинал белым прямоугольником, вставляем перевод
-        # НЕ используем apply_redactions — он повреждает соседние глифы
+        # Применяем замены: ДВУХПРОХОДНЫЙ РЕНДЕРИНГ
+        # Сначала ВСЕ белые прямоугольники, потом ВЕСЬ текст
+        # Это предотвращает перекрытие русского текста боксами соседних элементов
 
-        # Загружаем шрифт для измерения ширины текста
         measure_font = fitz.Font(fontfile=FONT_FILE)
 
-        # Рисуем белые прямоугольники и вставляем переведённый текст
+        # --- Шаг 0: Рассчитать размеры шрифта и белых прямоугольников ---
+        render_items = []  # (white_rect, text_bbox, trans_text, font_size)
+
         for bbox, trans_text, font_size, is_bold in replacements:
-            bbox_width = bbox.width
-            bbox_height = bbox.height
+            text_w = measure_font.text_length(trans_text, fontsize=font_size)
 
-            # 1) Белый фон поверх оригинала (минимальное расширение)
-            expanded = bbox + (-0.3, -0.3, 0.3, 0.3)
-            page.draw_rect(expanded, color=None, fill=(1, 1, 1))
+            if text_w <= bbox.width + 1:
+                # Текст помещается в оригинальный bbox
+                white_rect = bbox + (-0.3, -0.3, 0.3, 0.3)
+                text_bbox = fitz.Rect(bbox)
+                final_size = font_size
+            else:
+                # Русский текст шире — попробовать расширить белый прямоугольник
+                needed_right = bbox.x0 + text_w + 2
+                expanded = fitz.Rect(bbox.x0, bbox.y0, needed_right, bbox.y1)
 
-            # 2) Подбираем размер шрифта — текст должен влезть и по ширине, и по высоте
-            #    Сначала проверяем ширину одной строки, потом вертикальное переполнение
-            fitted = False
-            for size_factor in [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65,
-                                0.60, 0.55, 0.50, 0.45, 0.40, 0.35]:
-                cur_size = font_size * size_factor
-                if cur_size < 4.5:
-                    cur_size = 4.5
-
-                # Проверяем ширину текста — если вмещается в одну строку, отлично
-                text_w = measure_font.text_length(trans_text, fontsize=cur_size)
-                if text_w > bbox_width and cur_size > 5.0:
-                    # Текст не влезает в одну строку — пробуем уменьшить шрифт
-                    continue
-
-                overflow = page.insert_textbox(
-                    bbox,
-                    trans_text,
-                    fontfile=FONT_FILE,
-                    fontname=FONT_NAME,
-                    fontsize=cur_size,
-                    color=(0, 0, 0),
-                    align=fitz.TEXT_ALIGN_LEFT,
-                    lineheight=1.05,
-                )
-                if overflow >= 0:
-                    fitted = True
-                    break
-
-            if not fitted:
-                # Если не удалось вместить в одну строку — позволяем перенос
-                for size_factor in [0.85, 0.75, 0.65, 0.55, 0.45]:
-                    cur_size = max(font_size * size_factor, 4.5)
-                    overflow = page.insert_textbox(
-                        bbox,
-                        trans_text,
-                        fontfile=FONT_FILE,
-                        fontname=FONT_NAME,
-                        fontsize=cur_size,
-                        color=(0, 0, 0),
-                        align=fitz.TEXT_ALIGN_LEFT,
-                        lineheight=1.05,
-                    )
-                    if overflow >= 0:
-                        fitted = True
+                # Проверка коллизий с непереведёнными элементами
+                collision = False
+                for _, pbbox, _, _ in protected:
+                    if _rects_collide(expanded, pbbox, margin=3):
+                        collision = True
                         break
 
-            if not fitted:
-                fallback_size = max(font_size * 0.35, 4.5)
-                page.insert_textbox(
-                    bbox,
-                    trans_text,
-                    fontfile=FONT_FILE,
-                    fontname=FONT_NAME,
-                    fontsize=fallback_size,
-                    color=(0, 0, 0),
-                    align=fitz.TEXT_ALIGN_LEFT,
-                    lineheight=1.05,
-                )
+                # Проверка коллизий с другими заменами
+                if not collision:
+                    for obbox, _, _, _ in replacements:
+                        if obbox != bbox and _rects_collide(expanded, obbox, margin=3):
+                            collision = True
+                            break
+
+                if not collision:
+                    # Расширяем — текст влезает без сжатия
+                    white_rect = expanded + (-0.3, -0.3, 0.3, 0.3)
+                    text_bbox = expanded
+                    final_size = font_size
+                else:
+                    # Коллизия — уменьшаем шрифт до вмещения в bbox
+                    final_size = font_size
+                    for factor in [0.95, 0.90, 0.85, 0.80, 0.75, 0.70,
+                                   0.65, 0.60, 0.55, 0.50, 0.45, 0.40, 0.35]:
+                        s = font_size * factor
+                        if s < 4.5:
+                            s = 4.5
+                        tw = measure_font.text_length(trans_text, fontsize=s)
+                        if tw <= bbox.width:
+                            final_size = s
+                            break
+                        # Многострочный: влезет ли с переносом?
+                        import math
+                        n_lines = math.ceil(tw / bbox.width)
+                        total_h = n_lines * s * 1.05
+                        if total_h <= bbox.height + 1:
+                            final_size = s
+                            break
+                    else:
+                        final_size = max(font_size * 0.35, 4.5)
+
+                    white_rect = bbox + (-0.3, -0.3, 0.3, 0.3)
+                    text_bbox = fitz.Rect(bbox)
+
+            render_items.append((white_rect, text_bbox, trans_text, final_size))
+
+        # --- Шаг 1: Нарисовать ВСЕ белые прямоугольники ---
+        for wr, _, _, _ in render_items:
+            page.draw_rect(wr, color=None, fill=(1, 1, 1))
+
+        # --- Шаг 2: Нарисовать ВЕСЬ переведённый текст (один слой) ---
+        for _, tb, tt, fs in render_items:
+            page.insert_textbox(
+                tb, tt,
+                fontfile=FONT_FILE, fontname=FONT_NAME,
+                fontsize=fs, color=(0, 0, 0),
+                align=fitz.TEXT_ALIGN_LEFT, lineheight=1.05,
+            )
 
     doc.save(output_path, garbage=4, deflate=True)
     print(f"\nСохранено: {output_path}")
+
+
+def verify_output(pdf_path: str) -> list:
+    """Проверить PDF на наложения русского текста (>5pt выход за пределы).
+
+    Возвращает список проблем: [{'page', 'text', 'overflow_pt', 'neighbor'}]
+    Использует объединённый bbox всех перекрывающихся английских спанов
+    для корректного сопоставления (одна строка может содержать несколько спанов).
+    """
+    doc = fitz.open(pdf_path)
+    issues = []
+
+    for page_idx in range(len(doc)):
+        page = doc[page_idx]
+        blocks = page.get_text('dict')['blocks']
+
+        all_spans = []
+        for b in blocks:
+            if 'lines' not in b:
+                continue
+            for line in b['lines']:
+                for span in line['spans']:
+                    text = span['text'].strip()
+                    if not text:
+                        continue
+                    all_spans.append({
+                        'text': text,
+                        'bbox': fitz.Rect(span['bbox']),
+                        'font': span['font'],
+                        'is_ru': span['font'] == 'ArialMT',
+                    })
+
+        ru_spans = [s for s in all_spans if s['is_ru']]
+        eng_spans = [s for s in all_spans if not s['is_ru']]
+
+        for ru in ru_spans:
+            rb = ru['bbox']
+
+            # Собрать ВСЕ английские спаны, пересекающиеся с русским
+            # и вычислить объединённый bbox (union)
+            union = None
+            for eng in eng_spans:
+                eb = eng['bbox']
+                ox = max(0, min(rb.x1, eb.x1) - max(rb.x0, eb.x0))
+                oy = max(0, min(rb.y1, eb.y1) - max(rb.y0, eb.y0))
+                if ox > 1 and oy > 1:
+                    if union is None:
+                        union = fitz.Rect(eb)
+                    else:
+                        union |= eb  # union of rects
+
+            if union is None:
+                continue
+
+            overflow = rb.x1 - union.x1
+            if overflow <= 5:
+                continue
+
+            # Проверить, задевает ли выход соседний элемент
+            for neighbor in all_spans:
+                if neighbor['bbox'] == rb:
+                    continue
+                nb = neighbor['bbox']
+                # Пропустить спаны, входящие в union (часть оригинальной строки)
+                n_ox = max(0, min(nb.x1, union.x1) - max(nb.x0, union.x0))
+                n_oy = max(0, min(nb.y1, union.y1) - max(nb.y0, union.y0))
+                if n_ox > 2 and n_oy > 2:
+                    continue
+                # Зона выхода
+                ov_x0, ov_x1 = union.x1, rb.x1
+                nx = max(0, min(ov_x1, nb.x1) - max(ov_x0, nb.x0))
+                ny = max(0, min(rb.y1, nb.y1) - max(rb.y0, nb.y0))
+                if nx > 1 and ny > 1:
+                    issues.append({
+                        'page': page_idx + 1,
+                        'text': ru['text'][:50],
+                        'overflow_pt': round(overflow, 1),
+                        'neighbor': neighbor['text'][:30],
+                    })
+                    break
+
+    doc.close()
+    return issues
 
 
 if __name__ == "__main__":
@@ -1423,4 +1522,14 @@ if __name__ == "__main__":
     inp = sys.argv[1] if len(sys.argv) > 1 else INPUT_PDF
     out = sys.argv[2] if len(sys.argv) > 2 else OUTPUT_PDF
     translate_pdf(inp, out)
+
+    # Автоматическая верификация
+    print("\n--- Верификация ---")
+    issues = verify_output(out)
+    if issues:
+        print(f"Найдено {len(issues)} наложений (>5pt):")
+        for iss in issues:
+            print(f"  Стр. {iss['page']}: [{iss['text']}] выход {iss['overflow_pt']}pt -> [{iss['neighbor']}]")
+    else:
+        print("✓ Наложений не обнаружено")
     print("Готово!")

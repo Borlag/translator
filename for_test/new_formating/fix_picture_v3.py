@@ -17,7 +17,7 @@ from pypdf import PdfReader, PdfWriter
 
 
 INPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v2.pdf'
-OUTPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v4.pdf'
+OUTPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v5.pdf'
 FONT_PATH = r'C:\Windows\Fonts\arial.ttf'
 
 DIA_KEYWORDS = ['DIA.', 'DIA', 'DIAMETER']
@@ -762,31 +762,21 @@ def main():
     print("=" * 60)
     print("Fix picture_ru_fixed_v2.pdf -> picture_ru_fixed_v4.pdf")
     print("=" * 60)
+    print("(Phase 1 Tz-scaling and Phase 4 redraw removed — handled by translate_pdf.py)")
 
     temp1 = INPUT_PATH.replace('.pdf', '_temp1.pdf')
-    temp2 = INPUT_PATH.replace('.pdf', '_temp2.pdf')
-    temp3 = INPUT_PATH.replace('.pdf', '_temp3.pdf')
-
-    # Phase 1: Scale down wide CID text overlays (pypdf)
-    print("\nPhase 1: Scaling wide Russian CID text overlays...")
-    phase1_scale_cid_streams(INPUT_PATH, temp1)
 
     # Phase 2: Add missing DIA translations (fitz)
     print("\nPhase 2: Adding missing DIA/DIAMETER translations...")
-    phase2_add_missing_dia(temp1, temp2)
+    phase2_add_missing_dia(INPUT_PATH, temp1)
 
     # Phase 3: Fix grammar (pypdf)
     print("\nPhase 3: Fixing grammar issues...")
-    phase3_fix_grammar(temp2, temp3)
-
-    # Phase 4: Redraw remaining overflowing CID overlays (fitz)
-    print("\nPhase 4: Fixing remaining text overlaps...")
-    phase4_fix_remaining_overlaps(temp3, OUTPUT_PATH)
+    phase3_fix_grammar(temp1, OUTPUT_PATH)
 
     # Cleanup
-    for f in [temp1, temp2, temp3]:
-        if os.path.exists(f):
-            os.remove(f)
+    if os.path.exists(temp1):
+        os.remove(temp1)
 
     print(f"\nDone! Output: {OUTPUT_PATH}")
     print(f"File size: {os.path.getsize(OUTPUT_PATH) / 1024 / 1024:.1f} MB")

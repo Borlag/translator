@@ -43,13 +43,13 @@ FIXED = {
     "Bracket (9-150A) - Protective Treatment":
         "Кронштейн (9-150A) – Защитная обработка",
     "Transfer Block (2-340, 2-340A, 2-350 and 2-350A) - Protective Treatment":
-        "Блок передачи нагрузки (2-340, 2-340A, 2-350 и 2-350A) – Защитная обработка",
+        "Переходной блок (2-340, 2-340A, 2-350 и 2-350A) – Защитная обработка",
     "Transfer Block (2-340B and 2-350B) - Protective Treatment":
-        "Блок передачи нагрузки (2-340B и 2-350B) – Защитная обработка",
+        "Переходной блок (2-340B и 2-350B) – Защитная обработка",
     "Slave Link (6-230) Only - Protective Treatment":
-        "Ведомая тяга (6-230) – Защитная обработка",
+        "Ведомое звено (6-230) – Защитная обработка",
     "Slave Link (6-230A) - Protective Treatment":
-        "Ведомая тяга (6-230A) – Защитная обработка",
+        "Ведомое звено (6-230A) – Защитная обработка",
     "Pin (10-80) - Protective Treatment": "Штифт (10-80) – Защитная обработка",
     "Pin (11-130) - Protective Treatment": "Штифт (11-130) – Защитная обработка",
     "Pin (13-190 and 13-190A) - Protective Treatment":
@@ -59,9 +59,9 @@ FIXED = {
     "Valve Stem (12-90A) - Protective Treatment":
         "Шток клапана (12-90A) – Защитная обработка",
     "Retaining Pin (13-10) - Protective Treatment":
-        "Фиксирующий штифт (13-10) – Защитная обработка",
+        "Стопорный штифт (13-10) – Защитная обработка",
     "Inflation Valve (13-110 and 13-110A) - Protective Treatment":
-        "Клапан накачки (13-110 и 13-110A) – Защитная обработка",
+        "Заправочный клапан (13-110 и 13-110A) – Защитная обработка",
     "Upper Diaphragm Tube (15-390) - Protective Treatment":
         "Верхняя диафрагменная труба (15-390) – Защитная обработка",
     "Upper Diaphragm Tube (15-390A) - Protective Treatment":
@@ -118,7 +118,7 @@ FIXED = {
         "Проставка (11-30) – Защитная обработка",
     "Uplock Pin (5-400A) - Protective Treatment":
         "Штифт замка убранного положения (5-400A) – Защитная обработка",
-    "Figure Deleted": "Рисунок аннулирован",
+    "Figure Deleted": "Рисунок удален",
 
     # --- ДИАГРАММЫ РЕМОНТОВ ---
     "Approved Repairs - Key Diagram": "Допустимые ремонты – Ключевая схема",
@@ -130,7 +130,7 @@ FIXED = {
         "Ремонты верхней диафрагменной трубы – Ключевая схема",
     "Cylinder Repairs - Key Diagram": "Ремонты цилиндра – Ключевая схема",
     "Transfer Block Repairs - Key Diagram":
-        "Ремонты блока передачи нагрузки – Ключевая схема",
+        "Ремонты переходного блока – Ключевая схема",
     "Harness Support Bracket Repairs - Key Diagram":
         "Ремонты кронштейна крепления жгута – Ключевая схема",
     "Upper Pivot Bracket Repairs - Key Diagram":
@@ -171,7 +171,7 @@ FIXED = {
         "Мехобработка подсборки нижнего подшипника и установка вкладыша",
     "Lower Bearing Subassembly - Machining and Inner Liner Installation":
         "Подсборка нижнего подшипника – мехобработка и установка внутреннего вкладыша",
-    "Oversize Transfer Dowel - Installation": "Ремонтный штифт передачи – установка",
+    "Oversize Transfer Dowel - Installation": "Ремонтный установочный штифт – установка",
 
     # --- ПОЛНЫЕ СТРОКИ-АННОТАЦИИ (из ремонтных рисунков) ---
     "DIAMETER A MUST BE FOLLOW THE LINE OF EXISTING BORE.":
@@ -247,7 +247,7 @@ FIXED = {
     "NO PRIMER PAINT TO BE VISIBLE": "ГРУНТОВОЧНАЯ КРАСКА НЕ ДОЛЖНА БЫТЬ ВИДНА",
     "AFTER SEALANT APPLICATION": "ПОСЛЕ НАНЕСЕНИЯ ГЕРМЕТИКА",
     "CADMIUM PLATE OPTIONAL AND NO PAINT.":
-        "КАДМИРОВАНИЕ ОПЦИОНАЛЬНО, КРАСКА НЕ НАНОСИТСЯ.",
+        "КАДМИРОВАНИЕ ОПЦИОНАЛЬНО, НЕ ОКРАШИВАТЬ.",
     "FOR THE MAIN FITTING (20-410B), (20-410C), (20-420B) and (20-420C):":
         "ДЛЯ КОРПУСА СТОЙКИ (20-410B), (20-410C), (20-420B) и (20-420C):",
     "THE MINIMUM WALL THICKNESS IS 15,382mm (0.6056in).":
@@ -321,7 +321,7 @@ FIXED = {
     # --- p18: LIMIT OF SERMETEL W ---
     "LIMIT OF SERMETEL W": "ГРАНИЦА SERMETEL W",
     # --- p67: TO REMAIN ON WORKING DIA. ---
-    "TO REMAIN ON WORKING DIA.": "НЕ ДОЛЖНО ОСТАВАТЬСЯ НА РАБОЧЕМ ДИА.",
+    "TO REMAIN ON WORKING DIA.": "НЕ ДОЛЖНО ОСТАВАТЬСЯ НА РАБОЧЕМ ДИАМ.",
     # --- p69: REPAIR No. patterns without space ---
     "REPAIR No.11-6 and 11-20": "РЕМОНТ №11-6 и 11-20",
     "REPAIR No.11-10, 11-16, 11-26,": "РЕМОНТ №11-10, 11-16, 11-26,",
@@ -422,10 +422,10 @@ PHRASES = [
     ("DEPOSIT TO REMAIN ON OR", "НЕ ДОЛЖНО ОСТАВАТЬСЯ ИЛИ"),
     ("DEPOSIT TO REMAIN ON", "НЕ ДОЛЖНО ОСТАВАТЬСЯ НА"),
     ("DEPOSIT TO REMAIN", "НЕ ДОЛЖНО ОСТАВАТЬСЯ"),
-    ("ON OR PROUD OF WORKING DIA.", "ИЛИ ВЫСТУПАТЬ НАД РАБОЧИМ ДИА."),
-    ("OR PROUD OF WORKING DIA.", "ИЛИ ВЫСТУПАТЬ НАД РАБОЧИМ ДИА."),
-    ("PROUD OF WORKING DIA.", "ВЫСТУПАТЬ НАД РАБОЧИМ ДИА."),
-    ("WORKING DIA.", "РАБОЧИЙ ДИА."),
+    ("ON OR PROUD OF WORKING DIA.", "ИЛИ ВЫСТУПАТЬ НАД РАБОЧИМ ДИАМ."),
+    ("OR PROUD OF WORKING DIA.", "ИЛИ ВЫСТУПАТЬ НАД РАБОЧИМ ДИАМ."),
+    ("PROUD OF WORKING DIA.", "ВЫСТУПАТЬ НАД РАБОЧИМ ДИАМ."),
+    ("WORKING DIA.", "РАБОЧИЙ ДИАМ."),
     ("ZINC-NICKEL DEPOSIT OVERLAP AND RUN OUT BAND", "ЗОНА ПЕРЕКРЫТИЯ И ВЫБЕГА ЦИНК-НИКЕЛЕВОГО ПОКРЫТИЯ"),
     ("ZINC-NICKEL DEPOSIT OVERLAP", "ПЕРЕКРЫТИЕ ЦИНК-НИКЕЛЕВОГО ПОКРЫТИЯ"),
     ("ZINC-NICKEL DEPOSIT", "СЛОЙ ЦИНК-НИКЕЛЕВОГО ПОКРЫТИЯ"),
@@ -517,11 +517,11 @@ PHRASES = [
     ("CHROME PLATING WILL", "ХРОМОВОЕ ПОКРЫТИЕ"),
     ("CHROME PLATING", "ХРОМОВОЕ ПОКРЫТИЕ"),
     # Specific CHROME TERMINATION entries must come BEFORE general "CHROME TERMINATION"
-    ("BARREL OUTER DIA. LOWER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НИЖНЕГО НАРУЛ. ДИА. СТВОЛА"),
-    ("BARREL OUTER DIA. UPPER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ ВЕРХНЕГО НАРУЛ. ДИА. СТВОЛА"),
+    ("BARREL OUTER DIA. LOWER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НИЖНЕГО НАРУЛ. ДИАМ. СТВОЛА"),
+    ("BARREL OUTER DIA. UPPER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ ВЕРХНЕГО НАРУЛ. ДИАМ. СТВОЛА"),
     ("JOURNAL A,B,C CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ ПОЯСКОВ A,B,C"),
-    ("JOURNAL A OUTER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НАРУЖНОГО ДИА. ПОЯСКА A"),
-    ("JOURNAL C INNER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ ВНУТР. ДИА. ПОЯСКА C"),
+    ("JOURNAL A OUTER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НАРУЖНОГО ДИАМ. ПОЯСКА A"),
+    ("JOURNAL C INNER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ ВНУТР. ДИАМ. ПОЯСКА C"),
     ("HPC SEAL ABUTMENT LOWER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НА НИЖНЕЙ ОПОРЕ УПЛОТНЕНИЯ HPC"),
     ("HPC SEAL ABUTMENT UPPER CHROME TERMINATION", "ЗАВЕРШЕНИЕ ХРОМИРОВАНИЯ НА ВЕРХНЕЙ ОПОРЕ УПЛОТНЕНИЯ HPC"),
     ("HPC SEAL ABUTMENT LOWER", "НИЖНЯЯ ОПОРА УПЛОТНЕНИЯ HPC"),
@@ -537,10 +537,10 @@ PHRASES = [
     ("CHROMIUM RUNOUT", "БИЕНИЕ ХРОМОВОГО ПОКРЫТИЯ"),
     ("AREA OF CHROMIUM PLATE", "ЗОНА ХРОМИРОВАНИЯ"),
     ("LENGTH OF CHROMIUM", "ДЛИНА ХРОМИРОВАНИЯ"),
-    ("DIA. AFTER GRINDING CHROME", "ДИА. ПОСЛЕ ШЛИФОВАНИЯ ХРОМА"),
-    ("DIA. AFTER GRINDING", "ДИА. ПОСЛЕ ШЛИФОВАНИЯ"),
+    ("DIA. AFTER GRINDING CHROME", "ДИАМ. ПОСЛЕ ШЛИФОВАНИЯ ХРОМА"),
+    ("DIA. AFTER GRINDING", "ДИАМ. ПОСЛЕ ШЛИФОВАНИЯ"),
     ("AFTER GRINDING CHROME", "ПОСЛЕ ШЛИФОВАНИЯ ХРОМА"),
-    ("DIA. AFTER CHROME PLATING", "ДИА. ПОСЛЕ ХРОМИРОВАНИЯ"),
+    ("DIA. AFTER CHROME PLATING", "ДИАМ. ПОСЛЕ ХРОМИРОВАНИЯ"),
     ("DIAMETER AFTER GRINDING OF CHROMIUM PLATE", "ДИАМЕТР ПОСЛЕ ШЛИФОВАНИЯ ХРОМОВОГО ПОКРЫТИЯ"),
     ("DIAMETER AFTER GRINDING CHROMIUM PLATE", "ДИАМЕТР ПОСЛЕ ШЛИФОВАНИЯ ХРОМОВОГО ПОКРЫТИЯ"),
     ("DIAMETER BEFORE CHROMIUM PLATE", "ДИАМЕТР ДО ХРОМИРОВАНИЯ"),
@@ -548,7 +548,7 @@ PHRASES = [
     ("DIAMETER AFTER MACHINING NICKEL PLATE", "ДИАМЕТР ПОСЛЕ МЕХОБРАБОТКИ НИКЕЛЕВОГО ПОКРЫТИЯ"),
     ("DIAMETER BEFORE NICKEL AND CHROMIUM PLATE", "ДИАМЕТР ДО НИКЕЛИРОВАНИЯ И ХРОМИРОВАНИЯ"),
     ("DIAMETER BEFORE NICKEL", "ДИАМЕТР ДО НИКЕЛИРОВАНИЯ"),
-    ("DIA. BEFORE SULPHAMATE", "ДИА. ДО СУЛЬФАМАТНОГО"),
+    ("DIA. BEFORE SULPHAMATE", "ДИАМ. ДО СУЛЬФАМАТНОГО"),
     ("DIAMETER AFTER CHROME PLATING", "ДИАМЕТР ПОСЛЕ ХРОМИРОВАНИЯ"),
     ("SECTION Y-Y BEFORE CHROMIUM PLATE", "СЕЧЕНИЕ Y-Y ДО ХРОМИРОВАНИЯ"),
     ("SECTION Y-Y AFTER CHROMIUM PLATE", "СЕЧЕНИЕ Y-Y ПОСЛЕ ХРОМИРОВАНИЯ"),
@@ -605,7 +605,7 @@ PHRASES = [
     ("FINISH PAINT", "ОКОНЧАТЕЛЬНАЯ КРАСКА"),
     ("PAINT DEPOSIT OVERLAP", "ПЕРЕКРЫТИЕ СЛОЯ КРАСКИ"),
     ("PAINT DEPOSIT", "СЛОЙ КРАСКИ"),
-    ("NO PAINT", "БЕЗ ОКРАСКИ"),
+    ("NO PAINT", "НЕ ОКРАШИВАТЬ"),
     ("DO NOT PAINT", "НЕ КРАСИТЬ"),
     ("UP TO BUSH FLANGES", "ДО БУРТИКОВ ВТУЛКИ"),
     ("IN HOLES", "В ОТВЕРСТИЯХ"),
@@ -647,13 +647,13 @@ PHRASES = [
     ("ON BOTH BUSHES TO", "НА ОБЕ ВТУЛКИ ПО"),
     ("WITHOUT OVERFLOW ON", "БЕЗ ПЕРЕТЕКАНИЯ НА"),
     ("FACES OF THE BUSHES", "ТОРЦЕВЫЕ ПОВЕРХНОСТИ ВТУЛОК"),
-    ("SPOTFACE TYPICAL 12 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПИЧНО 12 МЕСТ С ФАСКОЙ"),
-    ("SPOTFACE TYPICAL 4 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПИЧНО 4 МЕСТА С ФАСКОЙ"),
-    ("SPOTFACE TYPICAL 2 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПИЧНО 2 МЕСТА С ФАСКОЙ"),
-    ("SPOTFACE TYPICAL 12 PLACES", "ПОДРЕЗКА ТИПИЧНО 12 МЕСТ"),
-    ("SPOTFACE TYPICAL 4 PLACES", "ПОДРЕЗКА ТИПИЧНО 4 МЕСТА"),
-    ("SPOTFACE TYPICAL 2 PLACES", "ПОДРЕЗКА ТИПИЧНО 2 МЕСТА"),
-    ("SPOTFACE TYPICAL", "ПОДРЕЗКА ТИПИЧНО"),
+    ("SPOTFACE TYPICAL 12 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПОВО 12 МЕСТ С ФАСКОЙ"),
+    ("SPOTFACE TYPICAL 4 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПОВО 4 МЕСТА С ФАСКОЙ"),
+    ("SPOTFACE TYPICAL 2 PLACES INCLUDING CHAMFER", "ПОДРЕЗКА ТИПОВО 2 МЕСТА С ФАСКОЙ"),
+    ("SPOTFACE TYPICAL 12 PLACES", "ПОДРЕЗКА ТИПОВО 12 МЕСТ"),
+    ("SPOTFACE TYPICAL 4 PLACES", "ПОДРЕЗКА ТИПОВО 4 МЕСТА"),
+    ("SPOTFACE TYPICAL 2 PLACES", "ПОДРЕЗКА ТИПОВО 2 МЕСТА"),
+    ("SPOTFACE TYPICAL", "ПОДРЕЗКА ТИПОВО"),
     ("SPOTFACE CORNER RADIUS (TYP)", "РАДИУС СКРУГЛЕНИЯ ПОДРЕЗКИ (ТИП.)"),
     ("SPOTFACE CORNER RADIUS", "РАДИУС СКРУГЛЕНИЯ ПОДРЕЗКИ"),
     ("BETWEEN SPOTFACES", "МЕЖДУ ПОДРЕЗКАМИ"),
@@ -690,8 +690,8 @@ PHRASES = [
     ("MINIMUM EXTENT", "МИНИМАЛЬНАЯ ДЛИНА"),
     ("EXTENT OF FINE LIMIT  DIA.", "ДЛИНА УЧАСТКА С ТОЧНЫМ ДОПУСКОМ"),
     ("EXTENT OF FINE LIMIT DIA.", "ДЛИНА УЧАСТКА С ТОЧНЫМ ДОПУСКОМ"),
-    ("OF FINE LIMIT  DIA.", "ТОЧНОГО ДОПУСКА ДИА."),
-    ("OF FINE LIMIT DIA.", "ТОЧНОГО ДОПУСКА ДИА."),
+    ("OF FINE LIMIT  DIA.", "ТОЧНОГО ДОПУСКА ДИАМ."),
+    ("OF FINE LIMIT DIA.", "ТОЧНОГО ДОПУСКА ДИАМ."),
     ("OF FINE LIMIT", "ТОЧНОГО ДОПУСКА"),
     ("FINE LIMIT", "ТОЧНЫЙ ДОПУСК"),
     ("REMAINDER MAY BE", "ОСТАЛЬНОЕ МОЖЕТ БЫТЬ"),
@@ -715,7 +715,7 @@ PHRASES = [
     ("THRU BORE", "СКВОЗНОЕ ОТВЕРСТИЕ"),
     ("DIAMETER REF.", "ДИАМЕТР СПРАВОЧНО"),
     ("INNER DIAMETER", "ВНУТРЕННИЙ ДИАМЕТР"),
-    ("THROUGH DIA.", "СКВОЗНОЙ ДИА."),
+    ("THROUGH DIA.", "СКВОЗНОЙ ДИАМ."),
     ("EXTENT OF FINE LIMIT DIA.", "ДЛИНА УЧАСТКА С ТОЧНЫМ ДОПУСКОМ"),
     ("MINIMUM WALL THICKNESS", "МИНИМАЛЬНАЯ ТОЛЩИНА СТЕНКИ"),
     ("MINIMUM WALL", "МИНИМАЛЬНАЯ ТОЛЩИНА СТЕНКИ"),
@@ -744,8 +744,9 @@ PHRASES = [
     ("2 POSITIONS", "2 ПОЗИЦИИ"),
     ("IN THIS FACE", "В ЭТОЙ ПОВЕРХНОСТИ"),
     ("TWO PLACES", "ДВА МЕСТА"),
-    ("TYPICAL BOTH BORES", "ТИПИЧНО ОБА ОТВЕРСТИЯ"),
-    ("TYPICAL BOTH", "ТИПИЧНО ОБА"),
+    ("TYPICAL INSTALLATION OF", "ТИПОВАЯ УСТАНОВКА"),
+    ("TYPICAL BOTH BORES", "ТИПОВО ОБА ОТВЕРСТИЯ"),
+    ("TYPICAL BOTH", "ТИПОВО ОБА"),
     ("(BOTH FLANGES)", "(ОБА ФЛАНЦА)"),
     ("BOTH FLANGES", "ОБА ФЛАНЦА"),
     ("BOTH BORES", "ОБА ОТВЕРСТИЯ"),
@@ -756,23 +757,23 @@ PHRASES = [
     ("BOTH BUSHES", "ОБЕ ВТУЛКИ"),
     ("ALL AROUND AT", "ПО ВСЕМУ ПЕРИМЕТРУ НА"),
     ("ALL AROUND", "ПО ВСЕМУ ПЕРИМЕТРУ"),
-    ("TYPICAL BOTH REPAIR SLEEVES", "ТИПИЧНО ДЛЯ ОБЕИХ РЕМОНТНЫХ ВТУЛОК"),
-    ("TYPICAL AROUND 4 SLOTS.", "ТИПИЧНО ПО 4 ПАЗАМ."),
-    ("TYPICAL AROUND 4 SLOTS", "ТИПИЧНО ПО 4 ПАЗАМ"),
-    ("TYPICAL AROUND LUG", "ТИПИЧНО ПО УШКУ"),
-    ("TYPICAL 2 LUGS", "ТИПИЧНО 2 УШКА"),
-    ("TYPICAL 2 PLACES", "ТИПИЧНО 2 МЕСТА"),
-    ("TYPICAL 4 PLACES", "ТИПИЧНО 4 МЕСТА"),
-    ("TYPICAL 6 PLACES", "ТИПИЧНО 6 МЕСТ"),
-    ("TYPICAL 12 PLACES", "ТИПИЧНО 12 МЕСТ"),
-    ("TYPICAL 2", "ТИПИЧНО 2"),
-    ("TYPICAL 3", "ТИПИЧНО 3"),
-    ("TYPICAL 4", "ТИПИЧНО 4"),
-    ("TYP. 2 PLACES", "ТИПИЧНО 2 МЕСТА"),
-    ("TYP. 2", "ТИПИЧНО 2"),
+    ("TYPICAL BOTH REPAIR SLEEVES", "ТИПОВО ДЛЯ ОБЕИХ РЕМОНТНЫХ ВТУЛОК"),
+    ("TYPICAL AROUND 4 SLOTS.", "ТИПОВО ПО 4 ПАЗАМ."),
+    ("TYPICAL AROUND 4 SLOTS", "ТИПОВО ПО 4 ПАЗАМ"),
+    ("TYPICAL AROUND LUG", "ТИПОВО ПО УШКУ"),
+    ("TYPICAL 2 LUGS", "ТИПОВО 2 УШКА"),
+    ("TYPICAL 2 PLACES", "ТИПОВО 2 МЕСТА"),
+    ("TYPICAL 4 PLACES", "ТИПОВО 4 МЕСТА"),
+    ("TYPICAL 6 PLACES", "ТИПОВО 6 МЕСТ"),
+    ("TYPICAL 12 PLACES", "ТИПОВО 12 МЕСТ"),
+    ("TYPICAL 2", "ТИПОВО 2"),
+    ("TYPICAL 3", "ТИПОВО 3"),
+    ("TYPICAL 4", "ТИПОВО 4"),
+    ("TYP. 2 PLACES", "ТИПОВО 2 МЕСТА"),
+    ("TYP. 2", "ТИПОВО 2"),
     ("CENTERS TYPICAL", "ТИПОВЫЕ ЦЕНТРЫ"),
-    ("TYPICAL", "ТИПИЧНО"),
-    ("TYPICAL 3 POSITIONS", "ТИПИЧНО 3 ПОЗИЦИИ"),
+    ("TYPICAL", "ТИПОВО"),
+    ("TYPICAL 3 POSITIONS", "ТИПОВО 3 ПОЗИЦИИ"),
     ("14 PLACES", "14 МЕСТ"),
     ("12 PLACES", "12 МЕСТ"),
     ("10 PLACES", "10 МЕСТ"),
@@ -809,9 +810,9 @@ PHRASES = [
     ("CHAMFER", "ФАСКА"),
     ("RADIUS BEFORE CHROMIUM PLATE", "РАДИУС ДО ХРОМИРОВАНИЯ"),
     ("UNPLATED LENGTH", "ДЛИНА БЕЗ ПОКРЫТИЯ"),
-    ("BARREL OUTER DIA. LOWER", "НИЖНИЙ НАРУЖНЫЙ ДИА. СТВОЛА"),
-    ("BARREL OUTER DIA. UPPER", "ВЕРХНИЙ НАРУЖНЫЙ ДИА. СТВОЛА"),
-    ("BARREL OUTER DIA.", "НАРУЖНЫЙ ДИА. СТВОЛА"),
+    ("BARREL OUTER DIA. LOWER", "НИЖНИЙ НАРУЖНЫЙ ДИАМ. СТВОЛА"),
+    ("BARREL OUTER DIA. UPPER", "ВЕРХНИЙ НАРУЖНЫЙ ДИАМ. СТВОЛА"),
+    ("BARREL OUTER DIA.", "НАРУЖНЫЙ ДИАМ. СТВОЛА"),
     ("BARREL", "СТВОЛ"),
     ("RADIUS", "РАДИУС"),
     ("RUNOUT", "БИЕНИЕ"),
@@ -849,7 +850,7 @@ PHRASES = [
     ("LOWER CARDAN BORE", "НИЖНЕЕ ОТВЕРСТИЕ КАРДАНА"),
     ("UPPER DIAPHRAGM TUBE CROSS BORE", "ПОПЕРЕЧНОЕ ОТВЕРСТИЕ ВЕРХНЕЙ ДИАФРАГМЕННОЙ ТРУБЫ"),
     ("CROSS BORE", "ПОПЕРЕЧНОЕ ОТВЕРСТИЕ"),
-    ("TORQUE LINK AND RETAINING PIN BORES", "ОТВЕРСТИЯ ПОД ШЛИЦ-ШАРНИР И ФИКСИРУЮЩИЙ ШТИФТ"),
+    ("TORQUE LINK AND RETAINING PIN BORES", "ОТВЕРСТИЯ ПОД ШЛИЦ-ШАРНИР И СТОПОРНЫЙ ШТИФТ"),
     ("RETRACTION BORES", "ОТВЕРСТИЯ МЕХАНИЗМА УБОРКИ"),
     ("DRAG ARM HOLES", "ОТВЕРСТИЯ ПОДКОСА"),
     ("TOOLING LUG", "ТЕХНОЛОГИЧЕСКОЕ УШО"),
@@ -858,10 +859,10 @@ PHRASES = [
     ("UPLOCK LUGS", "УШКИ ЗАМКА УБРАННОГО ПОЛОЖЕНИЯ"),
     ("LOWER DOOR LUGS", "УШКИ НИЖНЕЙ СТВОРКИ"),
     ("UPPER DOOR LUGS", "УШКИ ВЕРХНЕЙ СТВОРКИ"),
-    ("TYPICAL 2 BRAKE MANIFOLD LUGS", "ТИПИЧНО 2 УШКА ТОРМОЗНОГО КОЛЛЕКТОРА"),
-    ("TYPICAL 2 TRANSFER BLOCK LUGS", "ТИПИЧНО 2 УШКА БЛОКА ПЕРЕДАЧИ"),
+    ("TYPICAL 2 BRAKE MANIFOLD LUGS", "ТИПОВО 2 УШКА ТОРМОЗНОГО КОЛЛЕКТОРА"),
+    ("TYPICAL 2 TRANSFER BLOCK LUGS", "ТИПОВО 2 УШКА ПЕРЕХОДНОГО БЛОКА"),
     ("BRAKE MANIFOLD LUGS", "УШКИ ТОРМОЗНОГО КОЛЛЕКТОРА"),
-    ("TRANSFER BLOCK LUGS", "УШКИ БЛОКА ПЕРЕДАЧИ"),
+    ("TRANSFER BLOCK LUGS", "УШКИ ПЕРЕХОДНОГО БЛОКА"),
     ("FOR MAIN FITTING (20-410C, 20-420C) ONLY",
      "ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410C, 20-420C)"),
     ("FOR MAIN FITTING (20-410C\nAND 20-420C) ONLY",
@@ -869,20 +870,19 @@ PHRASES = [
     ("PINTLE BORES FOR MAIN FITTING (20-410C AND 20-420C) ONLY",
      "ОТВЕРСТИЯ ПОД ШТИФТ НАВЕСКИ — ТОЛЬКО ДЛЯ КОРПУСА СТОЙКИ (20-410C И 20-420C)"),
     ("SECTION C-C LOCK LINK BORE", "СЕЧЕНИЕ C-C — ОТВЕРСТИЕ ПОД ЗАМКОВУЮ ТЯГУ"),
-    ("SECTION E-E TYPICAL 2 TRANSFER BLOCK LUGS", "СЕЧЕНИЕ E-E ТИПИЧНО 2 УШКА БЛОКА ПЕРЕДАЧИ"),
-    ("SECTION F-F TYPICAL 2 BRAKE MANIFOLD LUGS", "СЕЧЕНИЕ F-F ТИПИЧНО 2 УШКА ТОРМОЗНОГО КОЛЛЕКТОРА"),
+    ("SECTION E-E TYPICAL 2 TRANSFER BLOCK LUGS", "СЕЧЕНИЕ E-E ТИПОВО 2 УШКА ПЕРЕХОДНОГО БЛОКА"),
+    ("SECTION F-F TYPICAL 2 BRAKE MANIFOLD LUGS", "СЕЧЕНИЕ F-F ТИПОВО 2 УШКА ТОРМОЗНОГО КОЛЛЕКТОРА"),
     ("SECTION H-H TOOLING LUG", "СЕЧЕНИЕ H-H ТЕХНОЛОГИЧЕСКОЕ УШО"),
     ("HOLE TO DEPTH OF", "ОТВЕРСТИЕ НА ГЛУБИНУ"),
     ("FROM THIS SURFACE", "ОТ ЭТОЙ ПОВЕРХНОСТИ"),
 
     # --- РЕМОНТ ---
     ("INSTALL BEARING", "УСТАНОВИТЬ ПОДШИПНИК"),
-    ("OVERSIZE TRANSFER DOWEL", "РЕМОНТНЫЙ ШТИФТ ПЕРЕДАЧИ"),
+    ("OVERSIZE TRANSFER DOWEL", "РЕМОНТНЫЙ УСТАНОВОЧНЫЙ ШТИФТ"),
     ("OVERSIZE BACKING RING", "РЕМОНТНОЕ ОПОРНОЕ КОЛЬЦО"),
     ("OVERSIZE O RING", "РЕМОНТНОЕ УПЛОТНИТЕЛЬНОЕ КОЛЬЦО"),
     ("OVERSIZE SPHERICAL", "РЕМОНТНЫЙ СФЕРИЧЕСКИЙ"),
     ("OVERSIZE COMPONENTS", "РЕМОНТНЫЕ КОМПОНЕНТЫ"),
-    ("TYPICAL INSTALLATION OF", "ТИПОВАЯ УСТАНОВКА"),
     ("INSTALLATION", "УСТАНОВКА"),
     ("CORRECT OVERSIZE BEARING", "ПРАВИЛЬНЫЙ РЕМОНТНЫЙ ПОДШИПНИК"),
     ("CORRECT OVERSIZE", "ПРАВИЛЬНЫЙ РАЗМЕР"),
@@ -925,7 +925,7 @@ PHRASES = [
     ("UPPER DIAPHRAGM TUBE", "ВЕРХНЯЯ ДИАФРАГМЕННАЯ ТРУБА"),
     ("UPPER TORQUE LINK", "ВЕРХНИЙ ШЛИЦ-ШАРНИР"),
     ("TORQUE LINK", "ШЛИЦ-ШАРНИР"),
-    ("TRANSFER BLOCK", "БЛОК ПЕРЕДАЧИ НАГРУЗКИ"),
+    ("TRANSFER BLOCK", "ПЕРЕХОДНОЙ БЛОК"),
     ("HARNESS SUPPORT BRACKET", "КРОНШТЕЙН КРЕПЛЕНИЯ ЖГУТА"),
     ("UPPER PIVOT BRACKET", "ВЕРХНИЙ ПОВОРОТНЫЙ КРОНШТЕЙН"),
     ("CYLINDER", "ЦИЛИНДР"),
@@ -1002,11 +1002,11 @@ PHRASES = [
     ("REFER TO TABLE 1", "СМ. ТАБЛИЦУ 1"),
     ("REFER TO TABLE", "СМ. ТАБЛИЦУ"),
     ("REFER TO", "СМ."),
-    ("DIA A", "ДИА. A"),
-    ("DIA B", "ДИА. B"),
-    ("DIA C", "ДИА. C"),
-    ("DIA D", "ДИА. D"),
-    ("DIA", "ДИА."),
+    ("DIA A", "ДИАМ. A"),
+    ("DIA B", "ДИАМ. B"),
+    ("DIA C", "ДИАМ. C"),
+    ("DIA D", "ДИАМ. D"),
+    ("DIA", "ДИАМ."),
     ("APPLY", "НАНЕСТИ"),
 
     # --- ДОПОЛНИТЕЛЬНЫЕ ФРАЗЫ ---
@@ -1118,7 +1118,7 @@ PHRASES = [
     ("MINUTES", "МИНУТ"),
     ("MINUTE", "МИНУТА"),
     ("RUBBERISED", "ПРОРЕЗИНЕННЫЙ"),
-    ("RETAINING", "ФИКСИРУЮЩИЙ"),
+    ("RETAINING", "СТОПОРНЫЙ"),
     ("MACHINED", "ОБРАБОТАН"),
     ("MACHINE", "МЕХОБРАБОТКА"),
     ("GRINDING", "ШЛИФОВАНИЕ"),
@@ -1340,18 +1340,33 @@ def translate_pdf(input_path: str, output_path: str) -> None:
         # Применяем замены: маскируем оригинал белым прямоугольником, вставляем перевод
         # НЕ используем apply_redactions — он повреждает соседние глифы
 
+        # Загружаем шрифт для измерения ширины текста
+        measure_font = fitz.Font(fontfile=FONT_FILE)
+
         # Рисуем белые прямоугольники и вставляем переведённый текст
         for bbox, trans_text, font_size, is_bold in replacements:
-            # 1) Белый фон поверх оригинала (минимальное расширение чтобы не перекрывать соседние блоки)
+            bbox_width = bbox.width
+            bbox_height = bbox.height
+
+            # 1) Белый фон поверх оригинала (минимальное расширение)
             expanded = bbox + (-0.3, -0.3, 0.3, 0.3)
             page.draw_rect(expanded, color=None, fill=(1, 1, 1))
 
-            # 2) Вставляем переведённый текст с уменьшенным межстрочным интервалом
+            # 2) Подбираем размер шрифта — текст должен влезть и по ширине, и по высоте
+            #    Сначала проверяем ширину одной строки, потом вертикальное переполнение
             fitted = False
-            for size_factor in [1.0, 0.9, 0.82, 0.75, 0.68, 0.60, 0.55, 0.50, 0.45]:
+            for size_factor in [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65,
+                                0.60, 0.55, 0.50, 0.45, 0.40, 0.35]:
                 cur_size = font_size * size_factor
-                if cur_size < 5.0:
-                    cur_size = 5.0
+                if cur_size < 4.5:
+                    cur_size = 4.5
+
+                # Проверяем ширину текста — если вмещается в одну строку, отлично
+                text_w = measure_font.text_length(trans_text, fontsize=cur_size)
+                if text_w > bbox_width and cur_size > 5.0:
+                    # Текст не влезает в одну строку — пробуем уменьшить шрифт
+                    continue
+
                 overflow = page.insert_textbox(
                     bbox,
                     trans_text,
@@ -1365,8 +1380,27 @@ def translate_pdf(input_path: str, output_path: str) -> None:
                 if overflow >= 0:
                     fitted = True
                     break
+
             if not fitted:
-                fallback_size = max(font_size * 0.40, 5.0)
+                # Если не удалось вместить в одну строку — позволяем перенос
+                for size_factor in [0.85, 0.75, 0.65, 0.55, 0.45]:
+                    cur_size = max(font_size * size_factor, 4.5)
+                    overflow = page.insert_textbox(
+                        bbox,
+                        trans_text,
+                        fontfile=FONT_FILE,
+                        fontname=FONT_NAME,
+                        fontsize=cur_size,
+                        color=(0, 0, 0),
+                        align=fitz.TEXT_ALIGN_LEFT,
+                        lineheight=1.05,
+                    )
+                    if overflow >= 0:
+                        fitted = True
+                        break
+
+            if not fitted:
+                fallback_size = max(font_size * 0.35, 4.5)
                 page.insert_textbox(
                     bbox,
                     trans_text,

@@ -17,7 +17,7 @@ from pypdf import PdfReader, PdfWriter
 
 
 INPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v2.pdf'
-OUTPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v3b.pdf'
+OUTPUT_PATH = r'C:\Users\Urdul\Desktop\project\translator\for_test\new_formating\picture_ru_fixed_v4.pdf'
 FONT_PATH = r'C:\Windows\Fonts\arial.ttf'
 
 DIA_KEYWORDS = ['DIA.', 'DIA', 'DIAMETER']
@@ -198,9 +198,8 @@ def phase1_scale_cid_streams(input_path, output_path):
                 continue
 
             scale_pct = scale * 100  # for Tz operator (percentage)
-            # Don't compress below 60% - would make text unreadable
-            # Very low scale usually means wrong fitz-to-CID match (title lines)
-            if scale_pct < 60:
+            # Don't compress below 25% - would make text unreadable
+            if scale_pct < 25:
                 continue
 
             # Convert fitz position to approximate PDF y coordinate
@@ -583,16 +582,190 @@ def phase3_fix_grammar(input_path, output_path):
 
 
 # ======================================================================
+# Phase 4: Redraw CID overlays that still overflow (fitz)
+# ======================================================================
+
+def phase4_fix_remaining_overlaps(input_path, output_path):
+    """
+    For each page, find ArialMT (CID) spans that extend beyond the
+    matching English text bbox and overlap neighbors.
+    Cover them with white rect + redraw at smaller size using fitz.
+    """
+    doc = fitz.open(input_path)
+    font = fitz.Font(fontfile=FONT_PATH)
+    total_fixed = 0
+
+    # CID decoding helper: read CID → unicode from ArialMT CMap
+    def decode_cid_text(text_raw):
+        """Try to decode CID garbled text to readable Unicode.
+        CID text from ArialMT appears as mojibake; we use the raw bytes."""
+        # The text from fitz for CID fonts is already decoded via ToUnicode
+        # but shows as replacement chars. Return the text as-is and let
+        # translate_dia_text / manual lookup handle it.
+        return text_raw
+
+    for page_idx in range(len(doc)):
+        page = doc[page_idx]
+        blocks = page.get_text('dict')['blocks']
+
+        all_spans = []
+        for b in blocks:
+            if 'lines' not in b:
+                continue
+            for line in b['lines']:
+                for span in line['spans']:
+                    text = span['text'].strip()
+                    if not text:
+                        continue
+                    all_spans.append({
+                        'text': text,
+                        'bbox': list(span['bbox']),
+                        'font': span['font'],
+                        'size': span['size'],
+                        'is_ru': span['font'] == 'ArialMT',
+                    })
+
+        ru_spans = [s for s in all_spans if s['is_ru']]
+        eng_spans = [s for s in all_spans if not s['is_ru']]
+
+        fixes_this_page = []
+
+        for ru in ru_spans:
+            rb = ru['bbox']
+            ru_w = rb[2] - rb[0]
+
+            # Find matching English span
+            best_eng = None
+            best_area = 0
+            for eng in eng_spans:
+                eb = eng['bbox']
+                ox = max(0, min(rb[2], eb[2]) - max(rb[0], eb[0]))
+                oy = max(0, min(rb[3], eb[3]) - max(rb[1], eb[1]))
+                area = ox * oy
+                if area > best_area:
+                    best_area = area
+                    best_eng = eng
+
+            if not best_eng:
+                continue
+
+            eb = best_eng['bbox']
+            eng_w = eb[2] - eb[0]
+            right_overflow = rb[2] - eb[2]
+
+            if right_overflow <= 3:
+                continue
+
+            # Check if overflow hits a neighbor
+            has_overlap = False
+            for neighbor in all_spans:
+                if neighbor['bbox'] == rb:
+                    continue
+                nb = neighbor['bbox']
+                # Skip neighbors that share the same English origin
+                n_ox = max(0, min(nb[2], eb[2]) - max(nb[0], eb[0]))
+                n_oy = max(0, min(nb[3], eb[3]) - max(nb[1], eb[1]))
+                if n_ox > 2 and n_oy > 2:
+                    continue
+                # Check overflow region
+                ov_x0, ov_x1 = eb[2], rb[2]
+                ox2 = max(0, min(ov_x1, nb[2]) - max(ov_x0, nb[0]))
+                oy2 = max(0, min(rb[3], nb[3]) - max(rb[1], nb[1]))
+                if ox2 > 1 and oy2 > 1:
+                    has_overlap = True
+                    break
+
+            if not has_overlap:
+                continue
+
+            # This CID text overflows and hits a neighbor — needs fix
+            # Use the English text bbox as the target area
+            ru_text = ru['text']
+            eng_text = best_eng['text']
+
+            fixes_this_page.append({
+                'ru_bbox': rb,
+                'eng_bbox': eb,
+                'ru_text': ru_text,
+                'eng_text': eng_text,
+                'eng_size': best_eng['size'],
+                'ru_size': ru['size'],
+                'overflow': right_overflow,
+            })
+
+        # Apply fixes for this page
+        for fix in fixes_this_page:
+            rb = fix['ru_bbox']
+            eb = fix['eng_bbox']
+            ru_text = fix['ru_text']
+            eng_size = fix['eng_size']
+
+            # Cover the overflowing CID text with white rectangle
+            # Extend beyond both RU and ENG bboxes to catch rendering artifacts
+            max_right = max(rb[2], eb[2])
+            max_bottom = max(rb[3], eb[3])
+            cover_rect = fitz.Rect(
+                min(rb[0], eb[0]) - 1,
+                min(rb[1], eb[1]) - 1,
+                max_right + 8,  # 8pt beyond to catch CID rendering artifacts
+                max_bottom + 1
+            )
+            page.draw_rect(cover_rect, color=None, fill=(1, 1, 1))
+
+            # Now redraw the text within the English bbox width
+            target_rect = fitz.Rect(
+                eb[0],
+                eb[1],
+                eb[2] + 2,  # small margin
+                eb[3] + 1
+            )
+
+            # Calculate font size to fit text in one line within target width
+            target_w = target_rect.width
+            cur_size = eng_size * 0.85  # start slightly smaller than English
+
+            for factor in [0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 0.45, 0.40]:
+                cur_size = eng_size * factor
+                text_w = font.text_length(ru_text, fontsize=cur_size)
+                if text_w <= target_w:
+                    break
+
+            if cur_size < 4.0:
+                cur_size = 4.0
+
+            # Draw text using TextWriter for precise positioning
+            tw = fitz.TextWriter(page.rect)
+            ascender = font.ascender
+            if ascender:
+                baseline_y = eb[1] + ascender * cur_size / 1000 + 0.5
+            else:
+                baseline_y = eb[1] + cur_size * 0.75 + 0.5
+
+            try:
+                tw.append(fitz.Point(eb[0], baseline_y), ru_text,
+                          font=font, fontsize=cur_size)
+                tw.write_text(page)
+                total_fixed += 1
+            except Exception as e:
+                print(f"  Page {page_idx + 1}: ERROR redrawing: {e}")
+
+    print(f"Phase 4: Redrawn {total_fixed} overflowing CID text spans")
+    doc.save(output_path)
+    doc.close()
+
+
+# ======================================================================
 # Main
 # ======================================================================
 
 def main():
     print("=" * 60)
-    print("Fix picture_ru_fixed_v2.pdf -> picture_ru_fixed_v3b.pdf")
+    print("Fix picture_ru_fixed_v2.pdf -> picture_ru_fixed_v4.pdf")
     print("=" * 60)
 
     temp1 = INPUT_PATH.replace('.pdf', '_temp1.pdf')
     temp2 = INPUT_PATH.replace('.pdf', '_temp2.pdf')
+    temp3 = INPUT_PATH.replace('.pdf', '_temp3.pdf')
 
     # Phase 1: Scale down wide CID text overlays (pypdf)
     print("\nPhase 1: Scaling wide Russian CID text overlays...")
@@ -604,10 +777,14 @@ def main():
 
     # Phase 3: Fix grammar (pypdf)
     print("\nPhase 3: Fixing grammar issues...")
-    phase3_fix_grammar(temp2, OUTPUT_PATH)
+    phase3_fix_grammar(temp2, temp3)
+
+    # Phase 4: Redraw remaining overflowing CID overlays (fitz)
+    print("\nPhase 4: Fixing remaining text overlaps...")
+    phase4_fix_remaining_overlaps(temp3, OUTPUT_PATH)
 
     # Cleanup
-    for f in [temp1, temp2]:
+    for f in [temp1, temp2, temp3]:
         if os.path.exists(f):
             os.remove(f)
 

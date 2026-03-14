@@ -151,6 +151,7 @@ def fix_text(text):
     text = text.replace('OF ХРОМИРОВАНИЕ', 'ХРОМИРОВАНИЯ')
     text = text.replace('ПОВЕРХНОСТЬ OF ФЛАНЕЦ', 'ПОВЕРХНОСТЬ ФЛАНЦА')
     text = text.replace('ТИПИЧНО УСТАНОВКА OF', 'ТИПИЧНАЯ УСТАНОВКА')
+    text = text.replace('ТИПОВО УСТАНОВКА OF', 'ТИПОВАЯ УСТАНОВКА')
     text = text.replace('OF ВТУЛКИ', 'ВТУЛКИ')
 
     # === Fix 4: Untranslated "IS" ===
